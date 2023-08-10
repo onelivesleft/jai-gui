@@ -1,0 +1,238 @@
+Scrollbar :: struct {
+    #as using widget: Widget;
+
+    initialized := false;
+
+    Orientation :: enum u8 { HORIZONTAL; VERTICAL; };
+    orientation := Orientation.VERTICAL;
+
+    type: enum u8 { FLOAT; INTEGER; } = .FLOAT;
+
+    handle_size: float;
+    handle_position: float;
+
+    int_range : Int_Range = ---;
+    int_value : int = ---;
+
+    #place int_range;
+    float_range : Float_Range = .{ 0.0, 1.0 };
+    float_value : float = 0.0;
+}
+
+Int_Range :: struct {
+    min: int;
+    max: int;
+}
+
+Float_Range :: struct {
+    min: float;
+    max: float;
+}
+
+horizontal_scrollbar :: (parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE) -> value: int, *Scrollbar #expand #no_debug {
+    value, widget := int_scrollbar(.HORIZONTAL, 0, parent, placement, flags, initial_value, range, #insert #run next(*scrollbars_count));
+    return value, widget;
+}
+
+horizontal_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE) -> value: int, *Scrollbar #expand #no_debug {
+    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
+    value, widget := int_scrollbar(.HORIZONTAL, id, parent, placement, flags, initial_value, range, #insert #run next(*scrollbars_count, reserve));
+    return value, widget;
+}
+
+vertical_scrollbar :: (parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE) -> value: int, *Scrollbar #expand #no_debug {
+    value, widget := int_scrollbar(.VERTICAL, 0, parent, placement, flags, initial_value, range, #insert #run next(*scrollbars_count));
+    return value, widget;
+}
+
+vertical_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE) -> value: int, *Scrollbar #expand #no_debug {
+    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
+    value, widget := int_scrollbar(.VERTICAL, id, parent, placement, flags, initial_value, range, #insert #run next(*scrollbars_count, reserve));
+    return value, widget;
+}
+
+vertical_scrollbar :: (parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE) -> value: float, *Scrollbar #expand #no_debug {
+    value, widget := float_scrollbar(.VERTICAL, 0, parent, placement, flags, initial_value, range, handle_size, #insert #run next(*scrollbars_count));
+    return value, widget;
+}
+
+vertical_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE) -> value: float, *Scrollbar #expand #no_debug {
+    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
+    value, widget := float_scrollbar(.VERTICAL, id, parent, placement, flags, initial_value, range, handle_size, #insert #run next(*scrollbars_count, reserve));
+    return value, widget;
+}
+
+get_index :: (scrollbar: *Scrollbar) -> int {
+    index := scrollbar - scrollbars.data;
+    assert(0 <= index && index < scrollbars.count);
+    return index;
+}
+
+move_by_steps :: (using scrollbar: *Scrollbar, steps: int) {
+    if type == .INTEGER {
+        int_value += steps;
+        Clamp(*int_value, int_range.min, int_range.max);
+        handle_position = calculate_handle_position(int_value, int_range);
+    }
+    else {
+        float_value += handle_size * steps;
+        Clamp(*float_value, float_range.min, float_range.max);
+        handle_position = calculate_handle_position(float_value, float_range);
+    }
+}
+
+use_scrollwheel :: (using scrollbar: *Scrollbar, force := false) {
+    if mouse_scrollwheel && (!scrollwheel_widget || force)  {
+        move_by_steps(scrollbar, -mouse_scrollwheel);
+        scrollwheel_widget = scrollbar;
+    }
+}
+
+
+#scope_module
+
+
+scrollbars : [] Scrollbar;
+#no_reset scrollbars_count := 0;
+
+int_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel, placement: Place, flags: Widget_Flags, initial_value: int, range: Int_Range, $gui_index: int) -> value: int, *Scrollbar {
+    scrollbar := *scrollbars[gui_index + id];
+    value := ifx scrollbar.initialized then scrollbar.int_value else initial_value;
+    _range := range;
+    Clamp(*_range.max, _range.min, _range.max);
+    Clamp(*value, _range.min, _range.max);
+    spread := cast(float)(_range.max - _range.min + 1);
+    handle_size : float = 1.0 / spread;
+    scrollbar.* = .{ widget(parent, placement, flags), true, orientation, .INTEGER, handle_size, calculate_handle_position(value, _range), _range, value};
+
+    if scrollbar.flags & .HIDDEN
+        return scrollbar.int_value, scrollbar;
+
+    handle_position := scrollbar.handle_position;
+    update_scrollbar(scrollbar);
+    if scrollbar.handle_position != handle_position
+        set_changed(scrollbar);
+    draw_scrollbar(scrollbar);
+
+    return scrollbar.int_value, scrollbar;
+}
+
+float_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel, placement: Place, flags: Widget_Flags, initial_value: float, range: Float_Range, handle_size: float, $gui_index: int) -> value: float, *Scrollbar {
+    scrollbar := *scrollbars[gui_index + id];
+    value := ifx scrollbar.initialized then scrollbar.float_value else initial_value;
+    _range := range;
+    Clamp(*_range.max, _range.min, _range.max);
+    Clamp(*value, _range.min, _range.max);
+    scrollbar.* = .{ widget(parent, placement, flags), true, orientation, .FLOAT, handle_size, calculate_handle_position(value, _range), .{}, 0};
+    scrollbar.float_range = _range;
+    scrollbar.float_value = value;
+
+    if scrollbar.flags & .HIDDEN
+        return scrollbar.float_value, scrollbar;
+
+    handle_position := scrollbar.handle_position;
+    update_scrollbar(scrollbar);
+    if scrollbar.handle_position != handle_position
+        set_changed(scrollbar);
+    draw_scrollbar(scrollbar);
+
+    return scrollbar.float_value, scrollbar;
+}
+
+update_scrollbar :: (using scrollbar: *Scrollbar) {
+    was_active := is_active(scrollbar);
+    update_widget(scrollbar);
+
+    if !is_active(scrollbar) {
+        if is_hot(scrollbar)
+            use_scrollwheel(scrollbar);
+        return;
+    }
+
+    if !was_active { // just pressed
+        _, handle, _ := get_scrollbar_rects(scrollbar);
+        mouse, start, handle_start : float = ---;
+        if #complete orientation == {
+            case .HORIZONTAL;
+            mouse = mouse_x;
+            start = rect.x;
+            handle_start = handle.x;
+
+            case .VERTICAL;
+            mouse = mouse_y;
+            start = rect.y;
+            handle_start = handle.y;
+        }
+
+        if contains(handle, mouse_x, mouse_y) {
+            scrollbar_grab_offset = mouse - start;
+            scrollbar_grab_value = handle_position;
+        }
+        else {
+            set_active(scrollbar, false);
+            if mouse < handle_start
+                move_by_steps(scrollbar, -1);
+            else
+                move_by_steps(scrollbar, +1);
+        }
+    }
+    else {
+        mouse, start, size : float = ---;
+        if #complete orientation == {
+            case .HORIZONTAL;
+            mouse = mouse_x;
+            start = rect.x;
+            size = rect.w;
+
+            case .VERTICAL;
+            mouse = mouse_y;
+            start = rect.y;
+            size = rect.h;
+        }
+
+        handle_position = scrollbar_grab_value + (mouse - scrollbar_grab_offset - start) / (size * (1.0 - handle_size));
+        Clamp(*handle_position, 0.0, 1.0);
+        if type == .INTEGER {
+            spread := cast(float)int_range.max - int_range.min + 1;
+            f := spread * handle_position;
+            int_value = int_range.min + xx f;
+            Clamp(*int_value, int_range.min, int_range.max);
+            if !(flags & .SMOOTH)
+                handle_position = calculate_handle_position(int_value, int_range);
+        }
+        else {
+            float_value = lerp(float_range.min, float_range.max, handle_position);
+        }
+    }
+}
+
+scrollbar_grab_offset : float;
+scrollbar_grab_value : float;
+
+calculate_handle_position :: (value: int, range: Int_Range) -> float {
+    value -= range.min;
+    return cast(float)value / (range.max - range.min);
+}
+
+calculate_handle_position :: (value: float, range: Float_Range) -> float {
+    value -= range.min;
+    return value / (range.max - range.min);
+}
+
+get_scrollbar_rects :: (using scrollbar: *Scrollbar) -> Rect, Rect, Rect {
+    before, handle, after := rect;
+    if #complete orientation == {
+        case .HORIZONTAL;
+        case .VERTICAL;
+        actual_handle_size := rect.h * handle_size;
+        groove_length := rect.h - actual_handle_size;
+        handle_start := groove_length * handle_position;
+        handle_end := handle_start + actual_handle_size;
+        before.h = handle_start - rect.y;
+        handle.y += handle_start;
+        handle.h = actual_handle_size;
+        after.y += handle_end;
+        after.h = rect.h - after.y;
+    }
+    return before, handle, after;
+}
