@@ -5,23 +5,33 @@ Theme :: struct {
 
     background_color := Vector4.{0.2, 0.2, 0.2, 1.0};
 
+    tooltip_background   := Vector4.{1.0, 1.0, 1.0, 1.0};
+    tooltip_border_color := Vector4.{0.0, 0.0, 0.0, 1.0};
+    tooltip_foreground   := Vector4.{0.0, 0.0, 0.0, 1.0};
+    tooltip_border := 2;
+    tooltip_offset := Vector2.{20, 20};
+    tooltip_max_width := 500.0;
+    tooltip_delay := 0.5;
+    tooltip_text_size : s16 = 14;
+
+
+    label_foreground := Vector4.{1.0, 1.0, 1.0, 1.0};
+    label_text_size : s16 = 16;
+
     button_background        := Vector4.{0.55, 0.35, 0.35, 1.0};
     button_background_active := Vector4.{0.65, 0.45, 0.45, 1.0};
     button_background_hot    := Vector4.{0.75, 0.55, 0.55, 1.0};
     button_foreground        := Vector4.{1.0, 1.0, 1.0, 1.0};
     button_text_size : s16 = 16;
 
-    label_foreground := Vector4.{1.0, 1.0, 1.0, 1.0};
-    label_text_size : s16 = 16;
+    checkbox_border := 2;
+    checkbox_text_size : s16 = 16;
 
-    scrollbar_size := 20;
     scrollbar_groove_background        := Vector4.{0.35, 0.25, 0.25, 1.0};
     scrollbar_handle_background        := Vector4.{0.55, 0.35, 0.35, 1.0};
     scrollbar_handle_background_active := Vector4.{0.75, 0.55, 0.55, 1.0};
     scrollbar_handle_background_hot    := Vector4.{0.65, 0.45, 0.45, 1.0};
-
-    checkbox_text_size : s16 = 16;
-    checkbox_border := 2;
+    scrollbar_size := 20;
 }
 
 alternate_theme := Theme.{
@@ -29,23 +39,31 @@ alternate_theme := Theme.{
 
     background_color = Vector4.{0.2, 0.2, 0.2, 1.0},
 
+    tooltip_background = Vector4.{0.55, 0.35, 0.35, 1.0},
+    tooltip_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
+    tooltip_offset = Vector2.{20, 20},
+    tooltip_max_width = 500.0,
+    tooltip_delay = 0.5,
+    tooltip_text_size = 14,
+
+    label_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
+    label_text_size = 16,
+
     button_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
     button_background_active = Vector4.{0.45, 0.65, 0.45, 1.0},
     button_background_hot    = Vector4.{0.55, 0.75, 0.55, 1.0},
     button_foreground        = Vector4.{1.0, 1.0, 1.0, 1.0},
     button_text_size = 16,
 
-    label_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
-    label_text_size = 16,
+    checkbox_border = 2,
+    checkbox_text_size = 16,
 
-    scrollbar_size = 20,
     scrollbar_groove_background        = Vector4.{0.25, 0.35, 0.25, 1.0},
     scrollbar_handle_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
     scrollbar_handle_background_active = Vector4.{0.55, 0.75, 0.55, 1.0},
     scrollbar_handle_background_hot    = Vector4.{0.45, 0.65, 0.45, 1.0},
+    scrollbar_size = 20,
 
-    checkbox_text_size = 16,
-    checkbox_border = 2,
 };
 
 locked_theme := Theme.{
@@ -61,7 +79,7 @@ locked_theme := Theme.{
 themes : [4] *type_of(theme) : .[*theme, *alternate_theme, *theme, *theme];
 
 
-#scope_module;
+#scope_file;
 
 
 Font :: Simp.Dynamic_Font;
@@ -245,6 +263,33 @@ switch_theme :: () #expand {
 
 clear_window :: () {
     Simp.clear_render_target(theme.background_color.x, theme.background_color.y, theme.background_color.z, theme.background_color.w);
+
+}
+
+draw_tooltip :: (using widget: *Widget) {
+    assert(rect_frame_count == frame_count);
+
+    switch_theme();
+
+    font, text_width := get_font(.SERIF, theme.tooltip_text_size, tooltip);
+    width := min(theme.tooltip_max_width, text_width + theme.padding * 2);
+    text_rect := Rect.{mouse_x + theme.tooltip_offset.x, mouse_y + theme.tooltip_offset.y, width, xx theme.tooltip_text_size };
+    tooltip_rect := expand(text_rect, (theme.tooltip_border + theme.padding) * 2);
+    if tooltip_rect.x + tooltip_rect.w > window_panel.rect.w
+        tooltip_rect.x -= (tooltip_rect.w + theme.tooltip_offset.x);
+    if tooltip_rect.y + tooltip_rect.h > window_panel.rect.h
+        tooltip_rect.y -= tooltip_rect.h;
+
+    Simp.set_shader_for_color();
+    scissor(tooltip_rect);
+    draw_rect(tooltip_rect, theme.tooltip_border_color);
+    tooltip_rect = shrink(tooltip_rect, theme.tooltip_border);
+    draw_rect(tooltip_rect, theme.tooltip_background);
+    text_rect = shrink(tooltip_rect, theme.padding);
+
+    scissor(text_rect);
+    text_x, text_y := text_origin(.CENTER, font, text_rect, text_width);
+    Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.tooltip_foreground);
 }
 
 draw_button :: (using button: *Button) {

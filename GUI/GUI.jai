@@ -137,6 +137,7 @@ gui_begin_frame :: () -> continue_running: bool {
         mouse_scrollwheel_fraction -= 1.0;
     }
 
+    tooltip_widget = null;
     clicked_widget = null;
     next_hot_widget = null;
     scrollwheel_widget = null;
@@ -157,6 +158,12 @@ gui_end_frame :: inline () {
     else if hot_widget
         set_hot(hot_widget, false);
 
+    if tooltip_widget && tooltip_widget != prev_tooltip_widget
+        became_tooltip_widget_at = frame_time;
+    prev_tooltip_widget = tooltip_widget;
+    if tooltip_widget && frame_time - became_tooltip_widget_at > theme.tooltip_delay
+        draw_tooltip(tooltip_widget);
+
     Simp.swap_buffers(gui_window);
 
     if active_widget_frame_count != frame_count && hot_widget_frame_count != frame_count && !clicked_widget && !changed_widget {
@@ -167,6 +174,23 @@ gui_end_frame :: inline () {
     }
 
     reset_temporary_storage();
+}
+
+Widget :: struct {
+    #as using panel: Panel;
+    using timestamps : struct {
+        became_hot_at : float64;
+        became_cold_at : float64;
+        became_active_at : float64;
+        became_inactive_at : float64;
+        was_clicked_at : float64;
+    }
+    tooltip : string;
+    flags : Widget_Flags;
+}
+
+widget :: inline (parent: *Panel, placement: Place, tooltip: string, flags: Widget_Flags) -> Widget {
+    return .{ panel(parent, placement), .{0, 0, 0, 0, 0}, tooltip, flags };
 }
 
 widget_type :: (widget: *Widget) -> Type {
@@ -185,21 +209,6 @@ widget_type :: (widget: *Widget) -> Type {
     return Widget;
 }
 
-Widget :: struct {
-    #as using panel: Panel;
-    using timestamps : struct {
-        became_hot_at : float64;
-        became_cold_at : float64;
-        became_active_at : float64;
-        became_inactive_at : float64;
-        was_clicked_at : float64;
-    }
-    flags : Widget_Flags;
-}
-
-widget :: inline (parent: *Panel, placement: Place, flags: Widget_Flags) -> Widget {
-    return .{ panel(parent, placement), .{0, 0, 0, 0, 0}, flags };
-}
 
 Widget_Flags :: enum_flags u64 {
     NONE    :: 0;
@@ -302,6 +311,9 @@ theme_index :: (flags: Widget_Flags) -> int {
 
 prev_frame_time: float64;
 next_hot_widget: *Widget;
+tooltip_widget: *Widget;
+prev_tooltip_widget: *Widget;
+became_tooltip_widget_at: float64;
 active_widget_frame_count: int;
 hot_widget_frame_count: int;
 
@@ -370,11 +382,14 @@ set_changed :: (widget: *Widget) {
 update_widget :: (using widget: *Widget) {
     maybe_calculate_rect(widget);
 
+    is_mouse_over := contains(rect, mouse_x, mouse_y);
+    if is_mouse_over && tooltip
+        tooltip_widget = widget;
+
     if (flags & .LOCKED) && !(flags & .INTERACTS)
     || active_widget && active_widget != widget
         return;
 
-    is_mouse_over := contains(rect, mouse_x, mouse_y);
     if is_mouse_over
         request_hot(widget);
 

@@ -30,48 +30,48 @@ Float_Range :: struct {
 }
 
 
-horizontal_scrollbar :: (parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE) -> value: *int, *Scrollbar #expand #no_debug {
-    value, widget := int_scrollbar(.HORIZONTAL, 0, parent, placement, flags, initial_value, range, #insert #run next(*scrollbar_count));
+horizontal_scrollbar :: (parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE, tooltip := "") -> value: *int, *Scrollbar #expand #no_debug {
+    value, widget := int_scrollbar(.HORIZONTAL, 0, parent, placement, flags, tooltip, initial_value, range, #insert #run next(*scrollbar_count));
     return value, widget;
 }
 
-horizontal_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE) -> value: *int, *Scrollbar #expand #no_debug {
+horizontal_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE, tooltip := "") -> value: *int, *Scrollbar #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
-    value, widget := int_scrollbar(.HORIZONTAL, id, parent, placement, flags, initial_value, range, #insert #run next(*scrollbar_count, reserve));
+    value, widget := int_scrollbar(.HORIZONTAL, id, parent, placement, flags, tooltip, initial_value, range, #insert #run next(*scrollbar_count, reserve));
     return value, widget;
 }
 
-horizontal_scrollbar :: (parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE) -> value: *float, *Scrollbar #expand #no_debug {
-    value, widget := float_scrollbar(.HORIZONTAL, 0, parent, placement, flags, initial_value, range, handle_size, #insert #run next(*scrollbar_count));
+horizontal_scrollbar :: (parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE, tooltip := "") -> value: *float, *Scrollbar #expand #no_debug {
+    value, widget := float_scrollbar(.HORIZONTAL, 0, parent, placement, flags, tooltip, initial_value, range, handle_size, #insert #run next(*scrollbar_count));
     return value, widget;
 }
 
-horizontal_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE) -> value: *float, *Scrollbar #expand #no_debug {
+horizontal_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE, tooltip := "") -> value: *float, *Scrollbar #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
-    value, widget := float_scrollbar(.HORIZONTAL, id, parent, placement, flags, initial_value, range, handle_size, #insert #run next(*scrollbar_count, reserve));
+    value, widget := float_scrollbar(.HORIZONTAL, id, parent, placement, flags, tooltip, initial_value, range, handle_size, #insert #run next(*scrollbar_count, reserve));
     return value, widget;
 }
 
 
-vertical_scrollbar :: (parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE) -> value: *int, *Scrollbar #expand #no_debug {
-    value, widget := int_scrollbar(.VERTICAL, 0, parent, placement, flags, initial_value, range, #insert #run next(*scrollbar_count));
+vertical_scrollbar :: (parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE, tooltip := "") -> value: *int, *Scrollbar #expand #no_debug {
+    value, widget := int_scrollbar(.VERTICAL, 0, parent, placement, flags, tooltip, initial_value, range, #insert #run next(*scrollbar_count));
     return value, widget;
 }
 
-vertical_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE) -> value: *int, *Scrollbar #expand #no_debug {
+vertical_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value: int, range: Int_Range, flags := Widget_Flags.NONE, tooltip := "") -> value: *int, *Scrollbar #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
-    value, widget := int_scrollbar(.VERTICAL, id, parent, placement, flags, initial_value, range, #insert #run next(*scrollbar_count, reserve));
+    value, widget := int_scrollbar(.VERTICAL, id, parent, placement, flags, tooltip, initial_value, range, #insert #run next(*scrollbar_count, reserve));
     return value, widget;
 }
 
-vertical_scrollbar :: (parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE) -> value: *float, *Scrollbar #expand #no_debug {
-    value, widget := float_scrollbar(.VERTICAL, 0, parent, placement, flags, initial_value, range, handle_size, #insert #run next(*scrollbar_count));
+vertical_scrollbar :: (parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE, tooltip := "") -> value: *float, *Scrollbar #expand #no_debug {
+    value, widget := float_scrollbar(.VERTICAL, 0, parent, placement, flags, tooltip, initial_value, range, handle_size, #insert #run next(*scrollbar_count));
     return value, widget;
 }
 
-vertical_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE) -> value: *float, *Scrollbar #expand #no_debug {
+vertical_scrollbar :: (id: int, $reserve: int, parent: *Panel, placement: Place, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Widget_Flags.NONE, tooltip := "") -> value: *float, *Scrollbar #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
-    value, widget := float_scrollbar(.VERTICAL, id, parent, placement, flags, initial_value, range, handle_size, #insert #run next(*scrollbar_count, reserve));
+    value, widget := float_scrollbar(.VERTICAL, id, parent, placement, flags, tooltip, initial_value, range, handle_size, #insert #run next(*scrollbar_count, reserve));
     return value, widget;
 }
 
@@ -109,7 +109,7 @@ use_scrollwheel :: (using scrollbar: *Scrollbar, force := false) {
 scrollbar_data : [] Scrollbar;
 #no_reset scrollbar_count := 0;
 
-int_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel, placement: Place, flags: Widget_Flags, initial_value: int, range: Int_Range, $gui_index: int) -> value: *int, *Scrollbar {
+int_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel, placement: Place, flags: Widget_Flags, tooltip: string, initial_value: int, range: Int_Range, $gui_index: int) -> value: *int, *Scrollbar {
     scrollbar := *scrollbar_data[gui_index + id];
     value := ifx scrollbar.initialized then scrollbar.int_value else initial_value;
     _range := range;
@@ -117,7 +117,7 @@ int_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel, p
     Clamp(*value, _range.min, _range.max);
     spread := cast(float)(_range.max - _range.min + 1);
     handle_size : float = 1.0 / spread;
-    scrollbar.* = .{ widget(parent, placement, flags), true, orientation, .INTEGER, handle_size, calculate_handle_position(value, _range), _range, value};
+    scrollbar.* = .{ widget(parent, placement, tooltip, flags), true, orientation, .INTEGER, handle_size, calculate_handle_position(value, _range), _range, value};
     last_widget_placement = placement;
 
     prev_handle_position := scrollbar.handle_position;
@@ -129,7 +129,7 @@ int_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel, p
     return *scrollbar.int_value, scrollbar;
 }
 
-float_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel, placement: Place, flags: Widget_Flags, initial_value: float, range: Float_Range, handle_size: float, $gui_index: int) -> value: *float, *Scrollbar {
+float_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel, placement: Place, flags: Widget_Flags, tooltip: string, initial_value: float, range: Float_Range, handle_size: float, $gui_index: int) -> value: *float, *Scrollbar {
     scrollbar := *scrollbar_data[gui_index + id];
     value := ifx scrollbar.initialized then scrollbar.float_value else initial_value;
     _range := range;
@@ -137,7 +137,7 @@ float_scrollbar :: (orientation: Scrollbar.Orientation, id: int, parent: *Panel,
     Clamp(*value, _range.min, _range.max);
     min_handle_size :: 1.0 / 4000;
     Clamp(*handle_size, min_handle_size, handle_size);
-    scrollbar.* = .{ widget(parent, placement, flags), true, orientation, .FLOAT, handle_size, calculate_handle_position(value, _range), .{}, 0};
+    scrollbar.* = .{ widget(parent, placement, tooltip, flags), true, orientation, .FLOAT, handle_size, calculate_handle_position(value, _range), .{}, 0};
     scrollbar.float_range = _range;
     scrollbar.float_value = value;
     last_widget_placement = placement;

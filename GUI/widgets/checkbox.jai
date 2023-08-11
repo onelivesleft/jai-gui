@@ -7,24 +7,24 @@ Checkbox :: struct {
     text: string;
 }
 
-checkbox :: (parent: *Panel, placement: Place, text: string, initial_value := false, flags := Widget_Flags.NONE) -> clicked: bool, *Checkbox #expand #no_debug {
-    clicked, widget := _checkbox(0, parent, placement, flags, text, initial_value, null, #insert #run next(*checkbox_count));
+checkbox :: (parent: *Panel, placement: Place, text: string, initial_value := false, flags := Widget_Flags.NONE, tooltip := "") -> clicked: bool, *Checkbox #expand #no_debug {
+    clicked, widget := _checkbox(0, parent, placement, flags, tooltip, text, initial_value, null, #insert #run next(*checkbox_count));
     return clicked, widget;
 }
 
-checkbox :: (parent: *Panel, placement: Place, text: string, value_pointer : *bool, flags := Widget_Flags.NONE) -> clicked: bool, *Checkbox #expand #no_debug {
-    clicked, widget := _checkbox(0, parent, placement, flags, text, false, value_pointer, #insert #run next(*checkbox_count));
+checkbox :: (parent: *Panel, placement: Place, text: string, value_pointer : *bool, flags := Widget_Flags.NONE, tooltip := "") -> clicked: bool, *Checkbox #expand #no_debug {
+    clicked, widget := _checkbox(0, parent, placement, flags, tooltip, text, false, value_pointer, #insert #run next(*checkbox_count));
     return clicked, widget;
 }
 
-checkbox :: (id: int, $reserve: int, parent: *Panel, placement: Place, text: string, initial_value := false, flags := Widget_Flags.NONE) -> clicked: bool, *Checkbox #expand #no_debug {
+checkbox :: (id: int, $reserve: int, parent: *Panel, placement: Place, text: string, initial_value := false, flags := Widget_Flags.NONE, tooltip := "") -> clicked: bool, *Checkbox #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of checkbox_data being created)");
-    clicked, widget := _checkbox(id, parent, placement, flags, text, initial_value, null, #insert #run next(*checkbox_count, reserve));
+    clicked, widget := _checkbox(id, parent, placement, flags, tooltip, text, initial_value, null, #insert #run next(*checkbox_count, reserve));
     return clicked, widget;
 }
-checkbox :: (id: int, $reserve: int, parent: *Panel, placement: Place, text: string, value_pointer : *bool = null, flags := Widget_Flags.NONE) -> clicked: bool, *Checkbox #expand #no_debug {
+checkbox :: (id: int, $reserve: int, parent: *Panel, placement: Place, text: string, value_pointer : *bool = null, flags := Widget_Flags.NONE, tooltip := "") -> clicked: bool, *Checkbox #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of checkbox_data being created)");
-    clicked, widget := _checkbox(id, parent, placement, flags, text, false, value_pointer, #insert #run next(*checkbox_count, reserve));
+    clicked, widget := _checkbox(id, parent, placement, flags, tooltip, text, false, value_pointer, #insert #run next(*checkbox_count, reserve));
     return clicked, widget;
 }
 
@@ -41,7 +41,7 @@ get_index :: (checkbox: *Checkbox) -> int {
 checkbox_data : [] Checkbox;
 #no_reset checkbox_count := 0;
 
-_checkbox :: (id: int, parent: *Panel, placement: Place, flags: Widget_Flags, text: string, initial_value: bool, value_pointer: *bool, $gui_index: int) -> clicked: bool, *Checkbox {
+_checkbox :: (id: int, parent: *Panel, placement: Place, flags: Widget_Flags, tooltip: string, text: string, initial_value: bool, value_pointer: *bool, $gui_index: int) -> clicked: bool, *Checkbox {
     checkbox := *checkbox_data[gui_index + id];
 
     _value : bool = ---;
@@ -52,7 +52,7 @@ _checkbox :: (id: int, parent: *Panel, placement: Place, flags: Widget_Flags, te
     else
         _value = checkbox.value;
 
-    checkbox.* = .{ widget(parent, placement, flags), true, _value, text };
+    checkbox.* = .{ widget(parent, placement, tooltip, flags), true, _value, text };
     last_widget_placement = placement;
 
     update_widget(checkbox);
