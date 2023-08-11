@@ -19,6 +19,8 @@ main :: () {
         for 0 .. button_count - 1
             button(it, button_count, button_panel,  place(.COPY_DOWN),  lorem[it % lorem.count], .LEFT | .SERIF);
 
+        text_input(left, shrink(at_top(height), 0.2, 0), "Hola");
+
         min :: -3;
         max :: +13;
 
@@ -36,7 +38,7 @@ main :: () {
             i:, scrollbar = horizontal_scrollbar(left, place(scrollbar, .COPY_DOWN), min, .{min, max}, tooltip = "Another horizontal scrollbar");
             label(left, place(.COPY_LEFT), i.*, .RIGHT);
 
-            volume:, scrollbar = horizontal_scrollbar(left, place(scrollbar, .COPY_DOWN), min, .{min, max}, .REVERSE_SCROLLWHEEL);
+            volume:, scrollbar = horizontal_scrollbar(left, place(scrollbar, .COPY_DOWN), min, .{min, max}, .REVERSE_SCROLLWHEEL, "Volume control");
             label(left, place(.COPY_LEFT), tprint("volume: %", volume.*), .RIGHT);
 
             if checkbox(left, place(scrollbar, .COPY_DOWN), "Gromit the scrogs", tooltip = "They really need it") {

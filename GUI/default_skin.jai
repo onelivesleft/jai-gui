@@ -1,3 +1,6 @@
+// @TODO
+// [ ] draw box
+
 theme := Theme.{};
 
 Theme :: struct {
@@ -14,7 +17,6 @@ Theme :: struct {
     tooltip_delay := 0.5;
     tooltip_text_size : s16 = 14;
 
-
     label_foreground := Vector4.{1.0, 1.0, 1.0, 1.0};
     label_text_size : s16 = 16;
 
@@ -26,6 +28,14 @@ Theme :: struct {
 
     checkbox_border := 2;
     checkbox_text_size : s16 = 16;
+
+    text_input_border_color      := Vector4.{0.55, 0.35, 0.35, 1.0};
+    text_input_background        := Vector4.{0.35, 0.25, 0.25, 1.0};
+    text_input_background_active := Vector4.{0.45, 0.35, 0.35, 1.0};
+    text_input_background_hot    := Vector4.{0.45, 0.35, 0.35, 1.0};
+    text_input_foreground        := Vector4.{1.0, 1.0, 1.0, 1.0};
+    text_input_border := 2;
+    text_input_text_size : s16 = 16;
 
     scrollbar_groove_background        := Vector4.{0.35, 0.25, 0.25, 1.0};
     scrollbar_handle_background        := Vector4.{0.55, 0.35, 0.35, 1.0};
@@ -58,6 +68,14 @@ alternate_theme := Theme.{
     checkbox_border = 2,
     checkbox_text_size = 16,
 
+    text_input_border_color      = Vector4.{0.55, 0.35, 0.35, 1.0},
+    text_input_background        = Vector4.{0.35, 0.25, 0.25, 1.0},
+    text_input_background_active = Vector4.{0.45, 0.35, 0.35, 1.0},
+    text_input_background_hot    = Vector4.{0.45, 0.35, 0.35, 1.0},
+    text_input_foreground        = Vector4.{1.0, 1.0, 1.0, 1.0},
+    text_input_border = 2,
+    text_input_text_size = 16,
+
     scrollbar_groove_background        = Vector4.{0.25, 0.35, 0.25, 1.0},
     scrollbar_handle_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
     scrollbar_handle_background_active = Vector4.{0.55, 0.75, 0.55, 1.0},
@@ -67,13 +85,16 @@ alternate_theme := Theme.{
 };
 
 locked_theme := Theme.{
-    button_background        = Vector4.{0.4, 0.4, 0.4, 1.0},
-    button_foreground        = Vector4.{0.9, 0.9, 0.9, 1.0},
+    button_background = Vector4.{0.4, 0.4, 0.4, 1.0},
+    button_foreground = Vector4.{0.9, 0.9, 0.9, 1.0},
 
     label_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
 
-    scrollbar_groove_background        = Vector4.{0.3, 0.3, 0.3, 1.0},
-    scrollbar_handle_background        = Vector4.{0.4, 0.4, 0.4, 1.0},
+    text_input_border_color = Vector4.{0.4, 0.4, 0.4, 1.0},
+    text_input_background   = Vector4.{0.3, 0.3, 0.3, 1.0},
+
+    scrollbar_groove_background = Vector4.{0.3, 0.3, 0.3, 1.0},
+    scrollbar_handle_background = Vector4.{0.4, 0.4, 0.4, 1.0},
 };
 
 themes : [4] *type_of(theme) : .[*theme, *alternate_theme, *theme, *theme];
@@ -377,4 +398,28 @@ draw_checkbox :: (using checkbox: *Checkbox) {
         text_x, text_y := text_origin(left_align(flags), font, text_rect, text_width);
         Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.button_foreground);
     }
+}
+
+draw_text_input :: (using text_input: *Text_Input) {
+    assert(rect_frame_count == frame_count);
+
+    switch_theme();
+
+    text_input_rect := shrink(rect, 1);
+    scissor(text_input_rect, flags);
+    Simp.set_shader_for_color();
+
+    draw_rect(text_input_rect, theme.text_input_border_color);
+    color := hot_active_else(text_input, theme.text_input_background_hot, theme.text_input_background_active, theme.text_input_background);
+    text_input_rect = shrink(text_input_rect, theme.text_input_border);
+    draw_rect(text_input_rect, color);
+
+    if !text  return;
+
+    text_rect := shrink(text_input_rect, theme.padding);
+    scissor(text_rect, flags);
+    font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text, fit_width(text_rect, flags));
+
+    text_x, text_y := text_origin(left_align(flags), font, text_rect, text_width);
+    Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.text_input_foreground);
 }

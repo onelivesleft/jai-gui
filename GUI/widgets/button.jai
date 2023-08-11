@@ -16,8 +16,8 @@ button :: (id: int, $reserve: int, parent: *Panel, placement: Place, text: strin
 }
 
 get_index :: (button: *Button) -> int {
-    index := button - buttons.data;
-    assert(0 <= index && index < buttons.count);
+    index := button - button_data.data;
+    assert(0 <= index && index < button_data.count);
     return index;
 }
 

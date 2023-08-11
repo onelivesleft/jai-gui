@@ -12,6 +12,14 @@ operator - :: (a: Ord) -> Ord {
     return .{ 1.0 - a.rel, -a.abs };
 }
 
+operator - :: (a: Ord, b: Ord) -> Ord {
+    return .{ a.rel - b.rel, a.abs - b.abs };
+}
+
+operator + :: (a: Ord, b: Ord) -> Ord {
+    return .{ a.rel + b.rel, a.abs + b.abs };
+}
+
 Coord :: struct {
     x: Ord;
     y: Ord;
@@ -103,7 +111,12 @@ shrink :: (place: Place, delta_ord: $T) -> Place
 }
 {
     _ord := ord(delta_ord);
-    return .{ coord(_ord, _ord), coord(-_ord, -_ord) };
+    result := place;
+    result.tl.x += _ord;
+    result.tl.y += _ord;
+    result.br.x -= _ord;;
+    result.br.y -= _ord;;
+    return result;
 }
 
 shrink :: (place: Place, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Place
@@ -114,7 +127,12 @@ shrink :: (place: Place, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Pl
 {
     horizontal_ord := ord(horizontal_delta_ord);
     vertical_ord := ord(vertical_delta_ord);
-    return .{ coord(horizontal_ord, vertical_ord), coord(-horizontal_ord, -vertical_ord) };
+    result := place;
+    result.tl.x += horizontal_ord;
+    result.tl.y += vertical_ord;
+    result.br.x -= horizontal_ord;;
+    result.br.y -= vertical_ord;;
+    return result;
 }
 
 Rect :: struct {

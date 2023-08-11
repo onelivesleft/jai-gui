@@ -1,0 +1,7 @@
+.build/
+*.pdb
+*.rdbg
+*.dSYM/
+*.dmg
+.DS_Store
+

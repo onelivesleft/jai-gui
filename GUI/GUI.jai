@@ -1,29 +1,32 @@
 // @TODO
-// [ ] tooltips
-// [ ] checkbox
+// [x] tooltips
+// [x] checkbox
 // [ ] radio buttons
+// [ ] input
+// [ ] text
+// [ ] dropdown
 // [ ] data table
 // [ ] icon
 // [ ] icon button
-// [ ] input
-// [ ] text
+// [ ] fx blend colors
 
 #load "widgets/panel.jai";
 #load "widgets/button.jai";
 #load "widgets/checkbox.jai";
 #load "widgets/label.jai";
 #load "widgets/scrollbar.jai";
+#load "widgets/text_input.jai";
 
 Widgets :: Type.[
-    Panel, Button, Checkbox, Label, Scrollbar
+    Panel, Button, Checkbox, Label, Scrollbar, Text_Input
 ];
 
 hot_widget:      *Widget;    // typically use is_hot(widget)
 active_widget:   *Widget;    // typically use is_active(widget)
 
-clicked_widget:  *Widget;    // lasts a single frame, when mouse is released on active_widget
-changed_widget:  *Widget;    // lasts a single frame, a widget which changed substantially, i.e. a scrollbar moving
-scrollwheel_widget: *Widget; // lasts a single frame, when widget has used the scrollwheel for something
+clicked_widget:  *Widget;    // typically use was_clicked(widget).  Lasts a single frame, when mouse is released on active_widget
+changed_widget:  *Widget;    // typically use was_changed(widget).  Lasts a single frame, a widget which changed substantially, i.e. a scrollbar moving
+scrollwheel_widget: *Widget; // typically use was_scrollwheeled(widget).  Lasts a single frame, when widget has used the scrollwheel for something
 
 mouse_x, mouse_y: float;
 mouse_left_button_down, mouse_left_button_up, mouse_left_button_held: bool;
@@ -55,7 +58,7 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
             name[0] = to_lower(name[0]);
             print_to_builder(*builder, #string jai
                 %1_data = NewArray(%1_count, %2);
-            jai, name, type_name);
+            jai, lower(name), type_name);
         }
         return builder_to_string(*builder);
     }
@@ -202,7 +205,7 @@ widget_type :: (widget: *Widget) -> Type {
             name[0] = to_lower(name[0]);
             print_to_builder(*builder, #string jai
                 if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2;
-            jai, name, type_name);
+            jai, lower(name), type_name);
         }
         return builder_to_string(*builder);
     }
@@ -238,7 +241,7 @@ Widget_Flags :: enum_flags u64 {
     FIT;
     OVERFLOW;   // don't scissor
     CROP;       // do scissor even if OVERFLOW is set
-    IMMEDIATE;  // update value immediately, based on is_active and is_hot (instead of waiting for click)
+    IMMEDIATE;  // update value immediately, rather than when user completes action
 
 }
 
@@ -327,6 +330,14 @@ is_active :: inline (widget: *Widget) -> bool {
 
 was_clicked :: inline (widget: *Widget) -> bool {
     return widget == clicked_widget;
+}
+
+was_changed :: inline (widget: *Widget) -> bool {
+    return widget == changed_widget;
+}
+
+was_scrollwheeled :: inline (widget: *Widget) -> bool {
+    return widget == scrollwheel_widget;
 }
 
 set_hot :: (widget: *Widget, hot: bool) {
@@ -424,6 +435,7 @@ active_hot_else :: (widget: *Widget, active: $U, hot: U, default: U) -> U {
 
 #scope_module
 
+
 continue_running := true;
 window_panel : Panel;
 window_rect : Rect;
@@ -488,4 +500,11 @@ maybe_calculate_rect :: (widget: *Widget) {
 
 button_state :: inline (key: Input.Key_Code) -> Input.Key_Current_State {
     return Input.input_button_states[key];
+}
+
+
+lower :: (s: string) -> string {
+    result := copy_string(s);
+    for i: 0 .. result.count - 1  result[i] = to_lower(result[i]);
+    return result;
 }
