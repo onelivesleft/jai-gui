@@ -2,40 +2,68 @@
 #import "GUI";
 
 main :: () {
-    window := gui_create_window("GUI Test", 1024, 768);
+    window, window_handle := gui_create_window("GUI Test", 1024, 768);
 
     show_wheel := true;
+    maybe_lock : Widget_Flags;
 
     while gui_begin_frame() {
-        defer gui_end_frame();
 
-        _, button1 := button(window, place(         20,20, 0.5,40), "Hello");
-        _, button2 := button(window, place(ord(0.5,40),20, -20,40), "World");
+        top, middle, bottom := split_top_middle_bottom(window, 100, -100);
+        left, right := split_left_right(middle, 0.5);
 
-        left :=  panel(window,   0,100, 0.5,-100);
-        right := panel(window, 0.5,100, 1.0,-100);
-
-        buttons :: 20;
-        for 0 .. buttons - 1 {
-            height :: 30;
-            //button(it, buttons, left,   place(0.3, it * height,  1.0, (it + 1) * height),  lorem[it % lorem.count], .LEFT | .SANS);
-            button(it, buttons, right,  place(0.0, it * height,  0.7, (it + 1) * height),  lorem[it % lorem.count], .LEFT | .SERIF);
-        }
-
-        {
-            value, scrollbar := vertical_scrollbar(left, place(100,100, 120,300), 0.5);
-            label(scrollbar, place(ord(1.0,20),0.5, ord(1.0,20),0.5), tprint("%", value));
-        }
-
+        button_count :: 20;
+        height :: 30;
+        button_panel, _ := split_left_right(right, 0.7);
+        begin_placing(at_top(height));
+        for 0 .. button_count - 1
+            button(it, button_count, button_panel,  place(.COPY_DOWN),  lorem[it % lorem.count], .LEFT | .SERIF);
 
         min :: -3;
         max :: +13;
 
-        value, left_scrollbar := vertical_scrollbar(window, place(0,50, theme.scrollbar_size,ord(-50, 1.0)), 0, .{min, max}, .SMOOTH);
-        label(window, place(50,0.0, 200,1.0), tprint("% % %", value, left_scrollbar.handle_size, left_scrollbar.handle_position), .LEFT);
+        quadrant_button_flags : Widget_Flags;
 
-        value=, right_scrollbar := vertical_scrollbar(window, place(-theme.scrollbar_size,50, 1.0,ord(-50, 1.0)), 1, .{min, max});
-        label(window, place(-200,0.5, -50,0.5), tprint("%", value), .RIGHT);
+        {
+            push_spacing(4);  defer pop_spacing();
+
+            value, scrollbar := vertical_scrollbar(left, place(100,50, 120,200), 0.0, .{0.0, 0.2} );
+            label(left, place(.COPY_RIGHT), tprint("% % %", value.*, scrollbar.handle_position, scrollbar.handle_size));
+
+            value, scrollbar = horizontal_scrollbar(left, place(250,50, 450,70));
+            _, l := label(left, place(.COPY_LEFT), value.*, .RIGHT);
+
+            i:, scrollbar = horizontal_scrollbar(left, place(scrollbar, .COPY_DOWN), min, .{min, max});
+            label(left, place(.COPY_LEFT), i.*, .RIGHT);
+
+            volume:, scrollbar = horizontal_scrollbar(left, place(scrollbar, .COPY_DOWN), min, .{min, max}, .REVERSE_SCROLLWHEEL);
+            label(left, place(.COPY_LEFT), tprint("volume: %", volume.*), .RIGHT);
+
+            if checkbox(left, place(scrollbar, .COPY_DOWN), "Gromit the scrogs") {
+                quadrant_button_flags = .THEME_A;
+            }
+
+            checkbox(left, place(.COPY_DOWN), "Show Scroll Wheel", *show_wheel, .IMMEDIATE | maybe_lock);
+
+            maybe_lock = ifx checkbox(left, place(.COPY_DOWN), "Lock it down", maybe_lock != 0, .RIGHT | .IMMEDIATE)
+                         then .LOCKED
+                         else xx 0;
+        }
+
+        push_spacing(4);
+        left_value, left_scrollbar := vertical_scrollbar(window, place(0,50, theme.scrollbar_size,ord(-50, 1.0)), 0, .{min, max}, .SMOOTH | maybe_lock);
+        right_value, right_scrollbar := vertical_scrollbar(window, place(.MIRROR_HORIZONTAL), 1, .{min, max}, maybe_lock);
+        label(window, place(left_scrollbar, .COPY_RIGHT), tprint("% % %", left_value.*, left_scrollbar.handle_size, left_scrollbar.handle_position));
+        label(window, place(right_scrollbar, .COPY_LEFT), right_value.*, .RIGHT);
+        pop_spacing();
+
+        upper, lower := split_top_bottom(left, 0.66);
+        tl, tr, bl, br := split_quadrants(lower, 0.5, 0.5);
+        quadrant_button_flags |= maybe_lock;
+        button(tl, shrink(place(.FILL), 0.2), "Uno", quadrant_button_flags);
+        button(tr, shrink(place(.FILL), 0.2), "Dos", quadrant_button_flags);
+        button(bl, shrink(place(.FILL), 0.2), "Tres", quadrant_button_flags);
+        button(br, shrink(place(.FILL), 0.2), "Mas", quadrant_button_flags);
 
         if label(window, place(-300,-30, -100,1.0), "Scroll Wheel:", .RIGHT | .INTERACTS)
             show_wheel = !show_wheel;
@@ -44,6 +72,7 @@ main :: () {
             clicked, b := button(window, place(-100,-30, 1.0,1.0), tprint("%", mouse_scrollwheel));
             if clicked
                 show_wheel = false;
+
             if is_hot(b) {
                 use_scrollwheel(left_scrollbar, true);
                 use_scrollwheel(right_scrollbar, true);
@@ -64,7 +93,7 @@ main :: () {
             else {
                 text = tprint("%", t);
             }
-            print("%\n", text);
+            print("% : % = %\n", text, clicked_widget.placement, clicked_widget.rect);
         }
     }
 }

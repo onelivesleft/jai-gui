@@ -1,4 +1,6 @@
-theme : struct {
+theme := Theme.{};
+
+Theme :: struct {
     padding := 4;
 
     background_color := Vector4.{0.2, 0.2, 0.2, 1.0};
@@ -17,7 +19,49 @@ theme : struct {
     scrollbar_handle_background        := Vector4.{0.55, 0.35, 0.35, 1.0};
     scrollbar_handle_background_active := Vector4.{0.75, 0.55, 0.55, 1.0};
     scrollbar_handle_background_hot    := Vector4.{0.65, 0.45, 0.45, 1.0};
+
+    checkbox_text_size : s16 = 16;
+    checkbox_border := 2;
 }
+
+alternate_theme := Theme.{
+    padding = 4,
+
+    background_color = Vector4.{0.2, 0.2, 0.2, 1.0},
+
+    button_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
+    button_background_active = Vector4.{0.45, 0.65, 0.45, 1.0},
+    button_background_hot    = Vector4.{0.55, 0.75, 0.55, 1.0},
+    button_foreground        = Vector4.{1.0, 1.0, 1.0, 1.0},
+    button_text_size = 16,
+
+    label_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
+    label_text_size = 16,
+
+    scrollbar_size = 20,
+    scrollbar_groove_background        = Vector4.{0.25, 0.35, 0.25, 1.0},
+    scrollbar_handle_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
+    scrollbar_handle_background_active = Vector4.{0.55, 0.75, 0.55, 1.0},
+    scrollbar_handle_background_hot    = Vector4.{0.45, 0.65, 0.45, 1.0},
+
+    checkbox_text_size = 16,
+    checkbox_border = 2,
+};
+
+locked_theme := Theme.{
+    button_background        = Vector4.{0.4, 0.4, 0.4, 1.0},
+    button_foreground        = Vector4.{0.9, 0.9, 0.9, 1.0},
+
+    label_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
+
+    scrollbar_groove_background        = Vector4.{0.3, 0.3, 0.3, 1.0},
+    scrollbar_handle_background        = Vector4.{0.4, 0.4, 0.4, 1.0},
+};
+
+themes : [4] *type_of(theme) : .[*theme, *alternate_theme, *theme, *theme];
+
+
+#scope_module;
 
 
 Font :: Simp.Dynamic_Font;
@@ -187,18 +231,26 @@ scissor :: (rect: Rect, flags: Widget_Flags) #expand {
     `defer if scissoring  pop_scissor();
 }
 
-clear_window :: () {
-    Simp.clear_render_target(theme.background_color.x, theme.background_color.y, theme.background_color.z, theme.background_color.w);
-}
-
 draw_rect :: (rect: Rect, color: Vector4) {
     v4 := gl_vec4(rect);
     Simp.immediate_quad(v4.x, v4.y, v4.z, v4.w, color);
 }
 
+switch_theme :: () #expand {
+    `theme := ifx `flags & .LOCKED then locked_theme else themes[theme_index(`flags)];
+}
+
+#scope_export
+
+
+clear_window :: () {
+    Simp.clear_render_target(theme.background_color.x, theme.background_color.y, theme.background_color.z, theme.background_color.w);
+}
 
 draw_button :: (using button: *Button) {
     assert(rect_frame_count == frame_count);
+
+    switch_theme();
 
     button_rect := shrink(rect, 1);
     scissor(button_rect, flags);
@@ -216,10 +268,11 @@ draw_button :: (using button: *Button) {
     }
 }
 
-
 draw_label :: (using label: *Label) {
     assert(rect_frame_count == frame_count);
     if !text  return;
+
+    switch_theme();
 
     label_rect := shrink(rect, 1);
     scissor(label_rect, flags);
@@ -231,9 +284,10 @@ draw_label :: (using label: *Label) {
     Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.label_foreground);
 }
 
-
 draw_scrollbar :: (using scrollbar: *Scrollbar) {
     assert(rect_frame_count == frame_count);
+
+    switch_theme();
 
     Simp.set_shader_for_color();
     scissor(rect, flags);
@@ -245,3 +299,37 @@ draw_scrollbar :: (using scrollbar: *Scrollbar) {
     draw_rect(shrink(handle_rect, 1), color);
 }
 
+draw_checkbox :: (using checkbox: *Checkbox) {
+    assert(rect_frame_count == frame_count);
+
+    switch_theme();
+
+    checkbox_rect := shrink(rect, 1);
+    scissor(checkbox_rect, flags);
+    Simp.set_shader_for_color();
+
+    color := hot_active_else(checkbox, theme.button_background_hot, theme.button_background_active, theme.button_background);
+    box_rect, text_rect : Rect = ---;
+    if flags & .RIGHT
+        text_rect, box_rect = split_left_right(checkbox_rect, -checkbox_rect.h);
+    else
+        box_rect, text_rect = split_left_right(checkbox_rect, checkbox_rect.h);
+
+    draw_rect(box_rect, color);
+    box_rect = shrink(box_rect, theme.checkbox_border);
+    draw_rect(box_rect, theme.background_color);
+
+    _value := ifx is_active(checkbox) && is_hot(checkbox) then !value else value;
+    if _value {
+        box_rect = shrink(box_rect, theme.checkbox_border);
+        draw_rect(box_rect, color);
+    }
+
+    if text {
+        text_rect = shrink(text_rect, theme.padding);
+        font, text_width := get_font(sans_font(flags), theme.checkbox_text_size, text, fit_width(text_rect, flags));
+
+        text_x, text_y := text_origin(left_align(flags), font, text_rect, text_width);
+        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.button_foreground);
+    }
+}

@@ -1,32 +1,46 @@
-#load "panel.jai";
-#load "button.jai";
-#load "label.jai";
-#load "scrollbar.jai";
+// @TODO
+// [ ] tooltips
+// [ ] checkbox
+// [ ] radio buttons
+// [ ] data table
+// [ ] icon
+// [ ] icon button
+// [ ] input
+// [ ] text
+
+#load "widgets/panel.jai";
+#load "widgets/button.jai";
+#load "widgets/checkbox.jai";
+#load "widgets/label.jai";
+#load "widgets/scrollbar.jai";
 
 Widgets :: Type.[
-    Panel, Button, Label, Scrollbar
+    Panel, Button, Checkbox, Label, Scrollbar
 ];
 
-hot_widget:      *Widget;    // use is_hot(widget)
-active_widget:   *Widget;
-changed_widget:  *Widget;    // a widget which changed substantially this frame, i.e. a scrollbar moving
+hot_widget:      *Widget;    // typically use is_hot(widget)
+active_widget:   *Widget;    // typically use is_active(widget)
+
 clicked_widget:  *Widget;    // lasts a single frame, when mouse is released on active_widget
+changed_widget:  *Widget;    // lasts a single frame, a widget which changed substantially, i.e. a scrollbar moving
 scrollwheel_widget: *Widget; // lasts a single frame, when widget has used the scrollwheel for something
 
-mouse_x, mouse_y : float;
-mouse_left_button_down, mouse_left_button_up, mouse_left_button_held : bool;
-mouse_middle_button_down, mouse_middle_button_up, mouse_middle_button_held : bool;
-mouse_right_button_down, mouse_right_button_up, mouse_right_button_held : bool;
-mouse_scrollwheel : int;
-mouse_scrollwheel_fraction : float;
-
+mouse_x, mouse_y: float;
+mouse_left_button_down, mouse_left_button_up, mouse_left_button_held: bool;
+mouse_middle_button_down, mouse_middle_button_up, mouse_middle_button_held: bool;
+mouse_right_button_down, mouse_right_button_up, mouse_right_button_held: bool;
+mouse_scrollwheel: int;       // normalized, will typically be -1, +1 or 0
+mouse_scrollwheel_fraction: float;  // on devices with high-precision wheels this can be [0.0, +/-1.0)
+                                    // (though you can typically ignore it as it will automaticaly accumulate
+                                    //  into mouse_scrollwheel)
 frame_count: int;
 frame_time: float64;
 frame_dt: float;
 
 gui_window : Window_Creation.Window_Type;
 
-gui_create_window :: (window_title: string, window_width: int, window_height: int) -> *Panel {
+
+gui_create_window :: (window_title: string, window_width: int, window_height: int) -> *Panel, *Window_Creation.Window_Type {
     #if OS == .WINDOWS {
         Windows :: #import "Windows";
         Windows.SetProcessDPIAware();
@@ -39,22 +53,28 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
             type_name := tprint("%", it);
             name := copy_string(type_name, temp);
             name[0] = to_lower(name[0]);
-            print_to_builder(*builder, #string __jai
-                %1s = NewArray(%1s_count, %2);
-            __jai, name, type_name);
+            print_to_builder(*builder, #string jai
+                %1_data = NewArray(%1_count, %2);
+            jai, name, type_name);
         }
         return builder_to_string(*builder);
     }
+
+    array_reset(*auto_place_spacing);
+    array_add(*auto_place_spacing, .{0, 0});
 
     set_window_size(window_width, window_height);
     gui_window = Window_Creation.create_window(window_width, window_height, window_title);
 
     Simp.set_render_target(gui_window);
 
-    return *window_panel;
+    return *window_panel, *gui_window;
 }
 
 gui_begin_frame :: () -> continue_running: bool {
+    #if !MANUAL_END_FRAME
+        gui_end_frame();
+
     frame_count += 1;
     prev_frame_time = frame_time;
     frame_time = get_time();
@@ -124,7 +144,7 @@ gui_begin_frame :: () -> continue_running: bool {
     return continue_running;
 }
 
-gui_end_frame :: () {
+gui_end_frame :: inline () {
     if !mouse_left_button_held {
         if active_widget {
             active_widget.became_inactive_at = frame_time;
@@ -156,9 +176,9 @@ widget_type :: (widget: *Widget) -> Type {
             type_name := tprint("%", it);
             name := copy_string(type_name, temp);
             name[0] = to_lower(name[0]);
-            print_to_builder(*builder, #string __jai
-                if widget >= xx %1s.data && widget < xx (%1s.data + %1s.count)  return %2;
-            __jai, name, type_name);
+            print_to_builder(*builder, #string jai
+                if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2;
+            jai, name, type_name);
         }
         return builder_to_string(*builder);
     }
@@ -185,26 +205,38 @@ Widget_Flags :: enum_flags u64 {
     NONE    :: 0;
 
     // masked out to get text align
-    LEFT    :: 1;
-    CENTER  :: 2;
-    RIGHT   :: 3;
+    LEFT   :: 1;
+    CENTER :: 2;
+    RIGHT  :: 3;
 
     // masked out to get font style
-    SANS    :: 4;
-    SERIF   :: 8;
-    FIXED   :: 12;
+    SANS   :: 4;
+    SERIF  :: 8;
+    FIXED  :: 12;
+
+    // masked out to get theme index (set none of these for default theme)
+    THEME_A :: 16;
+    THEME_B :: 32;
+    THEME_C :: 48;
 
     // scrollbar
     SMOOTH  :: 1;
+    REVERSE_SCROLLWHEEL :: 2;  // inverts scrollwheel direction
 
     // flags
-    HIDDEN  :: 16;
-    LOCKED;
+    LOCKED  :: 64;
     INTERACTS;  // overrides LOCKED (a widget is only locked if LOCKED & !INTERACTS)
     FIT;
     OVERFLOW;   // don't scissor
     CROP;       // do scissor even if OVERFLOW is set
+    IMMEDIATE;  // update value immediately, based on is_active and is_hot (instead of waiting for click)
+
 }
+
+fit_width :: (rect: Rect, flags: Widget_Flags) -> float {
+    return ifx flags & .FIT then rect.w else 0;
+}
+
 
 text_align_mask : u64 : 0b11;
 
@@ -214,17 +246,6 @@ Text_Alignment :: enum u8 {
     CENTER  :: 2;
     RIGHT   :: 3;
 }
-
-font_style_mask : u64 : 0b1100;
-
-Font_Style :: enum u8 {
-    DEFAULT :: 0;
-    SANS    :: 1;
-    SERIF   :: 2;
-    FIXED   :: 3;
-}
-
-
 
 left_align :: (flags: Widget_Flags) -> Text_Alignment {
     text_align : Text_Alignment = xx (text_align_mask & xx flags);
@@ -245,6 +266,14 @@ right_align :: (flags: Widget_Flags) -> Text_Alignment {
 }
 
 
+font_style_mask : u64 : 0b1100;
+
+Font_Style :: enum u8 {
+    DEFAULT :: 0;
+    SANS    :: 1;
+    SERIF   :: 2;
+    FIXED   :: 3;
+}
 
 sans_font :: (flags: Widget_Flags) -> Font_Style {
     font_style : Font_Style = xx ((font_style_mask & xx flags) >> 2);
@@ -264,8 +293,10 @@ fixed_font :: (flags: Widget_Flags) -> Font_Style {
     return font_style;
 }
 
-fit_width :: (rect: Rect, flags: Widget_Flags) -> float {
-    return ifx flags & .FIT then rect.w else 0;
+theme_index_mask : u64 : 0b110000;
+
+theme_index :: (flags: Widget_Flags) -> int {
+    return xx (theme_index_mask & xx flags) >> 4;
 }
 
 
@@ -439,3 +470,7 @@ maybe_calculate_rect :: (widget: *Widget) {
          widget.rect = calculate_rect(widget);
 }
 
+
+button_state :: inline (key: Input.Key_Code) -> Input.Key_Current_State {
+    return Input.input_button_states[key];
+}

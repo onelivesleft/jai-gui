@@ -1,3 +1,9 @@
+#module_parameters (
+    MANUAL_END_FRAME := false  // Normally gui_begin_frame will call gui_end_frame for you; you can disable
+                               // that with this (though you then *must* call gui_end_frame yourself!)
+
+);
+
 #load "GUI.jai";
 #load "default_skin.jai";
 
