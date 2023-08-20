@@ -7,7 +7,6 @@
 #load "default_skin.jai";
 
 #load "positioning.jai";
-#load "panel.jai";
 
 #import "Hash_Table";
 #import "Basic";

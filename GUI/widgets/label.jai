@@ -5,19 +5,19 @@ Label :: struct {
 }
 
 
-label :: (parent: *Panel, _box: Box, text: $T, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Label #expand #no_debug {
+label :: (parent: *At_Location, box: Box, text: $T, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Label #expand #no_debug {
     #if T == string {
         _text := text;
     }
     else {
         _text := tprint("%", text);
     }
-    clicked, widget := _label(0, parent, _box, flags, _text, tooltip, #insert #run next(*label_count));
+    clicked, widget := _label(0, parent, box, flags, _text, tooltip, #insert #run next(*label_count));
     return clicked, widget;
 }
 
 
-label :: (id: int, $reserve: int, parent: *Panel, _box: Box, text: $T, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Label #expand #no_debug {
+label :: (id: int, $reserve: int, parent: *At_Location, box: Box, text: $T, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Label #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of labels being created)");
     #if T == string {
         _text := text;
@@ -25,18 +25,18 @@ label :: (id: int, $reserve: int, parent: *Panel, _box: Box, text: $T, flags := 
     else {
         _text := tprint("%", text);
     }
-    clicked, widget := _label(id, parent, _box, flags, _text, tooltip, #insert #run next(*label_count, reserve));
+    clicked, widget := _label(id, parent, box, flags, _text, tooltip, #insert #run next(*label_count, reserve));
     return clicked, widget;
 }
 
-label :: (label: *Label, parent: *Panel, _box: Box, text: $T, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Label #expand #no_debug {
+label :: (label: *Label, parent: *At_Location, box: Box, text: $T, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Label #expand #no_debug {
     #if T == string {
         _text := text;
     }
     else {
         _text := tprint("%", text);
     }
-    clicked, widget := _label(label, parent, _box, flags, _text, tooltip);
+    clicked, widget := _label(label, parent, box, flags, _text, tooltip);
     return clicked, widget;
 }
 
@@ -54,14 +54,14 @@ get_index :: (label: *Label) -> int {
 label_data : [] Label;
 #no_reset label_count := 0;
 
-_label :: inline (id: int, parent: *Panel, _box: Box, flags: Flags, text: string, tooltip: string, $gui_index: int) -> clicked: bool, *Label {
-    clicked, label:= _label(*label_data[gui_index + id], parent, _box, flags, text, tooltip);
+_label :: inline (id: int, parent: *At_Location, box: Box, flags: Flags, text: string, tooltip: string, $gui_index: int) -> clicked: bool, *Label {
+    clicked, label:= _label(*label_data[gui_index + id], parent, box, flags, text, tooltip);
     return clicked, label;
 }
 
-_label :: (label: *Label, parent: *Panel, _box: Box, flags: Flags, text: string, tooltip: string) -> clicked: bool, *Label {
-    label.* = .{ widget(parent, _box, tooltip, flags | .LOCKED | .OVERFLOW), text };
-    last_widget_box = _box;
+_label :: (label: *Label, parent: *At_Location, box: Box, flags: Flags, text: string, tooltip: string) -> clicked: bool, *Label {
+    label.* = .{ widget(parent, box, tooltip, flags | .LOCKED | .OVERFLOW), text };
+    last_widget_box = box;
 
     update_widget(label);
     draw_label(label);

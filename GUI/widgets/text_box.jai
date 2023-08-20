@@ -13,19 +13,19 @@ Text_Box :: struct {
 }
 
 
-text_box :: (parent: *Panel, _box: Box, text: string, flags := Flags.NONE, tooltip := "") -> *Text_Box #expand #no_debug {
-    widget := _text_box(0, parent, _box, flags, tooltip, text, #insert #run next(*text_box_count));
+text_box :: (parent: *At_Location, box: Box, text: string, flags := Flags.NONE, tooltip := "") -> *Text_Box #expand #no_debug {
+    widget := _text_box(0, parent, box, flags, tooltip, text, #insert #run next(*text_box_count));
     return widget;
 }
 
-text_box :: (id: int, $reserve: int, parent: *Panel, _box: Box, text: string, flags := Flags.NONE, tooltip := "") -> *Text_Box #expand #no_debug {
+text_box :: (id: int, $reserve: int, parent: *At_Location, box: Box, text: string, flags := Flags.NONE, tooltip := "") -> *Text_Box #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of text_boxs being created)");
-    widget := _text_box(id, parent, _box, flags, tooltip, text, #insert #run next(*text_box_count, reserve));
+    widget := _text_box(id, parent, box, flags, tooltip, text, #insert #run next(*text_box_count, reserve));
     return widget;
 }
 
-text_box :: (text_box: *Text_Box, parent: *Panel, _box: Box, text: string, flags := Flags.NONE, tooltip := "") -> *Text_Box #expand #no_debug {
-    widget := _text_box(text_box, parent, _box, flags, tooltip, text);
+text_box :: (text_box: *Text_Box, parent: *At_Location, box: Box, text: string, flags := Flags.NONE, tooltip := "") -> *Text_Box #expand #no_debug {
+    widget := _text_box(text_box, parent, box, flags, tooltip, text);
     return widget;
 }
 
@@ -56,13 +56,13 @@ free :: (text_box: *Text_Box) {
 text_box_data : [] Text_Box;
 #no_reset text_box_count := 0;
 
-_text_box :: inline (id: int, parent: *Panel, _box: Box, flags: Flags, tooltip: string, text: string, $gui_index: int) -> *Text_Box {
-    text_box := _text_box(*text_box_data[gui_index + id], parent, _box, flags, tooltip, text);
+_text_box :: inline (id: int, parent: *At_Location, box: Box, flags: Flags, tooltip: string, text: string, $gui_index: int) -> *Text_Box {
+    text_box := _text_box(*text_box_data[gui_index + id], parent, box, flags, tooltip, text);
     return text_box;
 }
 
-_text_box :: (text_box: *Text_Box, parent: *Panel, _box: Box, flags: Flags, tooltip: string, text: string) -> *Text_Box {
-    text_box.widget = widget(parent, _box, "", flags);
+_text_box :: (text_box: *Text_Box, parent: *At_Location, box: Box, flags: Flags, tooltip: string, text: string) -> *Text_Box {
+    text_box.widget = widget(parent, box, "", flags);
     text_box.text = text;
     text_box.hot_label = null;
 
@@ -102,13 +102,13 @@ update_text_box :: (using text_box: *Text_Box) {
     top_index := ifx flags & .SMOOTH {
                     count := cast(float)(lines.count - visible_row_count - 1);
                     count = max(1.0, count);
-                    f := vertical_scrollbar(*scrollbar, scrollbar_panel, box(.FILL), 0, .{0, count}, handle_size=1.0 / (count/visible_row_count), flags);
+                    f := vertical_scrollbar(*scrollbar, scrollbar_panel, get_box(.FILL), 0, .{0, count}, handle_size=1.0 / (count/visible_row_count), flags);
                     result := cast(int) f;
                     offset = f - result;
                     result;
                  }
                  else {
-                    vertical_scrollbar(*scrollbar, scrollbar_panel, box(.FILL), 0, .{0, lines.count - visible_row_count - 1});
+                    vertical_scrollbar(*scrollbar, scrollbar_panel, get_box(.FILL), 0, .{0, lines.count - visible_row_count - 1});
                  };
 
     do_scrollwheel := false;
@@ -126,7 +126,7 @@ update_text_box :: (using text_box: *Text_Box) {
             row_text.count -= 1;
         _label := *labels[index];
 
-        if label(_label, text_panel, box(0,ord(0.0,y), 1.0,ord(0.0,y+theme.text_box_row_height)), row_text, label_flags) {
+        if label(_label, text_panel, get_box(0,ord(0.0,y), 1.0,ord(0.0,y+theme.text_box_row_height)), row_text, label_flags) {
             clicked_row_index = row_index;
             clicked_column_index = 0;
         }

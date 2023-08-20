@@ -52,7 +52,7 @@ frame : struct {
 gui_window : Window_Creation.Window_Type;
 
 
-gui_create_window :: (window_title: string, window_width: int, window_height: int) -> *Panel, *Window_Creation.Window_Type {
+gui_create_window :: (window_title: string, window_width: int, window_height: int) -> *At_Location, *Window_Creation.Window_Type {
     #if OS == .WINDOWS {
         Windows :: #import "Windows";
         Windows.SetProcessDPIAware();
@@ -202,7 +202,7 @@ gui_end_frame :: inline () {
 }
 
 Widget :: struct {
-    #as using panel: Panel;
+    #as using at: At_Location;
     using timestamps: struct {
         // @Performance These could be moved to a set of arrays or hashmaps
         //              only while pertinent, instead of having them all on
@@ -220,8 +220,8 @@ Widget :: struct {
     flags : Flags;
 }
 
-widget :: inline (parent: *Panel, _box: Box, tooltip: string, flags: Flags) -> Widget {
-    return .{ panel(parent, _box), .{0, 0, 0, 0, 0, 0, 0, 0}, tooltip, flags };
+widget :: inline (parent: *At_Location, box: Box, tooltip: string, flags: Flags) -> Widget {
+    return .{ at(parent, box), .{0, 0, 0, 0, 0, 0, 0, 0}, tooltip, flags };
 }
 
 
@@ -493,12 +493,12 @@ active_hot_else :: (widget: *Widget, active: $U, hot: U, default: U) -> U {
 
 
 continue_running := true;
-window_panel : Panel;
+window_panel : At_Location;
 window_rect : Rect;
 
 set_window_size :: (window_width: int, window_height: int) {
     window_panel.parent = null;
-    window_panel._box = box(0, 0, window_width, window_height);
+    window_panel.box = get_box(0, 0, window_width, window_height);
     window_panel.rect = .{ 0, 0, xx window_width, xx window_height };
 }
 
@@ -513,32 +513,32 @@ resolve_ord :: (pos: float, size: float, ord: Ord) -> float {
     return pos + ord.rel * size + ord.abs;
 }
 
-resolve_rect :: (rect: Rect, _box: Box) -> Rect {
-    x := resolve_ord(rect.x, rect.w, _box.tl.x);
-    y := resolve_ord(rect.y, rect.h, _box.tl.y);
-    w := resolve_ord(rect.x, rect.w, _box.br.x) - x;
-    h := resolve_ord(rect.y, rect.h, _box.br.y) - y;
+resolve_rect :: (rect: Rect, box: Box) -> Rect {
+    x := resolve_ord(rect.x, rect.w, box.tl.x);
+    y := resolve_ord(rect.y, rect.h, box.tl.y);
+    w := resolve_ord(rect.x, rect.w, box.br.x) - x;
+    h := resolve_ord(rect.y, rect.h, box.br.y) - y;
     return .{ x, y, w, h };
 }
 
-calculate_rect :: (panel: *$T/Panel) -> Rect {
-    if !panel.parent  return panel.rect;
+calculate_rect :: (at: *$T/At_Location) -> Rect {
+    if !at.parent  return at.rect;
 
     parent_rect : Rect = ---;
-    if panel.parent.rect_frame_count < frame.count
-        parent_rect = calculate_rect(panel.parent);
+    if at.parent.rect_frame_count < frame.count
+        parent_rect = calculate_rect(at.parent);
     else
-        parent_rect = panel.parent.rect;
+        parent_rect = at.parent.rect;
 
-    panel.rect = resolve_rect(parent_rect, panel._box);
-    panel.rect_frame_count = frame.count;
+    at.rect = resolve_rect(parent_rect, at.box);
+    at.rect_frame_count = frame.count;
 
-    return panel.rect;
+    return at.rect;
 }
 
-calculate_rect :: (parent: *$T/Panel, _box: Box) -> Rect {
+calculate_rect :: (parent: *$T/At_Location, box: Box) -> Rect {
     calculate_rect(parent);
-    return resolve_rect(parent.rect, _box);
+    return resolve_rect(parent.rect, box);
 }
 
 get_rect :: (widget: *Widget) -> Rect {

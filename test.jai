@@ -25,11 +25,11 @@ main :: () {
 
         height :: 30;
 
-        show_table := checkbox(top, box(0.5,20, ord(0.5,200),20+height), "Show Wordcount");
+        show_table := checkbox(top, get_box(0.5,20, ord(0.5,200),20+height), "Show Wordcount");
 
         if show_table {
             table_panel, _ := split_left_right(right, 0.7);
-            clicked, table := data_table(table_panel, box(.FILL), word_count);
+            clicked, table := data_table(table_panel, get_box(.FILL), word_count);
             if clicked {
                 print("% %", table.clicked_header, table.clicked_item.*);
             }
@@ -39,7 +39,7 @@ main :: () {
             button_panel, _ := split_left_right(right, 0.7);
             begin_placing(at_top(height));
             for 0 .. button_count - 1
-                button(it, button_count, button_panel,  box(.COPY_DOWN),  lorem[it % lorem.count], .LEFT | .SERIF);
+                button(it, button_count, button_panel,  get_box(.COPY_DOWN),  lorem[it % lorem.count], .LEFT | .SERIF);
         }
 
         text_input(left, shrink(at_top(height), 0.2, 0), "Hola");
@@ -52,54 +52,54 @@ main :: () {
         {
             push_spacing(4);  defer pop_spacing();
 
-            value, scrollbar := vertical_scrollbar(left, box(100,50, 120,200), 0.0, .{0.0, 0.2}, tooltip = "A vertical scrollbar" );
-            label(left, box(.COPY_RIGHT), tprint("% % %", value, scrollbar.handle_position, scrollbar.handle_size));
+            value, scrollbar := vertical_scrollbar(left, get_box(100,50, 120,200), 0.0, .{0.0, 0.2}, tooltip = "A vertical scrollbar" );
+            label(left, get_box(.COPY_RIGHT), tprint("% % %", value, scrollbar.handle_position, scrollbar.handle_size));
 
-            value, scrollbar = horizontal_scrollbar(left, box(250,50, 450,70), tooltip = "A horizontal scrollbar");
-            _, l := label(left, box(.COPY_LEFT), value, Flags.RIGHT);
+            value, scrollbar = horizontal_scrollbar(left, get_box(250,50, 450,70), tooltip = "A horizontal scrollbar");
+            _, l := label(left, get_box(.COPY_LEFT), value, Flags.RIGHT);
 
-            i:, scrollbar = horizontal_scrollbar(left, box(scrollbar, .COPY_DOWN), min, .{min, max}, tooltip = "Another horizontal scrollbar");
-            label(left, box(.COPY_LEFT), i, Flags.RIGHT);
+            i:, scrollbar = horizontal_scrollbar(left, get_box(scrollbar, .COPY_DOWN), min, .{min, max}, tooltip = "Another horizontal scrollbar");
+            label(left, get_box(.COPY_LEFT), i, Flags.RIGHT);
 
-            volume:, scrollbar = horizontal_scrollbar(left, box(scrollbar, .COPY_DOWN), min, .{min, max}, .REVERSE_SCROLLWHEEL, "Volume control");
-            label(left, box(.COPY_LEFT), tprint("volume: %", volume), Flags.RIGHT);
+            volume:, scrollbar = horizontal_scrollbar(left, get_box(scrollbar, .COPY_DOWN), min, .{min, max}, .REVERSE_SCROLLWHEEL, "Volume control");
+            label(left, get_box(.COPY_LEFT), tprint("volume: %", volume), Flags.RIGHT);
 
-            if checkbox(left, box(scrollbar, .COPY_DOWN), "Gromit the scrogs", tooltip = "They really need it") {
+            if checkbox(left, get_box(scrollbar, .COPY_DOWN), "Gromit the scrogs", tooltip = "They really need it") {
                 quadrant_button_flags = .THEME_A;
             }
 
-            checkbox(left, box(.COPY_DOWN), "Show Scroll Wheel", *show_wheel, .IMMEDIATE | maybe_lock, tooltip = "It might be hidden!");
+            checkbox(left, get_box(.COPY_DOWN), "Show Scroll Wheel", *show_wheel, .IMMEDIATE | maybe_lock, tooltip = "It might be hidden!");
 
-            maybe_lock = ifx checkbox(left, box(.COPY_DOWN), "Lock it down", maybe_lock != 0, .RIGHT | .IMMEDIATE, "Not allowed")
+            maybe_lock = ifx checkbox(left, get_box(.COPY_DOWN), "Lock it down", maybe_lock != 0, .RIGHT | .IMMEDIATE, "Not allowed")
                          then .LOCKED
                          else xx 0;
         }
 
         push_spacing(4);
-        left_value, left_scrollbar := vertical_scrollbar(window, box(0,50, theme.scrollbar_size,ord(-50, 1.0)), 0, .{min, max}, .SMOOTH | maybe_lock,
+        left_value, left_scrollbar := vertical_scrollbar(window, get_box(0,50, theme.scrollbar_size,ord(-50, 1.0)), 0, .{min, max}, .SMOOTH | maybe_lock,
                                                          "Look how smoothly it scrolls");
 
-        right_value, right_scrollbar := vertical_scrollbar(window, box(.MIRROR_HORIZONTAL), 1, .{min, max}, maybe_lock,
+        right_value, right_scrollbar := vertical_scrollbar(window, get_box(.MIRROR_HORIZONTAL), 1, .{min, max}, maybe_lock,
                                                            "Watch it jump between values");
-        label(window, box(left_scrollbar, .COPY_RIGHT), tprint("% % %", left_value, left_scrollbar.handle_size, left_scrollbar.handle_position));
-        label(window, box(right_scrollbar, .COPY_LEFT), right_value, Flags.RIGHT);
+        label(window, get_box(left_scrollbar, .COPY_RIGHT), tprint("% % %", left_value, left_scrollbar.handle_size, left_scrollbar.handle_position));
+        label(window, get_box(right_scrollbar, .COPY_LEFT), right_value, Flags.RIGHT);
         pop_spacing();
 
-        text_box(left, box(0.5,ord(0.5, -50), -20,ord(0.5, +50)), lorem_text, .SMOOTH);
+        text_box(left, get_box(0.5,ord(0.5, -50), -20,ord(0.5, +50)), lorem_text, .SMOOTH);
 
         upper, lower := split_top_bottom(left, 0.66);
         tl, tr, bl, br := split_quadrants(lower, 0.5, 0.5);
         quadrant_button_flags |= maybe_lock;
-        button(tl, shrink(box(.FILL), 0.2), "Uno", quadrant_button_flags, "One");
-        button(tr, shrink(box(.FILL), 0.2), "Dos", quadrant_button_flags, "Two");
-        button(bl, shrink(box(.FILL), 0.2), "Tres", quadrant_button_flags, "Three");
-        button(br, shrink(box(.FILL), 0.2), "Mas", quadrant_button_flags, "More");
+        button(tl, shrink(get_box(.FILL), 0.2), "Uno", quadrant_button_flags, "One");
+        button(tr, shrink(get_box(.FILL), 0.2), "Dos", quadrant_button_flags, "Two");
+        button(bl, shrink(get_box(.FILL), 0.2), "Tres", quadrant_button_flags, "Three");
+        button(br, shrink(get_box(.FILL), 0.2), "Mas", quadrant_button_flags, "More");
 
-        if label(window, box(-300,-30, -100,1.0), "Scroll Wheel:", Flags.RIGHT | .INTERACTS, "Get it back")
+        if label(window, get_box(-300,-30, -100,1.0), "Scroll Wheel:", Flags.RIGHT | .INTERACTS, "Get it back")
             show_wheel = !show_wheel;
 
         if show_wheel {
-            clicked, b := button(window, box(-100,-30, 1.0,1.0), tprint("%", mouse.scrollwheel), tooltip = "Teehee");
+            clicked, b := button(window, get_box(-100,-30, 1.0,1.0), tprint("%", mouse.scrollwheel), tooltip = "Teehee");
             if clicked
                 show_wheel = false;
 
@@ -128,7 +128,7 @@ main :: () {
             else {
                 text = tprint("%", t);
             }
-            print("% : % = %\n", text, clicked_widget._box, clicked_widget.rect);
+            print("% : % = %\n", text, clicked_widget.box, clicked_widget.rect);
         }
     }
 }

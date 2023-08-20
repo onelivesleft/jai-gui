@@ -1,3 +1,105 @@
+At_Location :: struct {
+    parent: *At_Location;
+    box: Box;
+    rect: Rect;
+    rect_frame_count: int;
+}
+
+
+at :: (parent: *At_Location, tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
+        && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT)
+        && (V == Ord || (cast(*Type_Info)V).type == .INTEGER || (cast(*Type_Info)V).type == .FLOAT)
+        && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
+}
+{
+    at := At_Location.{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
+    return *at;
+}
+
+at :: (parent: *At_Location, box: Box) -> *At_Location #expand #no_debug {
+    at := At_Location.{ parent, box, .{}, 0 };
+    return *at;
+}
+
+at :: (parent: *At_Location, auto_place: Auto_Place) -> *At_Location #expand #no_debug {
+    at := At_Location.{ parent, Box(auto_place), .{}, 0 };
+    return *at;
+}
+
+
+
+split_left_right :: (location: *At_Location, partition_ord: $T) -> *At_Location, *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return at(location, get_box(0,0, partition_ord,1.0)), at(location, get_box(partition_ord,0, 1.0,1.0));
+}
+
+split_top_bottom :: (location: *At_Location, partition_ord: $T) -> *At_Location, *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return at(location, get_box(0,0, 1.0,partition_ord)), at(location, get_box(0,partition_ord, 1.0,1.0));
+}
+
+
+split_left_middle_right :: (location: *At_Location, left_partition_ord: $T, right_partition_ord: $U) -> *At_Location, *At_Location, *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
+        && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
+}
+{
+    return at(location, get_box(0,0, left_partition_ord,1.0)),
+           at(location, get_box(left_partition_ord,0, right_partition_ord,1.0)),
+           at(location, get_box(right_partition_ord,0, 1.0,1.0));
+}
+
+split_top_middle_bottom :: (location: *At_Location, top_partition_ord: $T, bottom_partition_ord: $U) -> *At_Location, *At_Location, *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
+        && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
+}
+{
+    return at(location, get_box(0,0, 1.0,top_partition_ord)),
+           at(location, get_box(0,top_partition_ord, 1.0,bottom_partition_ord)),
+           at(location, get_box(0,bottom_partition_ord, 1.0,1.0));
+}
+
+
+split_scrollbar_left :: (location: *At_Location) -> *At_Location, *At_Location #expand #no_debug {
+    return at(location, get_box(0,0, theme.scrollbar_size,1.0)), at(location, get_box(theme.scrollbar_size,0, 1.0,1.0));
+}
+
+split_scrollbar_right :: (location: *At_Location) -> *At_Location, *At_Location #expand #no_debug {
+    return at(location, get_box(0,0, -theme.scrollbar_size,1.0)), at(location, get_box(-theme.scrollbar_size,0, 1.0,1.0));
+}
+
+split_scrollbar_top :: (location: *At_Location) -> *At_Location, *At_Location #expand #no_debug {
+    return at(location, get_box(0,0, 1.0,theme.scrollbar_size)), at(location, get_box(0,theme.scrollbar_size, 1.0,1.0));
+}
+
+split_scrollbar_bottom :: (location: *At_Location) -> *At_Location, *At_Location #expand #no_debug {
+    return at(location, get_box(0,0, 1.0,-theme.scrollbar_size)), at(location, get_box(0,-theme.scrollbar_size, 1.0,1.0));
+}
+
+
+split_quadrants :: (location: *At_Location, horizontal_partition_ord: $T, vertical_partition_ord: $U) -> top_left: *At_Location, top_right: *At_Location, bottom_left: *At_Location, bottom_right: *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
+        && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
+}
+{
+    return at(location, get_box(0,0, horizontal_partition_ord,vertical_partition_ord)),
+           at(location, get_box(horizontal_partition_ord,0, 1.0,vertical_partition_ord)),
+           at(location, get_box(0,vertical_partition_ord, horizontal_partition_ord,1.0)),
+           at(location, get_box(horizontal_partition_ord,vertical_partition_ord, 1.0,1.0));
+}
+
+
 Ord :: struct {
     rel: float;
     abs: int;
@@ -87,7 +189,7 @@ Box :: struct {
     bry: Ord;
 }
 
-box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
+get_box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT)
@@ -130,30 +232,30 @@ at_right :: (_ord: $T) -> Box
     return .{ coord(ord(_ord), 0), coord(1.0, 1.0) };
 }
 
-translate :: (box: *Box, $$x: int, $$y: int) {
-    box.tl.x.abs += x;
-    box.br.x.abs += x;
-    box.tl.y.abs += y;
-    box.br.y.abs += y;
+translate :: (get_box: *Box, $$x: int, $$y: int) {
+    get_box.tl.x.abs += x;
+    get_box.br.x.abs += x;
+    get_box.tl.y.abs += y;
+    get_box.br.y.abs += y;
 }
 
-abs_width :: (box: Box) -> int {
-    assert(box.tl.x.rel == box.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
-    return box.br.x.abs - box.tl.x.abs;
+abs_width :: (get_box: Box) -> int {
+    assert(get_box.tl.x.rel == get_box.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
+    return get_box.br.x.abs - get_box.tl.x.abs;
 }
 
-abs_height :: (box: Box) -> int {
-    assert(box.tl.y.rel == box.br.y.rel, "You can only calculate an absolute height if both y Coords use the same origin (i.e. have the same rel)");
-    return box.br.y.abs - box.tl.y.abs;
+abs_height :: (get_box: Box) -> int {
+    assert(get_box.tl.y.rel == get_box.br.y.rel, "You can only calculate an absolute height if both y Coords use the same origin (i.e. have the same rel)");
+    return get_box.br.y.abs - get_box.tl.y.abs;
 }
 
-shrink :: (box: Box, delta_ord: $T) -> Box
+shrink :: (get_box: Box, delta_ord: $T) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
     _ord := ord(delta_ord);
-    result := box;
+    result := get_box;
     result.tl.x += _ord;
     result.tl.y += _ord;
     result.br.x -= _ord;;
@@ -161,7 +263,7 @@ shrink :: (box: Box, delta_ord: $T) -> Box
     return result;
 }
 
-shrink :: (box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
+shrink :: (get_box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
@@ -169,7 +271,7 @@ shrink :: (box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
 {
     horizontal_ord := ord(horizontal_delta_ord);
     vertical_ord := ord(vertical_delta_ord);
-    result := box;
+    result := get_box;
     result.tl.x += horizontal_ord;
     result.tl.y += vertical_ord;
     result.br.x -= horizontal_ord;;
@@ -282,8 +384,8 @@ peek_spacing :: () -> Auto_Place_Spacing {
     return peek(auto_place_spacing);
 }
 
-begin_placing :: (_box: Box) {
-    last_widget_box = _box;
+begin_placing :: (box: Box) {
+    last_widget_box = box;
     new_auto_place = true;
 }
 
@@ -295,24 +397,24 @@ begin_placing :: inline (tlx: $T, tly: $U, brx: $V, bry: $W)
         && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
 }
 {
-    begin_placing(box(tlx, tly, brx, bry));
+    begin_placing(get_box(tlx, tly, brx, bry));
 }
 
-box :: inline (auto_place: Auto_Place) -> Box {
+get_box :: inline (auto_place: Auto_Place) -> Box {
     if new_auto_place {
         new_auto_place = false;
         return last_widget_box;
     }
     else {
-        return box(last_widget_box, auto_place);
+        return get_box(last_widget_box, auto_place);
     }
 }
 
-box :: inline (_panel: *Panel, auto_place: Auto_Place) -> Box {
-    return box(_panel._box, auto_place);
+get_box :: inline (location: *At_Location, auto_place: Auto_Place) -> Box {
+    return get_box(location.box, auto_place);
 }
 
-box :: (from_box: Box, auto_place: Auto_Place) -> Box {
+get_box :: (from_box: Box, auto_place: Auto_Place) -> Box {
     result := from_box;
     spacing := peek_spacing();
 
