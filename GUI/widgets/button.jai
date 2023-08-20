@@ -4,20 +4,27 @@ Button :: struct {
     text: string;
 }
 
-button :: (parent: *Panel, placement: Place, text: string, flags := Widget_Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
+
+button :: (parent: *Panel, placement: Place, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
     clicked, widget := _button(0, parent, placement, flags, text, tooltip,  #insert #run next(*button_count));
     return clicked, widget;
 }
 
-button :: (id: int, $reserve: int, parent: *Panel, placement: Place, text: string, flags := Widget_Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
+button :: (id: int, $reserve: int, parent: *Panel, placement: Place, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of buttons being created)");
     clicked, widget := _button(id, parent, placement, flags, text, tooltip, #insert #run next(*button_count, reserve));
     return clicked, widget;
 }
 
+button :: (button: *Button, parent: *Panel, placement: Place, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
+    clicked, widget := _button(button, parent, placement, flags, text, tooltip);
+    return clicked, widget;
+}
+
+
 get_index :: (button: *Button) -> int {
     index := button - button_data.data;
-    assert(0 <= index && index < button_data.count);
+    assert(0 <= index && index < button_data.count, "Called get_index with a user-allocated button");
     return index;
 }
 
@@ -28,8 +35,12 @@ get_index :: (button: *Button) -> int {
 button_data : [] Button;
 #no_reset button_count := 0;
 
-_button :: (id: int, parent: *Panel, placement: Place, flags: Widget_Flags, text: string, tooltip: string, $gui_index: int) -> clicked: bool, *Button {
-    button := *button_data[gui_index + id];
+_button :: inline (id: int, parent: *Panel, placement: Place, flags: Flags, text: string, tooltip: string, $gui_index: int) -> clicked: bool, *Button {
+    clicked, button := _button(*button_data[gui_index + id], parent, placement, flags, text, tooltip);
+    return clicked, button;
+}
+
+_button :: (button: *Button, parent: *Panel, placement: Place, flags: Flags, text: string, tooltip: string) -> clicked: bool, *Button {
     button.* = .{ widget(parent, placement, tooltip, flags), text };
     last_widget_placement = placement;
 

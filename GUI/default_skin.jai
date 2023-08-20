@@ -29,6 +29,9 @@ Theme :: struct {
     checkbox_border := 2;
     checkbox_text_size : s16 = 16;
 
+    cursor_color := Vector4.{1.0, 1.0, 1.0, 1.0};
+    selection_color := Vector4.{0.7, 0.7, 0.7, 1.0};
+
     text_input_border_color      := Vector4.{0.55, 0.35, 0.35, 1.0};
     text_input_background        := Vector4.{0.35, 0.25, 0.25, 1.0};
     text_input_background_active := Vector4.{0.45, 0.35, 0.35, 1.0};
@@ -41,7 +44,15 @@ Theme :: struct {
     scrollbar_handle_background        := Vector4.{0.55, 0.35, 0.35, 1.0};
     scrollbar_handle_background_active := Vector4.{0.75, 0.55, 0.55, 1.0};
     scrollbar_handle_background_hot    := Vector4.{0.65, 0.45, 0.45, 1.0};
+    scrollbar_min_handle_size := 1.0 / 40;
     scrollbar_size := 20;
+
+    text_box_text_size : s16 = 16;
+    text_box_row_height := 20;
+
+    data_table_background_hot := Vector4.{0.75, 0.55, 0.55, 1.0};
+    data_table_foreground_hot := Vector4.{0.1, 0.1, 0.1, 1.0};
+    data_table_row_height := 30;
 }
 
 alternate_theme := Theme.{
@@ -68,6 +79,9 @@ alternate_theme := Theme.{
     checkbox_border = 2,
     checkbox_text_size = 16,
 
+    cursor_color = Vector4.{1.0, 1.0, 1.0, 1.0},
+    selection_color = Vector4.{0.7, 0.7, 0.7, 1.0},
+
     text_input_border_color      = Vector4.{0.55, 0.35, 0.35, 1.0},
     text_input_background        = Vector4.{0.35, 0.25, 0.25, 1.0},
     text_input_background_active = Vector4.{0.45, 0.35, 0.35, 1.0},
@@ -80,8 +94,15 @@ alternate_theme := Theme.{
     scrollbar_handle_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
     scrollbar_handle_background_active = Vector4.{0.55, 0.75, 0.55, 1.0},
     scrollbar_handle_background_hot    = Vector4.{0.45, 0.65, 0.45, 1.0},
+    scrollbar_min_handle_size = 1.0 / 40,
     scrollbar_size = 20,
 
+    text_box_text_size = 16,
+    text_box_row_height = 20,
+
+    data_table_background_hot = Vector4.{0.75, 0.55, 0.55, 1.0},
+    data_table_foreground_hot = Vector4.{0.1, 0.1, 0.1, 1.0},
+    data_table_row_height = 30,
 };
 
 locked_theme := Theme.{
@@ -97,7 +118,9 @@ locked_theme := Theme.{
     scrollbar_handle_background = Vector4.{0.4, 0.4, 0.4, 1.0},
 };
 
-themes : [4] *type_of(theme) : .[*theme, *alternate_theme, *theme, *theme];
+theme_b, theme_c : Theme;
+
+themes : [4] *type_of(theme) : .[*theme, *alternate_theme, *theme_b, *theme_c];
 
 
 #scope_file;
@@ -172,6 +195,10 @@ get_font :: (style: Font_Style, pixel_height: s16, text: string, fit_width := 0.
     }
 
     return font, width;
+}
+
+get_text_width :: (font: *Font, s: string) -> width: s64 {
+    return Simp.prepare_text(font, s);
 }
 
 default_text_baseline :: (font: *Font, height: float) -> float {
@@ -259,17 +286,6 @@ pop_scissor :: () {
     }
 }
 
-scissor :: (rect: Rect) #expand {
-    push_scissor(rect);
-    `defer pop_scissor();
-}
-
-scissor :: (rect: Rect, flags: Widget_Flags) #expand {
-    scissoring := !(flags & .OVERFLOW) || (flags & .CROP);
-    if scissoring  push_scissor(rect);
-    `defer if scissoring  pop_scissor();
-}
-
 draw_rect :: (rect: Rect, color: Vector4) {
     v4 := gl_vec4(rect);
     Simp.immediate_quad(v4.x, v4.y, v4.z, v4.w, color);
@@ -279,7 +295,20 @@ switch_theme :: () #expand {
     `theme := ifx `flags & .LOCKED then locked_theme else themes[theme_index(`flags)];
 }
 
+
 #scope_export
+
+
+scissor :: (rect: Rect) #expand {
+    push_scissor(rect);
+    `defer pop_scissor();
+}
+
+scissor :: (rect: Rect, flags: Flags) #expand {
+    scissoring := !(flags & .OVERFLOW) || (flags & .CROP);
+    if scissoring  push_scissor(rect);
+    `defer if scissoring  pop_scissor();
+}
 
 
 clear_window :: () {
@@ -288,13 +317,13 @@ clear_window :: () {
 }
 
 draw_tooltip :: (using widget: *Widget) {
-    assert(rect_frame_count == frame_count);
+    assert(rect_frame_count == frame.count);
 
     switch_theme();
 
     font, text_width := get_font(.SERIF, theme.tooltip_text_size, tooltip);
     width := min(theme.tooltip_max_width, text_width + theme.padding * 2);
-    text_rect := Rect.{mouse_x + theme.tooltip_offset.x, mouse_y + theme.tooltip_offset.y, width, xx theme.tooltip_text_size };
+    text_rect := Rect.{mouse.x + theme.tooltip_offset.x, mouse.y + theme.tooltip_offset.y, width, xx theme.tooltip_text_size };
     tooltip_rect := expand(text_rect, (theme.tooltip_border + theme.padding) * 2);
     if tooltip_rect.x + tooltip_rect.w > window_panel.rect.w
         tooltip_rect.x -= (tooltip_rect.w + theme.tooltip_offset.x);
@@ -314,11 +343,11 @@ draw_tooltip :: (using widget: *Widget) {
 }
 
 draw_button :: (using button: *Button) {
-    assert(rect_frame_count == frame_count);
+    assert(rect_frame_count == frame.count);
 
     switch_theme();
 
-    button_rect := shrink(rect, 1);
+    button_rect := shrink(rect, 0, 0, 1, 1);
     scissor(button_rect, flags);
     Simp.set_shader_for_color();
 
@@ -335,14 +364,14 @@ draw_button :: (using button: *Button) {
 }
 
 draw_label :: (using label: *Label) {
-    assert(rect_frame_count == frame_count);
+    assert(rect_frame_count == frame.count);
     if !text  return;
 
     switch_theme();
 
-    label_rect := shrink(rect, 1);
+    label_rect := shrink(rect, 0, 0, 1, 1);
+    label_rect = shrink(label_rect, theme.padding);
     scissor(label_rect, flags);
-    Simp.set_shader_for_color();
 
     font, text_width := get_font(sans_font(flags), theme.label_text_size, text, fit_width(label_rect, flags));
 
@@ -351,7 +380,7 @@ draw_label :: (using label: *Label) {
 }
 
 draw_scrollbar :: (using scrollbar: *Scrollbar) {
-    assert(rect_frame_count == frame_count);
+    assert(rect_frame_count == frame.count);
 
     switch_theme();
 
@@ -366,11 +395,11 @@ draw_scrollbar :: (using scrollbar: *Scrollbar) {
 }
 
 draw_checkbox :: (using checkbox: *Checkbox) {
-    assert(rect_frame_count == frame_count);
+    assert(rect_frame_count == frame.count);
 
     switch_theme();
 
-    checkbox_rect := shrink(rect, 1);
+    checkbox_rect := shrink(rect, 0, 0, 1, 1);
     scissor(checkbox_rect, flags);
     Simp.set_shader_for_color();
 
@@ -401,11 +430,11 @@ draw_checkbox :: (using checkbox: *Checkbox) {
 }
 
 draw_text_input :: (using text_input: *Text_Input) {
-    assert(rect_frame_count == frame_count);
+    assert(rect_frame_count == frame.count);
 
     switch_theme();
 
-    text_input_rect := shrink(rect, 1);
+    text_input_rect := shrink(rect, 0, 0, 1, 1);
     scissor(text_input_rect, flags);
     Simp.set_shader_for_color();
 
@@ -414,12 +443,124 @@ draw_text_input :: (using text_input: *Text_Input) {
     text_input_rect = shrink(text_input_rect, theme.text_input_border);
     draw_rect(text_input_rect, color);
 
-    if !text  return;
+    if !has_focus(text_input) {
+        if !text  return;
+
+        text_rect := shrink(text_input_rect, theme.padding);
+        scissor(text_rect, flags);
+        font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text, fit_width(text_rect, flags));
+
+        text_x, text_y := text_origin(left_align(flags), font, text_rect, text_width);
+        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.text_input_foreground);
+        return;
+    }
 
     text_rect := shrink(text_input_rect, theme.padding);
-    scissor(text_rect, flags);
-    font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text, fit_width(text_rect, flags));
+    cursor_rect : Rect = ---;
+    font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text_edit.before_cursor, 0);
+     {
+        scissor(text_rect, flags);
+        text_edit.cursor_x = ifx text_width < text_rect.w then text_width else text_rect.w / 2;
 
-    text_x, text_y := text_origin(left_align(flags), font, text_rect, text_width);
-    Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.text_input_foreground);
+        left_rect, right_rect := split_left_right(text_rect, text_edit.cursor_x);
+        cursor_rect = right_rect;
+        text_x, text_y := text_origin(.RIGHT, font, left_rect, text_width);
+
+        has_selection := text_edit_selection();
+        if has_selection {
+            s := text_edit.as_string;
+            s.count = text_edit.select_anchor;
+            _, selection_x := get_font(sans_font(flags), theme.text_input_text_size, s, 0);
+            selection_x += text_x;
+
+            selection_rect := right_rect;
+            if selection_x > right_rect.x {
+                selection_rect.w = selection_x - right_rect.x;
+            }
+            else {
+                selection_rect.x = selection_x;
+                selection_rect.w = right_rect.x - selection_x;
+            }
+            Simp.set_shader_for_color();
+            draw_rect(selection_rect, theme.selection_color);
+        }
+
+        font, text_width = get_font(sans_font(flags), theme.text_input_text_size, text_edit.as_string, 0);
+        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.text_input_foreground);
+    }
+
+    cursor_rect.x -= 1;
+    cursor_rect.w = 2;
+    Simp.set_shader_for_color();
+    draw_rect(cursor_rect, theme.cursor_color);
+}
+
+draw_data_table :: (using data_table: *Data_Table) {
+    if !first_label_on_hot_row && !first_label_on_selected_row  return;
+
+    switch_theme();
+
+    highlight_row :: (first_label_on_row: *Label, color: Vector4) #expand {
+        if !first_label_on_row  return;
+        last_label_on_row := first_label_on_row + columns - 1;
+        row_rect := first_label_on_row.rect;
+        row_rect.w = last_label_on_row.rect.x + last_label_on_row.rect.w - first_label_on_row.rect.x;
+        Simp.set_shader_for_color();
+        draw_rect(row_rect, color);
+
+        label := first_label_on_row;
+        while label <= last_label_on_row {
+            label_rect := shrink(label.rect, 0, 0, 1, 1);
+            label_rect = shrink(label_rect, theme.padding);
+            scissor(label_rect, label.flags);
+
+            font, text_width := get_font(sans_font(label.flags), theme.label_text_size, label.text, fit_width(label_rect, label.flags));
+
+            text_x, text_y := text_origin(left_align(label.flags), font, label_rect, text_width);
+            Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.data_table_foreground_hot);
+            label += 1;
+        }
+    }
+
+    if first_label_on_selected_row != first_label_on_hot_row
+        highlight_row(first_label_on_selected_row, theme.selection_color);
+    highlight_row(first_label_on_hot_row, theme.data_table_background_hot);
+}
+
+draw_text_box :: (using text_box: *Text_Box) { }
+
+
+bite_text_line_for_width :: (text: string, default_font: Font_Style, size: s16, flags: Flags, width: int) -> line: string, remainder: string {
+    if !text  return "", "";
+
+    remainder := text;
+    line := text;
+    line.count = 1 + trailing_utf8_bytes[text[0]];
+    if line[0] == #char "\n" {
+        advance(*remainder, 1);
+        return line, remainder;
+    }
+
+    font_style := font_style_from_flags(flags, default_font);
+    font, text_width := get_font(sans_font(flags), size, text, 0);
+
+    while line.count < text.count {
+        c := text[line.count];
+
+        if c == #char "\n" {
+            line.count += 1;
+            break;
+        }
+
+        if get_text_width(font, line) > width
+            break;
+
+        line.count += 1 + trailing_utf8_bytes[c];
+    }
+
+    if line.count > text.count
+        line.count = text.count;
+    advance(*remainder, line.count);
+
+    return line, remainder;
 }

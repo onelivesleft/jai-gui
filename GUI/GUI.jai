@@ -13,32 +13,42 @@
 #load "widgets/panel.jai";
 #load "widgets/button.jai";
 #load "widgets/checkbox.jai";
+#load "widgets/data_table.jai";
 #load "widgets/label.jai";
 #load "widgets/scrollbar.jai";
+#load "widgets/text_box.jai";
 #load "widgets/text_input.jai";
 
 Widgets :: Type.[
-    Panel, Button, Checkbox, Label, Scrollbar, Text_Input
+    Panel, Button, Checkbox, Data_Table, Label, Scrollbar, Text_Input, Text_Box
 ];
 
-hot_widget:      *Widget;    // typically use is_hot(widget)
-active_widget:   *Widget;    // typically use is_active(widget)
+hot_widget:      *Widget;    // prefer is_hot(widget)
+active_widget:   *Widget;    // prefer is_active(widget)
+focussed_widget: *Widget;    // prefer has_focus(widget)
+focussed_widget_type: Type;
 
-clicked_widget:  *Widget;    // typically use was_clicked(widget).  Lasts a single frame, when mouse is released on active_widget
-changed_widget:  *Widget;    // typically use was_changed(widget).  Lasts a single frame, a widget which changed substantially, i.e. a scrollbar moving
-scrollwheel_widget: *Widget; // typically use was_scrollwheeled(widget).  Lasts a single frame, when widget has used the scrollwheel for something
+clicked_widget:  *Widget;    // prefer was_clicked(widget).  Lasts a single frame, when mouse is released on active_widget
+changed_widget:  *Widget;    // prefer was_changed(widget).  Lasts a single frame, a widget which changed substantially, i.e. a scrollbar moving
+scrollwheel_widget: *Widget; // prefer was_scrollwheeled(widget).  Lasts a single frame, when widget has used the scrollwheel for something
 
-mouse_x, mouse_y: float;
-mouse_left_button_down, mouse_left_button_up, mouse_left_button_held: bool;
-mouse_middle_button_down, mouse_middle_button_up, mouse_middle_button_held: bool;
-mouse_right_button_down, mouse_right_button_up, mouse_right_button_held: bool;
-mouse_scrollwheel: int;       // normalized, will typically be -1, +1 or 0
-mouse_scrollwheel_fraction: float;  // on devices with high-precision wheels this can be [0.0, +/-1.0)
-                                    // (though you can typically ignore it as it will automaticaly accumulate
-                                    //  into mouse_scrollwheel)
-frame_count: int;
-frame_time: float64;
-frame_dt: float;
+mouse : struct {
+    x, y: float;
+    left_button_down, left_button_up, left_button_held: bool;
+    middle_button_down, middle_button_up, middle_button_held: bool;
+    right_button_down, right_button_up, right_button_held: bool;
+    scrollwheel: int;             // normalized, will typically be -1, +1 or 0
+    scrollwheel_fraction: float;  // on devices with high-precision wheels this can be (-1.0, +1.0)
+                                        // (though you can typically ignore it as it will automaticaly accumulate
+                                        //  into scrollwheel)
+    scrollwheel_resolution :: 120;
+}
+
+frame : struct {
+    count: int;
+    time: float64;
+    dt: float;
+}
 
 gui_window : Window_Creation.Window_Type;
 
@@ -53,15 +63,17 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
     #insert -> string {
         builder : String_Builder;
         for Widgets {
-            type_name := tprint("%", it);
-            name := copy_string(type_name, temp);
-            name[0] = to_lower(name[0]);
+            info := cast(*Type_Info) it;
+            type_name := tprint(ifx info.runtime_size >= 0 then "%" else "%(void)", it);
+            name := lower(tprint("%", it));
             print_to_builder(*builder, #string jai
                 %1_data = NewArray(%1_count, %2);
-            jai, lower(name), type_name);
+            jai, name, type_name);
         }
         return builder_to_string(*builder);
     }
+
+    allocate_text_edit(1024);
 
     array_reset(*auto_place_spacing);
     array_add(*auto_place_spacing, .{0, 0});
@@ -78,11 +90,10 @@ gui_begin_frame :: () -> continue_running: bool {
     #if !MANUAL_END_FRAME
         gui_end_frame();
 
-    frame_count += 1;
-    prev_frame_time = frame_time;
-    frame_time = get_time();
-    frame_dt := cast(float)(frame_time - prev_frame_time);
-    //Clamp(*dt, 0, 0.1);
+    frame.count += 1;
+    prev_frame_time = frame.time;
+    frame.time = get_time();
+    frame.dt = cast(float)(frame.time - prev_frame_time);
 
     Input.update_window_events();
 
@@ -97,12 +108,20 @@ gui_begin_frame :: () -> continue_running: bool {
         if event.type == .QUIT  continue_running = false;
 
         if event.type == {
-          case .KEYBOARD;
-            if event.key_pressed && event.key_code == .ESCAPE {
+            case .TEXT_INPUT;
+            if focussed_widget
+                dispatch_event_to_focussed_widget(event);
+
+            case .KEYBOARD;
+            if focussed_widget {
+                dispatch_event_to_focussed_widget(event);
+            }
+            else if event.key_pressed && event.key_code == .ESCAPE {
                 continue_running = false;
                 //active_widget_deactivate_all();
             }
-          case .DRAG_AND_DROP_FILES;
+
+            case .DRAG_AND_DROP_FILES;
             //for dropped_files free(it);
             //array_reset(*dropped_files);
             //for event.files array_add(*dropped_files, copy_string(it));
@@ -112,32 +131,32 @@ gui_begin_frame :: () -> continue_running: bool {
     Simp.update_window(gui_window);
     clear_window();
 
-    _mouse_x, _mouse_y := Window_Creation.get_mouse_pointer_position(gui_window, false);
-    mouse_x = xx _mouse_x;
-    mouse_y = xx _mouse_y;
+    mouse_x, mouse_y := Window_Creation.get_mouse_pointer_position(gui_window, false);
+    mouse.x = xx mouse_x;
+    mouse.y = xx mouse_y;
 
-    mouse_left_button_down = xx (button_state(.MOUSE_BUTTON_LEFT) & .START);
-    mouse_left_button_held = xx (button_state(.MOUSE_BUTTON_LEFT) & .DOWN);
-    mouse_left_button_up   = xx (button_state(.MOUSE_BUTTON_LEFT) & .END);
+    mouse.left_button_down = xx (button_state(.MOUSE_BUTTON_LEFT) & .START);
+    mouse.left_button_held = xx (button_state(.MOUSE_BUTTON_LEFT) & .DOWN);
+    mouse.left_button_up   = xx (button_state(.MOUSE_BUTTON_LEFT) & .END);
 
-    mouse_middle_button_down = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .START);
-    mouse_middle_button_held = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .DOWN);
-    mouse_middle_button_up   = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .END);
+    mouse.middle_button_down = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .START);
+    mouse.middle_button_held = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .DOWN);
+    mouse.middle_button_up   = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .END);
 
-    mouse_right_button_down = xx (button_state(.MOUSE_BUTTON_RIGHT) & .START);
-    mouse_right_button_held = xx (button_state(.MOUSE_BUTTON_RIGHT) & .DOWN);
-    mouse_right_button_up   = xx (button_state(.MOUSE_BUTTON_RIGHT) & .END);
+    mouse.right_button_down = xx (button_state(.MOUSE_BUTTON_RIGHT) & .START);
+    mouse.right_button_held = xx (button_state(.MOUSE_BUTTON_RIGHT) & .DOWN);
+    mouse.right_button_up   = xx (button_state(.MOUSE_BUTTON_RIGHT) & .END);
 
-    mouse_scrollwheel_resolution :: 120;
-    mouse_scrollwheel = Input.mouse_delta_z / mouse_scrollwheel_resolution;
-    mouse_scrollwheel_fraction += (Input.mouse_delta_z % mouse_scrollwheel_resolution) / cast(float)mouse_scrollwheel_resolution;
-    if mouse_scrollwheel_fraction <= -1.0 {
-        mouse_scrollwheel -= 1;
-        mouse_scrollwheel_fraction += 1.0;
+
+    mouse.scrollwheel = Input.mouse_delta_z / mouse.scrollwheel_resolution;
+    mouse.scrollwheel_fraction += (Input.mouse_delta_z % mouse.scrollwheel_resolution) / cast(float)mouse.scrollwheel_resolution;
+    if mouse.scrollwheel_fraction <= -1.0 {
+        mouse.scrollwheel -= 1;
+        mouse.scrollwheel_fraction += 1.0;
     }
-    else if mouse_scrollwheel_fraction >= 1.0 {
-        mouse_scrollwheel += 1;
-        mouse_scrollwheel_fraction -= 1.0;
+    else if mouse.scrollwheel_fraction >= 1.0 {
+        mouse.scrollwheel += 1;
+        mouse.scrollwheel_fraction -= 1.0;
     }
 
     tooltip_widget = null;
@@ -149,9 +168,13 @@ gui_begin_frame :: () -> continue_running: bool {
 }
 
 gui_end_frame :: inline () {
-    if !mouse_left_button_held {
+    if mouse.left_button_held {
+        if mouse.left_button_down && !active_widget && focussed_widget
+            set_focus(focussed_widget, false, .SOFT);
+    }
+    else {
         if active_widget {
-            active_widget.became_inactive_at = frame_time;
+            active_widget.lost_active_at = frame.time;
             active_widget = null;
         }
     }
@@ -162,16 +185,16 @@ gui_end_frame :: inline () {
         set_hot(hot_widget, false);
 
     if tooltip_widget && tooltip_widget != prev_tooltip_widget
-        became_tooltip_widget_at = frame_time;
+        became_tooltip_widget_at = frame.time;
     prev_tooltip_widget = tooltip_widget;
-    if tooltip_widget && frame_time - became_tooltip_widget_at > theme.tooltip_delay
+    if tooltip_widget && frame.time - became_tooltip_widget_at > theme.tooltip_delay
         draw_tooltip(tooltip_widget);
 
     Simp.swap_buffers(gui_window);
 
-    if active_widget_frame_count != frame_count && hot_widget_frame_count != frame_count && !clicked_widget && !changed_widget {
-        // Nothing big changed so sleep a little
-        dt := get_time() - frame_time;
+    if active_widget_frame_count != frame.count && hot_widget_frame_count != frame.count && !clicked_widget && !changed_widget {
+        // Nothing interesting happened so sleep a little
+        dt := get_time() - frame.time;
         ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
         sleep_milliseconds(ms);
     }
@@ -181,20 +204,27 @@ gui_end_frame :: inline () {
 
 Widget :: struct {
     #as using panel: Panel;
-    using timestamps : struct {
-        became_hot_at : float64;
-        became_cold_at : float64;
-        became_active_at : float64;
-        became_inactive_at : float64;
-        was_clicked_at : float64;
+    using timestamps: struct {
+        // @Performance These could be moved to a set of arrays or hashmaps
+        //              only while pertinent, instead of having them all on
+        //              all widgets.  However, this is a lot simpler...
+        became_hot_at: float64;
+        lost_hot_at: float64;
+        became_active_at: float64;
+        lost_active_at: float64;
+        became_focussed_at: float64;
+        lost_focussed_at: float64;
+        was_clicked_at: float64;
+        was_changed_at: float64;
     }
     tooltip : string;
-    flags : Widget_Flags;
+    flags : Flags;
 }
 
-widget :: inline (parent: *Panel, placement: Place, tooltip: string, flags: Widget_Flags) -> Widget {
-    return .{ panel(parent, placement), .{0, 0, 0, 0, 0}, tooltip, flags };
+widget :: inline (parent: *Panel, placement: Place, tooltip: string, flags: Flags) -> Widget {
+    return .{ panel(parent, placement), .{0, 0, 0, 0, 0, 0, 0, 0}, tooltip, flags };
 }
+
 
 widget_type :: (widget: *Widget) -> Type {
     #insert -> string {
@@ -202,10 +232,16 @@ widget_type :: (widget: *Widget) -> Type {
         for Widgets {
             type_name := tprint("%", it);
             name := copy_string(type_name, temp);
-            name[0] = to_lower(name[0]);
-            print_to_builder(*builder, #string jai
-                if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2;
-            jai, lower(name), type_name);
+            if type_name == "Data_Table" {
+                print_to_builder(*builder, #string jai
+                    if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2(void);
+                jai, lower(name), type_name);
+            }
+            else {
+                print_to_builder(*builder, #string jai
+                    if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2;
+                jai, lower(name), type_name);
+            }
         }
         return builder_to_string(*builder);
     }
@@ -213,13 +249,13 @@ widget_type :: (widget: *Widget) -> Type {
 }
 
 
-Widget_Flags :: enum_flags u64 {
+Flags :: enum_flags u64 {
     NONE    :: 0;
 
     // masked out to get text align
     LEFT   :: 1;
-    CENTER :: 2;
-    RIGHT  :: 3;
+    RIGHT  :: 2;
+    CENTER :: 3;
 
     // masked out to get font style
     SANS   :: 4;
@@ -232,20 +268,21 @@ Widget_Flags :: enum_flags u64 {
     THEME_C :: 48;
 
     // scrollbar
-    SMOOTH  :: 1;
-    REVERSE_SCROLLWHEEL :: 2;  // inverts scrollwheel direction
+    SMOOTH  :: 64;
+    REVERSE_SCROLLWHEEL;  // inverts scrollwheel direction
 
     // flags
-    LOCKED  :: 64;
+    LOCKED;
     INTERACTS;  // overrides LOCKED (a widget is only locked if LOCKED & !INTERACTS)
-    FIT;
+    READ_ONLY;
     OVERFLOW;   // don't scissor
     CROP;       // do scissor even if OVERFLOW is set
+    FIT;
     IMMEDIATE;  // update value immediately, rather than when user completes action
 
 }
 
-fit_width :: (rect: Rect, flags: Widget_Flags) -> float {
+fit_width :: (rect: Rect, flags: Flags) -> float {
     return ifx flags & .FIT then rect.w else 0;
 }
 
@@ -255,27 +292,19 @@ text_align_mask : u64 : 0b11;
 Text_Alignment :: enum u8 {
     DEFAULT :: 0;
     LEFT    :: 1;
-    CENTER  :: 2;
-    RIGHT   :: 3;
+    RIGHT   :: 2;
+    CENTER  :: 3;
 }
 
-left_align :: (flags: Widget_Flags) -> Text_Alignment {
+text_alignment_from_flags :: (flags: Flags, default_text_alignment: Text_Alignment) -> Text_Alignment {
     text_align : Text_Alignment = xx (text_align_mask & xx flags);
-    if !text_align  return .LEFT;
-    return text_align;
+    if text_align  return text_align;
+    else           return default_text_alignment;
 }
 
-center_align :: (flags: Widget_Flags) -> Text_Alignment {
-    text_align : Text_Alignment = xx (text_align_mask & xx flags);
-    if !text_align  return .CENTER;
-    return text_align;
-}
-
-right_align :: (flags: Widget_Flags) -> Text_Alignment {
-    text_align : Text_Alignment = xx (text_align_mask & xx flags);
-    if !text_align  return .RIGHT;
-    return text_align;
-}
+left_align :: #bake_arguments text_alignment_from_flags(default_text_alignment=.LEFT);
+center_align :: #bake_arguments text_alignment_from_flags(default_text_alignment=.CENTER);
+right_align :: #bake_arguments text_alignment_from_flags(default_text_alignment=.RIGHT);
 
 
 font_style_mask : u64 : 0b1100;
@@ -287,27 +316,24 @@ Font_Style :: enum u8 {
     FIXED   :: 3;
 }
 
-sans_font :: (flags: Widget_Flags) -> Font_Style {
-    font_style : Font_Style = xx ((font_style_mask & xx flags) >> 2);
-    if !font_style  return .SANS;
-    return font_style;
+flags_from_font_style :: (font_style: Font_Style) -> Flags {
+    return xx font_style << 2;
 }
 
-serif_font :: (flags: Widget_Flags) -> Font_Style {
+font_style_from_flags :: (flags: Flags, default_font_style: Font_Style) -> Font_Style {
     font_style : Font_Style = xx ((font_style_mask & xx flags) >> 2);
-    if !font_style  return .SERIF;
-    return font_style;
+    if font_style  return font_style;
+    else           return default_font_style;
 }
 
-fixed_font :: (flags: Widget_Flags) -> Font_Style {
-    font_style : Font_Style = xx ((font_style_mask & xx flags) >> 2);
-    if !font_style  return .FIXED;
-    return font_style;
-}
+sans_font :: #bake_arguments font_style_from_flags(default_font_style=.SANS);
+serif_font :: #bake_arguments font_style_from_flags(default_font_style=.SERIF);
+fixed_font :: #bake_arguments font_style_from_flags(default_font_style=.FIXED);
+
 
 theme_index_mask : u64 : 0b110000;
 
-theme_index :: (flags: Widget_Flags) -> int {
+theme_index :: (flags: Flags) -> int {
     return xx (theme_index_mask & xx flags) >> 4;
 }
 
@@ -328,6 +354,10 @@ is_active :: inline (widget: *Widget) -> bool {
     return widget == active_widget;
 }
 
+has_focus :: inline (widget: *Widget) -> bool {
+    return widget == focussed_widget;
+}
+
 was_clicked :: inline (widget: *Widget) -> bool {
     return widget == clicked_widget;
 }
@@ -342,58 +372,85 @@ was_scrollwheeled :: inline (widget: *Widget) -> bool {
 
 set_hot :: (widget: *Widget, hot: bool) {
     if hot {
-        if hot_widget {
-            if hot_widget != widget {
-                hot_widget.became_cold_at = frame_time;
-                hot_widget = widget;
-                widget.became_hot_at = frame_time;
-                hot_widget_frame_count = frame_count;
-            }
-        }
-        else {
-            hot_widget = widget;
-            widget.became_hot_at = frame_time;
-            hot_widget_frame_count = frame_count;
-        }
+        if hot_widget && hot_widget != widget
+            hot_widget.lost_hot_at = frame.time;
+        hot_widget = widget;
+        widget.became_hot_at = frame.time;
+        hot_widget_frame_count = frame.count;
     }
     else if hot_widget == widget {
-        widget.became_cold_at = frame_time;
+        widget.lost_hot_at = frame.time;
         hot_widget = null;
-        hot_widget_frame_count = frame_count;
+        hot_widget_frame_count = frame.count;
     }
 }
 
 request_hot :: (widget: *Widget) {
+    // The idea of request_hot is we set hot_widget at end of frame, so only one widget can ever be considered
+    // hot in a given frame.  However, this may not be an issue, so we're just going to set hot directly for now.
+    // Return to this when we support windows / layers / popups...
+    hot_widget = widget; // @TODO
     next_hot_widget = widget;
 }
 
 set_active :: (widget: *Widget, active: bool) {
     if active {
+        if focussed_widget && focussed_widget != widget
+            set_focus(focussed_widget, false, .SOFT);
         if active_widget && active_widget != widget
-            active_widget.became_inactive_at = frame_time;
+            active_widget.lost_active_at = frame.time;
         active_widget = widget;
-        widget.became_active_at = frame_time;
-        active_widget_frame_count = frame_count;
+        widget.became_active_at = frame.time;
+        active_widget_frame_count = frame.count;
     }
     else if active_widget == widget {
-        active_widget.became_inactive_at = frame_time;
+        active_widget.lost_active_at = frame.time;
         active_widget = null;
+    }
+}
+
+Lost_Focus_Reason :: enum {
+    NONE; CONFIRMED; CANCELLED; SOFT;
+}
+
+set_focus :: (widget: *$T/Widget, focussed: bool, reason := Lost_Focus_Reason.NONE) {
+    if focussed {
+        if focussed_widget && focussed_widget != widget
+            focussed_widget.lost_focussed_at = frame.time;
+        focussed_widget = widget;
+        focussed_widget.became_focussed_at = frame.time;
+        focussed_widget_type = T;
+    }
+    else if focussed_widget == widget {
+        assert(reason != .NONE);
+        focussed_widget.lost_focussed_at = frame.time;
+        focussed_widget = null;
+        if focussed_widget_type == {
+            case Text_Input; lost_focus(cast(*Text_Input)widget, reason);
+        }
+    }
+}
+
+dispatch_event_to_focussed_widget :: (event: Input.Event) {
+    if focussed_widget_type == {
+        case Text_Input;  handle_event(cast(*Text_Input)focussed_widget, event);
     }
 }
 
 set_clicked :: (widget: *Widget) {
     clicked_widget = widget;
-    widget.was_clicked_at = frame_time;
+    widget.was_clicked_at = frame.time;
 }
 
 set_changed :: (widget: *Widget) {
     changed_widget = widget;
+    changed_widget.was_changed_at = frame.time;
 }
 
 update_widget :: (using widget: *Widget) {
     maybe_calculate_rect(widget);
 
-    is_mouse_over := contains(rect, mouse_x, mouse_y);
+    is_mouse_over := contains(rect, mouse.x, mouse.y);
     if is_mouse_over && tooltip
         tooltip_widget = widget;
 
@@ -405,7 +462,7 @@ update_widget :: (using widget: *Widget) {
         request_hot(widget);
 
     if is_active(widget) {
-        if mouse_left_button_up {
+        if mouse.left_button_up {
             set_active(widget, false);
             if is_mouse_over
                 set_clicked(widget);
@@ -415,7 +472,7 @@ update_widget :: (using widget: *Widget) {
     if is_hot(widget) {
         if !is_mouse_over
             set_hot(widget, false);
-        else if mouse_left_button_down
+        else if mouse.left_button_down
             set_active(widget, true);
     }
 }
@@ -457,16 +514,11 @@ resolve_ord :: (pos: float, size: float, ord: Ord) -> float {
     return pos + ord.rel * size + ord.abs;
 }
 
-resolve_rect :: (rect: Rect, place: Place) -> Rect {
-    x := resolve_ord(rect.x, rect.w, place.tl.x);
-    y := resolve_ord(rect.y, rect.h, place.tl.y);
-    w := resolve_ord(rect.x, rect.w, place.br.x) - x;
-    h := resolve_ord(rect.y, rect.h, place.br.y) - y;
-//    x := clamp(resolve_ord(rect.x, rect.w, place.tl.x), 0, window_panel.rect.w);
-//    y := clamp(resolve_ord(rect.y, rect.h, place.tl.y), 0, window_panel.rect.h);
-//    w := clamp(resolve_ord(rect.x, rect.w, place.br.x) - x, 0, window_panel.rect.w);
-//    h := clamp(resolve_ord(rect.y, rect.h, place.br.y) - y, 0, window_panel.rect.h);
-
+resolve_rect :: (rect: Rect, placement: Place) -> Rect {
+    x := resolve_ord(rect.x, rect.w, placement.tl.x);
+    y := resolve_ord(rect.y, rect.h, placement.tl.y);
+    w := resolve_ord(rect.x, rect.w, placement.br.x) - x;
+    h := resolve_ord(rect.y, rect.h, placement.br.y) - y;
     return .{ x, y, w, h };
 }
 
@@ -474,26 +526,31 @@ calculate_rect :: (panel: *$T/Panel) -> Rect {
     if !panel.parent  return panel.rect;
 
     parent_rect : Rect = ---;
-    if panel.parent.rect_frame_count < frame_count
+    if panel.parent.rect_frame_count < frame.count
         parent_rect = calculate_rect(panel.parent);
     else
         parent_rect = panel.parent.rect;
 
     panel.rect = resolve_rect(parent_rect, panel.placement);
-    panel.rect_frame_count = frame_count;
+    panel.rect_frame_count = frame.count;
 
     return panel.rect;
 }
 
+calculate_rect :: (parent: *$T/Panel, placement: Place) -> Rect {
+    calculate_rect(parent);
+    return resolve_rect(parent.rect, placement);
+}
+
 get_rect :: (widget: *Widget) -> Rect {
-    if widget.rect_frame_count  == frame_count
+    if widget.rect_frame_count  == frame.count
         return widget.rect;
     else
         return calculate_rect(widget);
 }
 
 maybe_calculate_rect :: (widget: *Widget) {
-     if widget.rect_frame_count != frame_count
+     if widget.rect_frame_count != frame.count
          widget.rect = calculate_rect(widget);
 }
 
@@ -508,3 +565,65 @@ lower :: (s: string) -> string {
     for i: 0 .. result.count - 1  result[i] = to_lower(result[i]);
     return result;
 }
+
+
+
+get_note_value :: (notes: [] string, id: string, default_value: $T) -> T
+#modify {
+    info := cast(*Type_Info) T;
+    return info.type == .INTEGER || info.type == .FLOAT || info.type == .BOOL || info.type == .STRING || T == Ord, "Invalid note value type";
+}
+{
+    for notes {
+        found, it_id, it_value := split_from_left(it, "(");
+        if it_id != id  continue;
+        if !found  break;
+
+        assert(ends_with(it_value, ")"));
+        it_value.count -= 1;
+
+        #insert -> string {
+            if T == Ord  return #string __jai
+                o, ok := parse_ord(it_value);
+                return ifx ok then o else default_value;
+            __jai;
+            info := cast(*Type_Info) T;
+            if info.type == .INTEGER  return #string __jai
+                i, ok := jai_string.parse_int(*it_value);
+                return ifx ok then i else default_value;
+            __jai;
+
+            if info.type == .FLOAT  return #string __jai
+                f, ok := jai_string.parse_float(*it_value);
+                return ifx ok then f else default_value;
+            __jai;
+
+            if info.type == .BOOL  return #string __jai
+                b, ok := jai_string.parse_bool(*it_value);
+                return ifx ok then b else default_value;
+            __jai;
+
+            return #string __jai
+                return it_value;
+            __jai;
+        }
+    }
+    return default_value;
+}
+
+get_note :: (notes: [] string, id: string) -> bool {
+    for notes  if it == id  return true;
+    return false;
+}
+
+
+trailing_utf8_bytes :: u8.[
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5,
+];

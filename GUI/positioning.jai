@@ -20,6 +20,48 @@ operator + :: (a: Ord, b: Ord) -> Ord {
     return .{ a.rel + b.rel, a.abs + b.abs };
 }
 
+parse_ord :: (s: string) -> Ord, bool {
+    result: Ord;
+    if contains(s, #char ":") {
+        parts := split(s, ",");
+        if parts.count > 2  return result, false;
+        for parts {
+            if contains(it, #char ".") {
+                f, ok := parse_float(*it);
+                if ok  result.rel = f;
+                else   return result, false;
+            }
+            else {
+                i, ok := parse_int(*it);
+                if ok  result.abs = i;
+                else   return result, false;
+            }
+        }
+        return result, true;
+    }
+    else if contains(s, #char ".") {
+        f, ok := parse_float(*s);
+        if ok  return ord(f), true;
+        else   return result, false;
+    }
+    else {
+        i, ok := parse_int(*s);
+        if ok  return ord(i), true;
+        else   return result, false;
+    }
+}
+
+ord_constructor :: (o: Ord) -> string {
+    if o.rel {
+        if o.abs  return tprint("ord(%, %)", formatFloat(o.rel, zero_removal=.NO), o.abs);
+        else      return tprint("ord(%)", formatFloat(o.rel, zero_removal=.NO));
+    }
+    else {
+        return tprint("ord(%)", o.abs);
+    }
+}
+
+
 Coord :: struct {
     x: Ord;
     y: Ord;
@@ -179,12 +221,20 @@ shrink :: (rect: Rect, horizontal_delta: int, vertical_delta: int) -> Rect {
     return .{ rect.x + horizontal_delta, rect.y + vertical_delta, rect.w - horizontal_delta * 2, rect.h - vertical_delta * 2 };
 }
 
+shrink :: (rect: Rect, left: int, top: int, right: int, bottom: int) -> Rect {
+    return .{ rect.x + left, rect.y + top, rect.w - (left + right), rect.h - (top + bottom) };
+}
+
 expand :: (rect: Rect, delta: int) -> Rect {
     return .{ rect.x - delta, rect.y - delta, rect.w + delta * 2, rect.h + delta * 2 };
 }
 
 expand :: (rect: Rect, horizontal_delta: int, vertical_delta: int) -> Rect {
     return .{ rect.x - horizontal_delta, rect.y - vertical_delta, rect.w + horizontal_delta * 2, rect.h + vertical_delta * 2 };
+}
+
+expand :: (rect: Rect, left: int, top: int, right: int, bottom: int) -> Rect {
+    return .{ rect.x - left, rect.y - top, rect.w + (left + right), rect.h + (top + bottom) };
 }
 
 

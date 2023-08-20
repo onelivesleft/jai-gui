@@ -2,7 +2,8 @@
 //       actual widgets.  Their lifetime is not guaranteed to be the frame, and they should only be used
 //       locally.  i.e. if a panel is in a loop you should not refer to it outside the loop.
 //       Consequently you cannot arbitrarily crawl back up the parents of a widget at the end of the frame.
-//       (Well, you can, but if you go through a panel created in a loop it will not give you good results).
+//       (Well, you can, but if you go through a panel created in a loop it won't necessarily give you good results).
+
 
 Panel :: struct {
     parent : *Panel;
@@ -10,6 +11,7 @@ Panel :: struct {
     rect : Rect;
     rect_frame_count : int;
 }
+
 
 panel :: (parent: *Panel, tlx: $T, tly: $U, brx: $V, bry: $W) -> *Panel #expand #no_debug
 #modify {
@@ -19,26 +21,30 @@ panel :: (parent: *Panel, tlx: $T, tly: $U, brx: $V, bry: $W) -> *Panel #expand 
         && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
 }
 {
-    _panel := *panels[#insert #run next(*panel_count)];
-    _panel.* = .{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
-    return _panel;
+    panel := *panels[#insert #run next(*panel_count)];
+    panel.* = .{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
+    return panel;
 }
 
 panel :: (parent: *Panel, placement: Place) -> *Panel #expand #no_debug {
-    _panel := *panel_data[#insert #run next(*panel_count)];
-    _panel.* = .{ parent, placement, .{}, 0 };
-    return _panel;
+    panel := *panel_data[#insert #run next(*panel_count)];
+    panel.* = .{ parent, placement, .{}, 0 };
+    return panel;
 }
 
-panel :: inline (parent: *Panel, auto_place: Auto_Place) -> Place {
-    return panel(parent, place(auto_place));
+panel :: inline (parent: *Panel, auto_place: Auto_Place) -> *Panel #expand #no_debug {
+    panel := *panel_data[#insert #run next(*panel_count)];
+    panel.* = .{ parent, place(auto_place), .{}, 0 };
+    return panel;
 }
 
-get_index :: (_panel: *Panel) -> int {
-    index := _panel - panels.data;
-    assert(0 <= index && index < panel_data.count);
+
+get_index :: (panel: *Panel) -> int {
+    index := panel - panel_data.data;
+    assert(0 <= index && index < panel_data.count, "Called get_index with a user-allocated panel");
     return index;
 }
+
 
 split_left_right :: (_panel: *Panel, partition_ord: $T) -> *Panel, *Panel #expand #no_debug
 #modify {
@@ -78,6 +84,24 @@ split_top_middle_bottom :: (_panel: *Panel, top_partition_ord: $T, bottom_partit
            panel(_panel, place(0,top_partition_ord, 1.0,bottom_partition_ord)),
            panel(_panel, place(0,bottom_partition_ord, 1.0,1.0));
 }
+
+
+split_scrollbar_left :: (_panel: *Panel) -> *Panel, *Panel #expand #no_debug {
+    return panel(_panel, place(0,0, theme.scrollbar_size,1.0)), panel(_panel, place(theme.scrollbar_size,0, 1.0,1.0));
+}
+
+split_scrollbar_right :: (_panel: *Panel) -> *Panel, *Panel #expand #no_debug {
+    return panel(_panel, place(0,0, -theme.scrollbar_size,1.0)), panel(_panel, place(-theme.scrollbar_size,0, 1.0,1.0));
+}
+
+split_scrollbar_top :: (_panel: *Panel) -> *Panel, *Panel #expand #no_debug {
+    return panel(_panel, place(0,0, 1.0,theme.scrollbar_size)), panel(_panel, place(0,theme.scrollbar_size, 1.0,1.0));
+}
+
+split_scrollbar_bottom :: (_panel: *Panel) -> *Panel, *Panel #expand #no_debug {
+    return panel(_panel, place(0,0, 1.0,-theme.scrollbar_size)), panel(_panel, place(0,-theme.scrollbar_size, 1.0,1.0));
+}
+
 
 split_quadrants :: (_panel: *Panel, horizontal_partition_ord: $T, vertical_partition_ord: $U) -> top_left: *Panel, top_right: *Panel, bottom_left: *Panel, bottom_right: *Panel #expand #no_debug
 #modify {
