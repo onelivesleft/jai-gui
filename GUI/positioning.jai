@@ -5,6 +5,14 @@ At_Location :: struct {
     rect_frame_count: int;
 }
 
+Panel :: At_Location;
+
+
+
+at :: (parent: *At_Location) -> *At_Location #expand #no_debug {
+    location := At_Location.{ parent, BOX_FILLED, .{}, 0 };
+    return *location;
+}
 
 at :: (parent: *At_Location, tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location #expand #no_debug
 #modify {
@@ -18,19 +26,37 @@ at :: (parent: *At_Location, tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location
     return *location;
 }
 
+at :: (tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
+        && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT)
+        && (V == Ord || (cast(*Type_Info)V).type == .INTEGER || (cast(*Type_Info)V).type == .FLOAT)
+        && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
+}
+{
+    return at(current_panel(), tlx, tly, brx, bry);
+}
+
 at :: (parent: *At_Location, box: Box) -> *At_Location #expand #no_debug {
     location := At_Location.{ parent, box, .{}, 0 };
     return *location;
 }
 
-at :: (parent: *At_Location, auto_place: Auto_Place) -> *At_Location #expand #no_debug {
-    location := At_Location.{ parent, Box(auto_place), .{}, 0 };
+at :: (box: Box) -> *At_Location #expand #no_debug {
+    return at(current_panel(), box);
+}
+
+at :: (parent: *At_Location, auto_place: Placement) -> *At_Location #expand #no_debug {
+    location := At_Location.{ parent, get_box(auto_place), .{}, 0 };
     return *location;
 }
 
+at :: (auto_place: Placement) -> *At_Location #expand #no_debug {
+    return at(current_panel(), auto_place);
+}
 
 
-split_left_right :: (location: *At_Location, partition_ord: $T) -> *At_Location, *At_Location #expand #no_debug
+split_left_right :: (location: *At_Location, partition_ord: $T) -> *Panel, *Panel #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
@@ -38,7 +64,7 @@ split_left_right :: (location: *At_Location, partition_ord: $T) -> *At_Location,
     return at(location, get_box(0,0, partition_ord,1.0)), at(location, get_box(partition_ord,0, 1.0,1.0));
 }
 
-split_top_bottom :: (location: *At_Location, partition_ord: $T) -> *At_Location, *At_Location #expand #no_debug
+split_top_bottom :: (location: *At_Location, partition_ord: $T) -> *Panel, *Panel #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
@@ -47,7 +73,7 @@ split_top_bottom :: (location: *At_Location, partition_ord: $T) -> *At_Location,
 }
 
 
-split_left_middle_right :: (location: *At_Location, left_partition_ord: $T, right_partition_ord: $U) -> *At_Location, *At_Location, *At_Location #expand #no_debug
+split_left_middle_right :: (location: *At_Location, left_partition_ord: $T, right_partition_ord: $U) -> *Panel, *Panel, *Panel #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
@@ -58,7 +84,7 @@ split_left_middle_right :: (location: *At_Location, left_partition_ord: $T, righ
            at(location, get_box(right_partition_ord,0, 1.0,1.0));
 }
 
-split_top_middle_bottom :: (location: *At_Location, top_partition_ord: $T, bottom_partition_ord: $U) -> *At_Location, *At_Location, *At_Location #expand #no_debug
+split_top_middle_bottom :: (location: *At_Location, top_partition_ord: $T, bottom_partition_ord: $U) -> *Panel, *Panel, *Panel #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
@@ -70,24 +96,24 @@ split_top_middle_bottom :: (location: *At_Location, top_partition_ord: $T, botto
 }
 
 
-split_scrollbar_left :: (location: *At_Location) -> *At_Location, *At_Location #expand #no_debug {
+split_scrollbar_left :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
     return at(location, get_box(0,0, theme.scrollbar_size,1.0)), at(location, get_box(theme.scrollbar_size,0, 1.0,1.0));
 }
 
-split_scrollbar_right :: (location: *At_Location) -> *At_Location, *At_Location #expand #no_debug {
+split_scrollbar_right :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
     return at(location, get_box(0,0, -theme.scrollbar_size,1.0)), at(location, get_box(-theme.scrollbar_size,0, 1.0,1.0));
 }
 
-split_scrollbar_top :: (location: *At_Location) -> *At_Location, *At_Location #expand #no_debug {
+split_scrollbar_top :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
     return at(location, get_box(0,0, 1.0,theme.scrollbar_size)), at(location, get_box(0,theme.scrollbar_size, 1.0,1.0));
 }
 
-split_scrollbar_bottom :: (location: *At_Location) -> *At_Location, *At_Location #expand #no_debug {
+split_scrollbar_bottom :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
     return at(location, get_box(0,0, 1.0,-theme.scrollbar_size)), at(location, get_box(0,-theme.scrollbar_size, 1.0,1.0));
 }
 
 
-split_quadrants :: (location: *At_Location, horizontal_partition_ord: $T, vertical_partition_ord: $U) -> top_left: *At_Location, top_right: *At_Location, bottom_left: *At_Location, bottom_right: *At_Location #expand #no_debug
+split_quadrants :: (location: *At_Location, horizontal_partition_ord: $T, vertical_partition_ord: $U) -> top_left: *Panel, top_right: *Panel, bottom_left: *Panel, bottom_right: *Panel #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
@@ -188,6 +214,8 @@ Box :: struct {
     brx: Ord;
     bry: Ord;
 }
+
+BOX_FILLED :: #run get_box(0,0, 1.0,1.0);
 
 get_box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
 #modify {
@@ -340,7 +368,7 @@ expand :: (rect: Rect, left: int, top: int, right: int, bottom: int) -> Rect {
 }
 
 
-Auto_Place :: enum {
+Placement :: enum {
     COPY_LEFT;
     COPY_RIGHT;
     COPY_UP;
@@ -354,67 +382,56 @@ Auto_Place :: enum {
     MIRROR_VERTICAL;
 }
 
-Auto_Place_Spacing :: struct {
+Placement_Spacing :: struct {
     horizontal: int;
     vertical: int;
 }
 
-last_widget_box : Box;
-auto_place_spacing : [..] Auto_Place_Spacing;
-new_auto_place := false;
+last_widget_location : At_Location;
+placement_spacing : [..] Placement_Spacing;
+new_placement := false;
 
-push_spacing :: (spacing: Auto_Place_Spacing) {
-    array_add(*auto_place_spacing, spacing);
+push_spacing :: (spacing: Placement_Spacing) {
+    array_add(*placement_spacing, spacing);
 }
 
 push_spacing :: (horizontal: int, vertical: int) {
-    array_add(*auto_place_spacing, .{horizontal, vertical});
+    array_add(*placement_spacing, .{horizontal, vertical});
 }
 
 push_spacing :: (spacing: int) {
-    array_add(*auto_place_spacing, .{spacing, spacing});
+    array_add(*placement_spacing, .{spacing, spacing});
 }
 
-pop_spacing :: () -> Auto_Place_Spacing {
-    assert(auto_place_spacing.count > 1, "No spacing to pop (you've tried to pop more than you've pushed!");
-    return pop(*auto_place_spacing);
+pop_spacing :: () -> Placement_Spacing {
+    assert(placement_spacing.count > 1, "No spacing to pop (you've tried to pop more than you've pushed!");
+    return pop(*placement_spacing);
 }
 
-peek_spacing :: () -> Auto_Place_Spacing {
-    return peek(auto_place_spacing);
+peek_spacing :: () -> Placement_Spacing {
+    return peek(placement_spacing);
 }
 
-begin_placing :: (box: Box) {
-    last_widget_box = box;
-    new_auto_place = true;
+begin_placing :: (location: *At_Location) {
+    last_widget_location = location.*;
+    new_placement = true;
 }
 
-begin_placing :: inline (tlx: $T, tly: $U, brx: $V, bry: $W)
-#modify {
-    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
-        && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT)
-        && (V == Ord || (cast(*Type_Info)V).type == .INTEGER || (cast(*Type_Info)V).type == .FLOAT)
-        && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
-}
-{
-    begin_placing(get_box(tlx, tly, brx, bry));
-}
-
-get_box :: inline (auto_place: Auto_Place) -> Box {
-    if new_auto_place {
-        new_auto_place = false;
-        return last_widget_box;
+get_box :: inline (auto_place: Placement) -> Box {
+    if new_placement {
+        new_placement = false;
+        return last_widget_location.box;
     }
     else {
-        return get_box(last_widget_box, auto_place);
+        return get_box(*last_widget_location, auto_place);
     }
 }
 
-get_box :: inline (location: *At_Location, auto_place: Auto_Place) -> Box {
+get_box :: inline (location: *At_Location, auto_place: Placement) -> Box {
     return get_box(location.box, auto_place);
 }
 
-get_box :: (from_box: Box, auto_place: Auto_Place) -> Box {
+get_box :: (from_box: Box, auto_place: Placement) -> Box {
     result := from_box;
     spacing := peek_spacing();
 
@@ -448,7 +465,7 @@ get_box :: (from_box: Box, auto_place: Auto_Place) -> Box {
         result.br.x = ord(1.0);
 
         case .FILL;
-        result = .{ coord(0, 0), coord(1.0, 1.0) };
+        result = BOX_FILLED;
 
         case .MIRROR_HORIZONTAL;
         result.tl.x = -from_box.br.x;

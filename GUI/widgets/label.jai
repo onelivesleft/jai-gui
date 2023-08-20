@@ -55,13 +55,13 @@ label_data : [] Label;
 #no_reset label_count := 0;
 
 _label :: inline (id: int, location: *At_Location, flags: Flags, text: string, tooltip: string, $gui_index: int) -> clicked: bool, *Label {
-    clicked, label:= _label(*label_data[gui_index + id], location   , flags, text, tooltip);
+    clicked, label:= _label(*label_data[gui_index + id], location, flags, text, tooltip);
     return clicked, label;
 }
 
 _label :: (label: *Label, location: *At_Location, flags: Flags, text: string, tooltip: string) -> clicked: bool, *Label {
     label.* = .{ widget(location, tooltip, flags | .LOCKED | .OVERFLOW), text };
-    last_widget_box = location.box;
+    last_widget_location = location.*;
 
     update_widget(label);
     draw_label(label);

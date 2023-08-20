@@ -74,8 +74,8 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
 
     allocate_text_edit(1024);
 
-    array_reset(*auto_place_spacing);
-    array_add(*auto_place_spacing, .{0, 0});
+    array_reset(*placement_spacing);
+    array_add(*placement_spacing, .{0, 0});
 
     set_window_size(window_width, window_height);
     gui_window = Window_Creation.create_window(window_width, window_height, window_title);
@@ -192,59 +192,13 @@ gui_end_frame :: inline () {
     Simp.swap_buffers(gui_window);
 
     if active_widget_frame_count != frame.count && hot_widget_frame_count != frame.count && !clicked_widget && !changed_widget {
-        // Nothing interesting happened so sleep a little
+        // Nothing immediate happened so sleep a little
         dt := get_time() - frame.time;
         ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
         sleep_milliseconds(ms);
     }
 
     reset_temporary_storage();
-}
-
-Widget :: struct {
-    #as using location: At_Location;
-    using timestamps: struct {
-        // @Performance These could be moved to a set of arrays or hashmaps
-        //              only while pertinent, instead of having them all on
-        //              all widgets.  However, this is a lot simpler...
-        became_hot_time: float64;
-        lost_hot_time: float64;
-        became_active_time: float64;
-        lost_active_time: float64;
-        became_focussed_time: float64;
-        lost_focussed_time: float64;
-        was_clicked_time: float64;
-        was_changed_time: float64;
-    }
-    tooltip : string;
-    flags : Flags;
-}
-
-widget :: inline (location: *At_Location, tooltip: string, flags: Flags) -> Widget {
-    return .{ location, .{0, 0, 0, 0, 0, 0, 0, 0}, tooltip, flags };
-}
-
-
-widget_type :: (widget: *Widget) -> Type {
-    #insert -> string {
-        builder : String_Builder;
-        for Widgets {
-            type_name := tprint("%", it);
-            name := copy_string(type_name, temp);
-            if type_name == "Data_Table" {
-                print_to_builder(*builder, #string jai
-                    if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2(void);
-                jai, lower(name), type_name);
-            }
-            else {
-                print_to_builder(*builder, #string jai
-                    if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2;
-                jai, lower(name), type_name);
-            }
-        }
-        return builder_to_string(*builder);
-    }
-    return Widget;
 }
 
 
@@ -336,6 +290,75 @@ theme_index :: (flags: Flags) -> int {
     return xx (theme_index_mask & xx flags) >> 4;
 }
 
+
+Widget :: struct {
+    #as using location: At_Location;
+    using timestamps: struct {
+        // @Performance These could be moved to a set of arrays or hashmaps
+        //              only while pertinent, instead of having them all on
+        //              all widgets.  However, this is a lot simpler...
+        became_hot_time: float64;
+        lost_hot_time: float64;
+        became_active_time: float64;
+        lost_active_time: float64;
+        became_focussed_time: float64;
+        lost_focussed_time: float64;
+        was_clicked_time: float64;
+        was_changed_time: float64;
+    }
+    tooltip : string;
+    flags : Flags;
+}
+
+widget :: inline (location: *At_Location, tooltip: string, flags: Flags) -> Widget {
+    return .{ location, .{}, tooltip, flags };
+}
+
+widget_type :: (widget: *Widget) -> Type {
+    #insert -> string {
+        builder : String_Builder;
+        for Widgets {
+            info := cast(*Type_Info) it;
+            type_name := tprint(ifx info.runtime_size >= 0 then "%" else "%(void)", it);
+            name := lower(tprint("%", it));
+            print_to_builder(*builder, #string jai
+                if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2;
+            jai, lower(name), type_name);
+        }
+        return builder_to_string(*builder);
+    }
+    return Widget;
+}
+
+update_widget :: (using widget: *Widget) {
+    maybe_calculate_rect(widget);
+
+    is_mouse_over := contains(rect, mouse.x, mouse.y);
+    if is_mouse_over && tooltip
+        tooltip_widget = widget;
+
+    if (flags & .LOCKED) && !(flags & .INTERACTS)
+    || active_widget && active_widget != widget
+        return;
+
+    if is_mouse_over
+        request_hot(widget);
+
+    if is_active(widget) {
+        if mouse.left_button_up {
+            set_active(widget, false);
+            if is_mouse_over
+                set_clicked(widget);
+        }
+    }
+
+    if is_hot(widget) {
+        if !is_mouse_over
+            set_hot(widget, false);
+        else if mouse.left_button_down
+            set_active(widget, true);
+    }
+}
 
 prev_frame_time: float64;
 next_hot_widget: *Widget;
@@ -446,36 +469,6 @@ set_changed :: (widget: *Widget) {
     changed_widget.was_changed_time = frame.time;
 }
 
-update_widget :: (using widget: *Widget) {
-    maybe_calculate_rect(widget);
-
-    is_mouse_over := contains(rect, mouse.x, mouse.y);
-    if is_mouse_over && tooltip
-        tooltip_widget = widget;
-
-    if (flags & .LOCKED) && !(flags & .INTERACTS)
-    || active_widget && active_widget != widget
-        return;
-
-    if is_mouse_over
-        request_hot(widget);
-
-    if is_active(widget) {
-        if mouse.left_button_up {
-            set_active(widget, false);
-            if is_mouse_over
-                set_clicked(widget);
-        }
-    }
-
-    if is_hot(widget) {
-        if !is_mouse_over
-            set_hot(widget, false);
-        else if mouse.left_button_down
-            set_active(widget, true);
-    }
-}
-
 hot_active_else :: (widget: *Widget, hot: $U, active: U, default: U) -> U {
     return ifx is_hot(widget) then hot
       else ifx is_active(widget) then active
@@ -493,7 +486,7 @@ active_hot_else :: (widget: *Widget, active: $U, hot: U, default: U) -> U {
 
 
 continue_running := true;
-window_panel : At_Location;
+window_panel : Panel;
 window_rect : Rect;
 
 set_window_size :: (window_width: int, window_height: int) {
