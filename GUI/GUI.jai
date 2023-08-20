@@ -220,8 +220,8 @@ Widget :: struct {
     flags : Flags;
 }
 
-widget :: inline (parent: *Panel, placement: Place, tooltip: string, flags: Flags) -> Widget {
-    return .{ panel(parent, placement), .{0, 0, 0, 0, 0, 0, 0, 0}, tooltip, flags };
+widget :: inline (parent: *Panel, _box: Box, tooltip: string, flags: Flags) -> Widget {
+    return .{ panel(parent, _box), .{0, 0, 0, 0, 0, 0, 0, 0}, tooltip, flags };
 }
 
 
@@ -498,7 +498,7 @@ window_rect : Rect;
 
 set_window_size :: (window_width: int, window_height: int) {
     window_panel.parent = null;
-    window_panel.placement = place(0, 0, window_width, window_height);
+    window_panel._box = box(0, 0, window_width, window_height);
     window_panel.rect = .{ 0, 0, xx window_width, xx window_height };
 }
 
@@ -513,11 +513,11 @@ resolve_ord :: (pos: float, size: float, ord: Ord) -> float {
     return pos + ord.rel * size + ord.abs;
 }
 
-resolve_rect :: (rect: Rect, placement: Place) -> Rect {
-    x := resolve_ord(rect.x, rect.w, placement.tl.x);
-    y := resolve_ord(rect.y, rect.h, placement.tl.y);
-    w := resolve_ord(rect.x, rect.w, placement.br.x) - x;
-    h := resolve_ord(rect.y, rect.h, placement.br.y) - y;
+resolve_rect :: (rect: Rect, _box: Box) -> Rect {
+    x := resolve_ord(rect.x, rect.w, _box.tl.x);
+    y := resolve_ord(rect.y, rect.h, _box.tl.y);
+    w := resolve_ord(rect.x, rect.w, _box.br.x) - x;
+    h := resolve_ord(rect.y, rect.h, _box.br.y) - y;
     return .{ x, y, w, h };
 }
 
@@ -530,15 +530,15 @@ calculate_rect :: (panel: *$T/Panel) -> Rect {
     else
         parent_rect = panel.parent.rect;
 
-    panel.rect = resolve_rect(parent_rect, panel.placement);
+    panel.rect = resolve_rect(parent_rect, panel._box);
     panel.rect_frame_count = frame.count;
 
     return panel.rect;
 }
 
-calculate_rect :: (parent: *$T/Panel, placement: Place) -> Rect {
+calculate_rect :: (parent: *$T/Panel, _box: Box) -> Rect {
     calculate_rect(parent);
-    return resolve_rect(parent.rect, placement);
+    return resolve_rect(parent.rect, _box);
 }
 
 get_rect :: (widget: *Widget) -> Rect {

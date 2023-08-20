@@ -76,7 +76,7 @@ coord :: inline (x: $T, y: $U) -> Coord
 }
 
 
-Place :: struct {
+Box :: struct {
     tl: Coord;
     br: Coord;
 
@@ -87,7 +87,7 @@ Place :: struct {
     bry: Ord;
 }
 
-place :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Place
+box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT)
@@ -98,7 +98,7 @@ place :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Place
     return .{ coord(tlx, tly), coord(brx, bry) };
 }
 
-at_top :: (_ord: $T) -> Place
+at_top :: (_ord: $T) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
@@ -106,7 +106,7 @@ at_top :: (_ord: $T) -> Place
     return .{ coord(0, 0), coord(1.0, ord(_ord)) };
 }
 
-at_bottom :: (_ord: $T) -> Place
+at_bottom :: (_ord: $T) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
@@ -114,7 +114,7 @@ at_bottom :: (_ord: $T) -> Place
     return .{ coord(0, ord(_ord)), coord(1.0, 1.0) };
 }
 
-at_left :: (_ord: $T) -> Place
+at_left :: (_ord: $T) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
@@ -122,7 +122,7 @@ at_left :: (_ord: $T) -> Place
     return .{ coord(0, 0), coord(ord(_ord), 1.0) };
 }
 
-at_right :: (_ord: $T) -> Place
+at_right :: (_ord: $T) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
@@ -130,30 +130,30 @@ at_right :: (_ord: $T) -> Place
     return .{ coord(ord(_ord), 0), coord(1.0, 1.0) };
 }
 
-translate :: (place: *Place, $$x: int, $$y: int) {
-    place.tl.x.abs += x;
-    place.br.x.abs += x;
-    place.tl.y.abs += y;
-    place.br.y.abs += y;
+translate :: (box: *Box, $$x: int, $$y: int) {
+    box.tl.x.abs += x;
+    box.br.x.abs += x;
+    box.tl.y.abs += y;
+    box.br.y.abs += y;
 }
 
-abs_width :: (place: Place) -> int {
-    assert(place.tl.x.rel == place.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
-    return place.br.x.abs - place.tl.x.abs;
+abs_width :: (box: Box) -> int {
+    assert(box.tl.x.rel == box.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
+    return box.br.x.abs - box.tl.x.abs;
 }
 
-abs_height :: (place: Place) -> int {
-    assert(place.tl.y.rel == place.br.y.rel, "You can only calculate an absolute height if both y Coords use the same origin (i.e. have the same rel)");
-    return place.br.y.abs - place.tl.y.abs;
+abs_height :: (box: Box) -> int {
+    assert(box.tl.y.rel == box.br.y.rel, "You can only calculate an absolute height if both y Coords use the same origin (i.e. have the same rel)");
+    return box.br.y.abs - box.tl.y.abs;
 }
 
-shrink :: (place: Place, delta_ord: $T) -> Place
+shrink :: (box: Box, delta_ord: $T) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
     _ord := ord(delta_ord);
-    result := place;
+    result := box;
     result.tl.x += _ord;
     result.tl.y += _ord;
     result.br.x -= _ord;;
@@ -161,7 +161,7 @@ shrink :: (place: Place, delta_ord: $T) -> Place
     return result;
 }
 
-shrink :: (place: Place, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Place
+shrink :: (box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
@@ -169,7 +169,7 @@ shrink :: (place: Place, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Pl
 {
     horizontal_ord := ord(horizontal_delta_ord);
     vertical_ord := ord(vertical_delta_ord);
-    result := place;
+    result := box;
     result.tl.x += horizontal_ord;
     result.tl.y += vertical_ord;
     result.br.x -= horizontal_ord;;
@@ -257,7 +257,7 @@ Auto_Place_Spacing :: struct {
     vertical: int;
 }
 
-last_widget_placement : Place;
+last_widget_box : Box;
 auto_place_spacing : [..] Auto_Place_Spacing;
 new_auto_place := false;
 
@@ -282,8 +282,8 @@ peek_spacing :: () -> Auto_Place_Spacing {
     return peek(auto_place_spacing);
 }
 
-begin_placing :: (placement: Place) {
-    last_widget_placement = placement;
+begin_placing :: (_box: Box) {
+    last_widget_box = _box;
     new_auto_place = true;
 }
 
@@ -295,68 +295,67 @@ begin_placing :: inline (tlx: $T, tly: $U, brx: $V, bry: $W)
         && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
 }
 {
-    begin_placing(place(tlx, tly, brx, bry));
+    begin_placing(box(tlx, tly, brx, bry));
 }
 
-place :: inline (auto_place: Auto_Place) -> Place {
+box :: inline (auto_place: Auto_Place) -> Box {
     if new_auto_place {
         new_auto_place = false;
-        return last_widget_placement;
+        return last_widget_box;
     }
     else {
-        return place(last_widget_placement, auto_place);
+        return box(last_widget_box, auto_place);
     }
 }
 
-place :: inline (_panel: *Panel, auto_place: Auto_Place) -> Place {
-    return place(_panel.placement, auto_place);
+box :: inline (_panel: *Panel, auto_place: Auto_Place) -> Box {
+    return box(_panel._box, auto_place);
 }
 
-place :: (from_placement: Place, auto_place: Auto_Place) -> Place {
-    result := from_placement;
+box :: (from_box: Box, auto_place: Auto_Place) -> Box {
+    result := from_box;
     spacing := peek_spacing();
 
     if #complete auto_place == {
         case .COPY_LEFT;
-        translate(*result, -abs_width(from_placement) - spacing.horizontal, 0);
+        translate(*result, -abs_width(from_box) - spacing.horizontal, 0);
 
         case .COPY_RIGHT;
-        translate(*result, +abs_width(from_placement) + spacing.horizontal, 0);
+        translate(*result, +abs_width(from_box) + spacing.horizontal, 0);
 
         case .COPY_UP;
-        translate(*result, 0, -abs_height(from_placement) - spacing.vertical);
+        translate(*result, 0, -abs_height(from_box) - spacing.vertical);
 
         case .COPY_DOWN;
-        translate(*result, 0, +abs_height(from_placement) + spacing.vertical);
+        translate(*result, 0, +abs_height(from_box) + spacing.vertical);
 
         case .FILL_LEFT;
-        translate(*result, -abs_width(from_placement) - spacing.horizontal, 0);
+        translate(*result, -abs_width(from_box) - spacing.horizontal, 0);
         result.tl.x = ord(0.0);
 
         case .FILL_RIGHT;
-        translate(*result, +abs_width(from_placement) + spacing.horizontal, 0);
+        translate(*result, +abs_width(from_box) + spacing.horizontal, 0);
         result.br.x = ord(1.0);
 
         case .FILL_UP;
-        translate(*result, 0, -abs_height(from_placement) - spacing.vertical);
+        translate(*result, 0, -abs_height(from_box) - spacing.vertical);
         result.tl.y = ord(0.0);
 
         case .FILL_DOWN;
-        translate(*result, 0, +abs_height(from_placement) + spacing.vertical);
+        translate(*result, 0, +abs_height(from_box) + spacing.vertical);
         result.br.x = ord(1.0);
 
         case .FILL;
         result = .{ coord(0, 0), coord(1.0, 1.0) };
 
         case .MIRROR_HORIZONTAL;
-        result.tl.x = -from_placement.br.x;
-        result.br.x = -from_placement.tl.x;
+        result.tl.x = -from_box.br.x;
+        result.br.x = -from_box.tl.x;
 
         case .MIRROR_VERTICAL;
-        result.tl.y = -from_placement.br.y;
-        result.br.y = -from_placement.tl.y;
+        result.tl.y = -from_box.br.y;
+        result.br.y = -from_box.tl.y;
     }
 
     return result;
 }
-

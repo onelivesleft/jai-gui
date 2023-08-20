@@ -74,36 +74,36 @@ Data_Table :: struct(T: Type) {
 
 keep_selection : int = 0xffff_ffff;
 
-data_table :: (parent: *Panel, placement: Place, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
-    clicked, widget := _data_table(0, parent, placement, flags, data, keep_selection, #insert #run next(*data_table_count));
+data_table :: (parent: *Panel, _box: Box, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+    clicked, widget := _data_table(0, parent, _box, flags, data, keep_selection, #insert #run next(*data_table_count));
     return clicked, widget;
 }
 
-data_table :: (id: int, $reserve: int, parent: *Panel, placement: Place, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+data_table :: (id: int, $reserve: int, parent: *Panel, _box: Box, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of data_tables being created)");
-    clicked, widget := _data_table(id, parent, placement, flags, data, keep_selection, #insert #run next(*data_table_count, reserve));
+    clicked, widget := _data_table(id, parent, _box, flags, data, keep_selection, #insert #run next(*data_table_count, reserve));
     return clicked, widget;
 }
 
-data_table :: (data_table: *Data_Table, parent: *Panel, placement: Place, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
-    clicked, widget := _data_table(data_table, parent, placement, flags, data, keep_selection);
+data_table :: (data_table: *Data_Table, parent: *Panel, _box: Box, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+    clicked, widget := _data_table(data_table, parent, _box, flags, data, keep_selection);
     return clicked, widget;
 }
 
 
-data_table :: (parent: *Panel, placement: Place, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
-    clicked, widget := _data_table(0, parent, placement, flags, data, selected_row_index, #insert #run next(*data_table_count));
+data_table :: (parent: *Panel, _box: Box, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+    clicked, widget := _data_table(0, parent, _box, flags, data, selected_row_index, #insert #run next(*data_table_count));
     return clicked, widget;
 }
 
-data_table :: (id: int, $reserve: int, parent: *Panel, placement: Place, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+data_table :: (id: int, $reserve: int, parent: *Panel, _box: Box, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of data_tables being created)");
-    clicked, widget := _data_table(id, parent, placement, flags, data, selected_row_index, #insert #run next(*data_table_count, reserve));
+    clicked, widget := _data_table(id, parent, _box, flags, data, selected_row_index, #insert #run next(*data_table_count, reserve));
     return clicked, widget;
 }
 
-data_table :: (data_table: *Data_Table, parent: *Panel, placement: Place, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
-    clicked, widget := _data_table(data_table, parent, placement, flags, data, selected_row_index);
+data_table :: (data_table: *Data_Table, parent: *Panel, _box: Box, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+    clicked, widget := _data_table(data_table, parent, _box, flags, data, selected_row_index);
     return clicked, widget;
 }
 
@@ -213,13 +213,13 @@ compare :: inline (a: $T, b: T) -> int
 data_table_data : [] Data_Table(void);
 #no_reset data_table_count := 0;
 
-_data_table :: inline (id: int, parent: *Panel, placement: Place, flags: Flags, data: [] $T, selected_row_index: int, $gui_index: int) -> clicked: bool, *Data_Table(T) {
+_data_table :: inline (id: int, parent: *Panel, _box: Box, flags: Flags, data: [] $T, selected_row_index: int, $gui_index: int) -> clicked: bool, *Data_Table(T) {
     #assert(size_of(Data_Table(T)) == size_of(type_of(data_table_data[0])));
-    clicked, data_table := _data_table(cast(*Data_Table(T))*data_table_data[gui_index + id], parent, placement, flags, data, selected_row_index);
+    clicked, data_table := _data_table(cast(*Data_Table(T))*data_table_data[gui_index + id], parent, _box, flags, data, selected_row_index);
     return clicked, data_table;
 }
 
-_data_table :: (data_table: *Data_Table(T), parent: *Panel, placement: Place, flags: Flags, data: [] $T, selected_row_index: int) -> clicked: bool, *Data_Table(T)
+_data_table :: (data_table: *Data_Table(T), parent: *Panel, _box: Box, flags: Flags, data: [] $T, selected_row_index: int) -> clicked: bool, *Data_Table(T)
 #modify {
     info := cast(*Type_Info) T;
     return info.type == .STRUCT, "data must be array of struct!";
@@ -229,7 +229,7 @@ _data_table :: (data_table: *Data_Table(T), parent: *Panel, placement: Place, fl
         assert(data_table.labels.count == 0);
     }
 
-    data_table.widget = widget(parent, placement, "", flags);
+    data_table.widget = widget(parent, _box, "", flags);
     data_table.data = data;
     data_table.clicked_item = null;
     data_table.clicked_header = false;
@@ -258,7 +258,7 @@ update_data_table :: (using data_table: *Data_Table) {
     header_row, top_right_stub := split_scrollbar_right(top);
     table_panel, scrollbar_panel := split_scrollbar_right(bottom);
 
-    top_index := vertical_scrollbar(*scrollbar, scrollbar_panel, place(.FILL), 0, .{0, data.count - visible_row_count - 1});
+    top_index := vertical_scrollbar(*scrollbar, scrollbar_panel, box(.FILL), 0, .{0, data.count - visible_row_count - 1});
 
     left_ord, right_ord: Ord;
     do_scrollwheel := false;
@@ -282,7 +282,7 @@ update_data_table :: (using data_table: *Data_Table) {
         for member: info.members {
             print_to_builder(*builder, #string jai
                 right_ord = %4;
-                if button(*buttons[%3], header_row, place(left_ord,0, right_ord,1.0), "%1", %2) {
+                if button(*buttons[%3], header_row, box(left_ord,0, right_ord,1.0), "%1", %2) {
                     clicked_header = true;
                     clicked_item_row_index = -1;
                     clicked_item_column_index = %3;
@@ -295,7 +295,7 @@ update_data_table :: (using data_table: *Data_Table) {
     }
 
     jump_tooltip := ifx jump_destination == .TOP then "Jump to top" else ifx jump_destination == .BOTTOM then "Jump to bottom" else "Jump to selected row";
-    jump_to_top_or_bottom_or_selection = button(*buttons[columns], top_right_stub, place(.FILL), "", tooltip=jump_tooltip);
+    jump_to_top_or_bottom_or_selection = button(*buttons[columns], top_right_stub, box(.FILL), "", tooltip=jump_tooltip);
 
     y := 0;
 
@@ -316,7 +316,7 @@ update_data_table :: (using data_table: *Data_Table) {
             for member: info.members {
                 print_to_builder(*builder, #string jai
                     right_ord = %4;
-                    if label(_label, table_panel, place(left_ord,y, right_ord,y+theme.data_table_row_height), to_string(row_item.%1), Flags.INTERACTS | .CROP | %2) {
+                    if label(_label, table_panel, box(left_ord,y, right_ord,y+theme.data_table_row_height), to_string(row_item.%1), Flags.INTERACTS | .CROP | %2) {
                         clicked_item = *data[row_index];;
                         clicked_item_row_index = row_index;
                         clicked_item_column_index = %3;
@@ -346,4 +346,3 @@ update_data_table :: (using data_table: *Data_Table) {
         }
     }
 }
-
