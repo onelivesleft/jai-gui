@@ -34,7 +34,7 @@ at :: (tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location #expand #no_debug
         && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
 }
 {
-    return at(current_panel(), tlx, tly, brx, bry);
+    return at(peek_panel(), tlx, tly, brx, bry);
 }
 
 at :: (parent: *At_Location, box: Box) -> *At_Location #expand #no_debug {
@@ -43,7 +43,7 @@ at :: (parent: *At_Location, box: Box) -> *At_Location #expand #no_debug {
 }
 
 at :: (box: Box) -> *At_Location #expand #no_debug {
-    return at(current_panel(), box);
+    return at(peek_panel(), box);
 }
 
 at :: (parent: *At_Location, auto_place: Placement) -> *At_Location #expand #no_debug {
@@ -52,7 +52,48 @@ at :: (parent: *At_Location, auto_place: Placement) -> *At_Location #expand #no_
 }
 
 at :: (auto_place: Placement) -> *At_Location #expand #no_debug {
-    return at(current_panel(), auto_place);
+    return at(peek_panel(), auto_place);
+}
+
+
+at_top :: (parent: *At_Location, _ord: $T) -> *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return at(parent, 0,0, 1.0,ord(_ord));
+}
+
+at_top :: (_ord: $T) -> *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return at(peek_panel(), _ord);
+}
+
+at_bottom :: (_ord: $T) -> Box
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return .{ coord(0, ord(_ord)), coord(1.0, 1.0) };
+}
+
+at_left :: (_ord: $T) -> Box
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return .{ coord(0, 0), coord(ord(_ord), 1.0) };
+}
+
+at_right :: (_ord: $T) -> Box
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return .{ coord(ord(_ord), 0), coord(1.0, 1.0) };
 }
 
 
@@ -228,62 +269,40 @@ get_box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
     return .{ coord(tlx, tly), coord(brx, bry) };
 }
 
-at_top :: (_ord: $T) -> Box
+
+translate :: (box: *Box, $$x: int, $$y: int) {
+    box.tl.x.abs += x;
+    box.br.x.abs += x;
+    box.tl.y.abs += y;
+    box.br.y.abs += y;
+}
+
+abs_width :: (box: Box) -> int {
+    assert(box.tl.x.rel == box.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
+    return box.br.x.abs - box.tl.x.abs;
+}
+
+abs_height :: (box: Box) -> int {
+    assert(box.tl.y.rel == box.br.y.rel, "You can only calculate an absolute height if both y Coords use the same origin (i.e. have the same rel)");
+    return box.br.y.abs - box.tl.y.abs;
+}
+
+shrink :: (panel: *Panel, delta_ord: $T) -> *Panel
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
-    return .{ coord(0, 0), coord(1.0, ord(_ord)) };
+    box := shrink(panel.box, delta_ord);
+    return at(panel.parent, box);
 }
 
-at_bottom :: (_ord: $T) -> Box
-#modify {
-    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
-}
-{
-    return .{ coord(0, ord(_ord)), coord(1.0, 1.0) };
-}
-
-at_left :: (_ord: $T) -> Box
-#modify {
-    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
-}
-{
-    return .{ coord(0, 0), coord(ord(_ord), 1.0) };
-}
-
-at_right :: (_ord: $T) -> Box
-#modify {
-    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
-}
-{
-    return .{ coord(ord(_ord), 0), coord(1.0, 1.0) };
-}
-
-translate :: (get_box: *Box, $$x: int, $$y: int) {
-    get_box.tl.x.abs += x;
-    get_box.br.x.abs += x;
-    get_box.tl.y.abs += y;
-    get_box.br.y.abs += y;
-}
-
-abs_width :: (get_box: Box) -> int {
-    assert(get_box.tl.x.rel == get_box.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
-    return get_box.br.x.abs - get_box.tl.x.abs;
-}
-
-abs_height :: (get_box: Box) -> int {
-    assert(get_box.tl.y.rel == get_box.br.y.rel, "You can only calculate an absolute height if both y Coords use the same origin (i.e. have the same rel)");
-    return get_box.br.y.abs - get_box.tl.y.abs;
-}
-
-shrink :: (get_box: Box, delta_ord: $T) -> Box
+shrink :: (box: Box, delta_ord: $T) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
     _ord := ord(delta_ord);
-    result := get_box;
+    result := box;
     result.tl.x += _ord;
     result.tl.y += _ord;
     result.br.x -= _ord;;
@@ -291,7 +310,18 @@ shrink :: (get_box: Box, delta_ord: $T) -> Box
     return result;
 }
 
-shrink :: (get_box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
+
+shrink :: (panel: *Panel, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> *Panel
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
+        && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
+}
+{
+    box := shrink(panel.box, horizontal_delta_ord, vertical_delta_ord);
+    return at(panel.parent, box);
+}
+
+shrink :: (box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
@@ -299,7 +329,7 @@ shrink :: (get_box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Bo
 {
     horizontal_ord := ord(horizontal_delta_ord);
     vertical_ord := ord(vertical_delta_ord);
-    result := get_box;
+    result := box;
     result.tl.x += horizontal_ord;
     result.tl.y += vertical_ord;
     result.br.x -= horizontal_ord;;
@@ -389,6 +419,7 @@ Placement_Spacing :: struct {
 
 last_widget_location : At_Location;
 placement_spacing : [..] Placement_Spacing;
+placement_panel : [..] *Panel;
 new_placement := false;
 
 push_spacing :: (spacing: Placement_Spacing) {
@@ -411,6 +442,43 @@ pop_spacing :: () -> Placement_Spacing {
 peek_spacing :: () -> Placement_Spacing {
     return peek(placement_spacing);
 }
+
+with_spacing :: (spacing: Placement_Spacing) #expand {
+    push_spacing(spacing);
+    `defer pop_spacing();
+}
+
+with_spacing :: (horizontal: int, vertical: int) #expand {
+    push_spacing(.{horizontal, vertical});
+    `defer pop_spacing();
+}
+
+with_spacing :: (spacing: int) #expand {
+    push_spacing(.{spacing, spacing});
+    `defer pop_spacing();
+}
+
+
+
+push_panel :: (panel: *Panel) {
+    array_add(*placement_panel, panel);
+}
+
+pop_panel :: () -> *Panel {
+    assert(placement_panel.count > 0, "No panel to pop (you've tried to pop more than you've pushed!");
+    return pop(*placement_panel);
+}
+
+peek_panel :: () -> *Panel {
+    if placement_panel  return peek(placement_panel);
+    else                return *window_panel;
+}
+
+with_panel :: (panel: *Panel) #expand {
+    push_panel(panel);
+    `defer pop_panel();
+}
+
 
 begin_placing :: (location: *At_Location) {
     last_widget_location = location.*;

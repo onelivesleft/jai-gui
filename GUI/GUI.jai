@@ -74,13 +74,15 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
 
     allocate_text_edit(1024);
 
-    array_reset(*placement_spacing);
-    array_add(*placement_spacing, .{0, 0});
-
     set_window_size(window_width, window_height);
     gui_window = Window_Creation.create_window(window_width, window_height, window_title);
 
     Simp.set_render_target(gui_window);
+
+    array_reset(*placement_spacing);
+    array_add(*placement_spacing, .{0, 0});
+
+    array_reset(*placement_panel);
 
     return *window_panel, *gui_window;
 }
