@@ -21,29 +21,20 @@ panel :: (parent: *Panel, tlx: $T, tly: $U, brx: $V, bry: $W) -> *Panel #expand 
         && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
 }
 {
-    panel := *panels[#insert #run next(*panel_count)];
-    panel.* = .{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
-    return panel;
+    panel := Panel.{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
+    return *panel;
 }
 
 panel :: (parent: *Panel, placement: Place) -> *Panel #expand #no_debug {
-    panel := *panel_data[#insert #run next(*panel_count)];
-    panel.* = .{ parent, placement, .{}, 0 };
-    return panel;
+    panel := Panel.{ parent, placement, .{}, 0 };
+    return *panel;
 }
 
-panel :: inline (parent: *Panel, auto_place: Auto_Place) -> *Panel #expand #no_debug {
-    panel := *panel_data[#insert #run next(*panel_count)];
-    panel.* = .{ parent, place(auto_place), .{}, 0 };
-    return panel;
+panel :: (parent: *Panel, auto_place: Auto_Place) -> *Panel #expand #no_debug {
+    panel := Panel.{ parent, Place(auto_place), .{}, 0 };
+    return *panel;
 }
 
-
-get_index :: (panel: *Panel) -> int {
-    index := panel - panel_data.data;
-    assert(0 <= index && index < panel_data.count, "Called get_index with a user-allocated panel");
-    return index;
-}
 
 
 split_left_right :: (_panel: *Panel, partition_ord: $T) -> *Panel, *Panel #expand #no_debug
@@ -114,10 +105,3 @@ split_quadrants :: (_panel: *Panel, horizontal_partition_ord: $T, vertical_parti
            panel(_panel, place(0,vertical_partition_ord, horizontal_partition_ord,1.0)),
            panel(_panel, place(horizontal_partition_ord,vertical_partition_ord, 1.0,1.0));
 }
-
-
-#scope_module
-
-
-panel_data : [] Panel;
-#no_reset panel_count := 0;

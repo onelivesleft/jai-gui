@@ -10,7 +10,6 @@
 // [ ] icon button
 // [ ] fx blend colors
 
-#load "widgets/panel.jai";
 #load "widgets/button.jai";
 #load "widgets/checkbox.jai";
 #load "widgets/data_table.jai";
@@ -20,7 +19,7 @@
 #load "widgets/text_input.jai";
 
 Widgets :: Type.[
-    Panel, Button, Checkbox, Data_Table, Label, Scrollbar, Text_Input, Text_Box
+    Button, Checkbox, Data_Table, Label, Scrollbar, Text_Input, Text_Box
 ];
 
 hot_widget:      *Widget;    // prefer is_hot(widget)
