@@ -41,7 +41,7 @@ _button :: inline (id: int, parent: *At_Location, box: Box, flags: Flags, text: 
 }
 
 _button :: (button: *Button, parent: *At_Location, box: Box, flags: Flags, text: string, tooltip: string) -> clicked: bool, *Button {
-    button.* = .{ widget(parent, box, tooltip, flags), text };
+    button.* = .{ widget(at(parent, box), tooltip, flags), text };
     last_widget_box = box;
 
     update_widget(button);

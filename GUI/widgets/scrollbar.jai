@@ -158,7 +158,7 @@ int_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, par
     spread := cast(float)(_range.max - _range.min + 1);
     handle_move_step : float = 1.0 / spread;
     handle_size : float = max(theme.scrollbar_min_handle_size, handle_move_step);
-    scrollbar.* = .{ widget(parent, box, tooltip, flags), true, orientation, .INTEGER, handle_move_step, handle_size, calculate_handle_position(value, _range), _range, value};
+    scrollbar.* = .{ widget(at(parent, box), tooltip, flags), true, orientation, .INTEGER, handle_move_step, handle_size, calculate_handle_position(value, _range), _range, value};
     last_widget_box = box;
 
     prev_handle_position := scrollbar.handle_position;
@@ -183,7 +183,7 @@ float_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, p
     Clamp(*value, _range.min, _range.max);
     handle_move_step := handle_size;
     Clamp(*handle_size, theme.scrollbar_min_handle_size, handle_size);
-    scrollbar.* = .{ widget(parent, box, tooltip, flags), true, orientation, .FLOAT, handle_move_step, handle_size, calculate_handle_position(value, _range), .{}, 0};
+    scrollbar.* = .{ widget(at(parent, box), tooltip, flags), true, orientation, .FLOAT, handle_move_step, handle_size, calculate_handle_position(value, _range), .{}, 0};
     scrollbar.float_range = _range;
     scrollbar.float_value = value;
     last_widget_box = box;

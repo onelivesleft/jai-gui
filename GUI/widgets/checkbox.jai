@@ -71,7 +71,7 @@ _checkbox :: (checkbox: *Checkbox, parent: *At_Location, box: Box, flags: Flags,
     else
         _value = checkbox.value;
 
-    checkbox.* = .{ widget(parent, box, tooltip, flags), true, _value, text };
+    checkbox.* = .{ widget(at(parent, box), tooltip, flags), true, _value, text };
     last_widget_box = box;
 
     update_widget(checkbox);

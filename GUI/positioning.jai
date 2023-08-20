@@ -14,18 +14,18 @@ at :: (parent: *At_Location, tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location
         && (W == Ord || (cast(*Type_Info)W).type == .INTEGER || (cast(*Type_Info)W).type == .FLOAT);
 }
 {
-    at := At_Location.{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
-    return *at;
+    location := At_Location.{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
+    return *location;
 }
 
 at :: (parent: *At_Location, box: Box) -> *At_Location #expand #no_debug {
-    at := At_Location.{ parent, box, .{}, 0 };
-    return *at;
+    location := At_Location.{ parent, box, .{}, 0 };
+    return *location;
 }
 
 at :: (parent: *At_Location, auto_place: Auto_Place) -> *At_Location #expand #no_debug {
-    at := At_Location.{ parent, Box(auto_place), .{}, 0 };
-    return *at;
+    location := At_Location.{ parent, Box(auto_place), .{}, 0 };
+    return *location;
 }
 
 

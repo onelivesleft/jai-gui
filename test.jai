@@ -53,16 +53,16 @@ main :: () {
             push_spacing(4);  defer pop_spacing();
 
             value, scrollbar := vertical_scrollbar(left, get_box(100,50, 120,200), 0.0, .{0.0, 0.2}, tooltip = "A vertical scrollbar" );
-            label(left, get_box(.COPY_RIGHT), tprint("% % %", value, scrollbar.handle_position, scrollbar.handle_size));
+            label(at(left, get_box(.COPY_RIGHT)), tprint("% % %", value, scrollbar.handle_position, scrollbar.handle_size));
 
             value, scrollbar = horizontal_scrollbar(left, get_box(250,50, 450,70), tooltip = "A horizontal scrollbar");
-            _, l := label(left, get_box(.COPY_LEFT), value, Flags.RIGHT);
+            _, l := label(at(left, get_box(.COPY_LEFT)), value, Flags.RIGHT);
 
             i:, scrollbar = horizontal_scrollbar(left, get_box(scrollbar, .COPY_DOWN), min, .{min, max}, tooltip = "Another horizontal scrollbar");
-            label(left, get_box(.COPY_LEFT), i, Flags.RIGHT);
+            label(at(left, get_box(.COPY_LEFT)), i, Flags.RIGHT);
 
             volume:, scrollbar = horizontal_scrollbar(left, get_box(scrollbar, .COPY_DOWN), min, .{min, max}, .REVERSE_SCROLLWHEEL, "Volume control");
-            label(left, get_box(.COPY_LEFT), tprint("volume: %", volume), Flags.RIGHT);
+            label(at(left, get_box(.COPY_LEFT)), tprint("volume: %", volume), Flags.RIGHT);
 
             if checkbox(left, get_box(scrollbar, .COPY_DOWN), "Gromit the scrogs", tooltip = "They really need it") {
                 quadrant_button_flags = .THEME_A;
@@ -81,8 +81,8 @@ main :: () {
 
         right_value, right_scrollbar := vertical_scrollbar(window, get_box(.MIRROR_HORIZONTAL), 1, .{min, max}, maybe_lock,
                                                            "Watch it jump between values");
-        label(window, get_box(left_scrollbar, .COPY_RIGHT), tprint("% % %", left_value, left_scrollbar.handle_size, left_scrollbar.handle_position));
-        label(window, get_box(right_scrollbar, .COPY_LEFT), right_value, Flags.RIGHT);
+        label(at(window, get_box(left_scrollbar, .COPY_RIGHT)), tprint("% % %", left_value, left_scrollbar.handle_size, left_scrollbar.handle_position));
+        label(at(window, get_box(right_scrollbar, .COPY_LEFT)), right_value, Flags.RIGHT);
         pop_spacing();
 
         text_box(left, get_box(0.5,ord(0.5, -50), -20,ord(0.5, +50)), lorem_text, .SMOOTH);
@@ -95,7 +95,7 @@ main :: () {
         button(bl, shrink(get_box(.FILL), 0.2), "Tres", quadrant_button_flags, "Three");
         button(br, shrink(get_box(.FILL), 0.2), "Mas", quadrant_button_flags, "More");
 
-        if label(window, get_box(-300,-30, -100,1.0), "Scroll Wheel:", Flags.RIGHT | .INTERACTS, "Get it back")
+        if label(at(window, get_box(-300,-30, -100,1.0)), "Scroll Wheel:", Flags.RIGHT | .INTERACTS, "Get it back")
             show_wheel = !show_wheel;
 
         if show_wheel {

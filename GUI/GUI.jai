@@ -173,7 +173,7 @@ gui_end_frame :: inline () {
     }
     else {
         if active_widget {
-            active_widget.lost_active_at = frame.time;
+            active_widget.lost_active_time = frame.time;
             active_widget = null;
         }
     }
@@ -202,26 +202,26 @@ gui_end_frame :: inline () {
 }
 
 Widget :: struct {
-    #as using at: At_Location;
+    #as using location: At_Location;
     using timestamps: struct {
         // @Performance These could be moved to a set of arrays or hashmaps
         //              only while pertinent, instead of having them all on
         //              all widgets.  However, this is a lot simpler...
-        became_hot_at: float64;
-        lost_hot_at: float64;
-        became_active_at: float64;
-        lost_active_at: float64;
-        became_focussed_at: float64;
-        lost_focussed_at: float64;
-        was_clicked_at: float64;
-        was_changed_at: float64;
+        became_hot_time: float64;
+        lost_hot_time: float64;
+        became_active_time: float64;
+        lost_active_time: float64;
+        became_focussed_time: float64;
+        lost_focussed_time: float64;
+        was_clicked_time: float64;
+        was_changed_time: float64;
     }
     tooltip : string;
     flags : Flags;
 }
 
-widget :: inline (parent: *At_Location, box: Box, tooltip: string, flags: Flags) -> Widget {
-    return .{ at(parent, box), .{0, 0, 0, 0, 0, 0, 0, 0}, tooltip, flags };
+widget :: inline (location: *At_Location, tooltip: string, flags: Flags) -> Widget {
+    return .{ location, .{0, 0, 0, 0, 0, 0, 0, 0}, tooltip, flags };
 }
 
 
@@ -372,13 +372,13 @@ was_scrollwheeled :: inline (widget: *Widget) -> bool {
 set_hot :: (widget: *Widget, hot: bool) {
     if hot {
         if hot_widget && hot_widget != widget
-            hot_widget.lost_hot_at = frame.time;
+            hot_widget.lost_hot_time = frame.time;
         hot_widget = widget;
-        widget.became_hot_at = frame.time;
+        widget.became_hot_time = frame.time;
         hot_widget_frame_count = frame.count;
     }
     else if hot_widget == widget {
-        widget.lost_hot_at = frame.time;
+        widget.lost_hot_time = frame.time;
         hot_widget = null;
         hot_widget_frame_count = frame.count;
     }
@@ -397,13 +397,13 @@ set_active :: (widget: *Widget, active: bool) {
         if focussed_widget && focussed_widget != widget
             set_focus(focussed_widget, false, .SOFT);
         if active_widget && active_widget != widget
-            active_widget.lost_active_at = frame.time;
+            active_widget.lost_active_time = frame.time;
         active_widget = widget;
-        widget.became_active_at = frame.time;
+        widget.became_active_time = frame.time;
         active_widget_frame_count = frame.count;
     }
     else if active_widget == widget {
-        active_widget.lost_active_at = frame.time;
+        active_widget.lost_active_time = frame.time;
         active_widget = null;
     }
 }
@@ -415,14 +415,14 @@ Lost_Focus_Reason :: enum {
 set_focus :: (widget: *$T/Widget, focussed: bool, reason := Lost_Focus_Reason.NONE) {
     if focussed {
         if focussed_widget && focussed_widget != widget
-            focussed_widget.lost_focussed_at = frame.time;
+            focussed_widget.lost_focussed_time = frame.time;
         focussed_widget = widget;
-        focussed_widget.became_focussed_at = frame.time;
+        focussed_widget.became_focussed_time = frame.time;
         focussed_widget_type = T;
     }
     else if focussed_widget == widget {
         assert(reason != .NONE);
-        focussed_widget.lost_focussed_at = frame.time;
+        focussed_widget.lost_focussed_time = frame.time;
         focussed_widget = null;
         if focussed_widget_type == {
             case Text_Input; lost_focus(cast(*Text_Input)widget, reason);
@@ -438,12 +438,12 @@ dispatch_event_to_focussed_widget :: (event: Input.Event) {
 
 set_clicked :: (widget: *Widget) {
     clicked_widget = widget;
-    widget.was_clicked_at = frame.time;
+    widget.was_clicked_time = frame.time;
 }
 
 set_changed :: (widget: *Widget) {
     changed_widget = widget;
-    changed_widget.was_changed_at = frame.time;
+    changed_widget.was_changed_time = frame.time;
 }
 
 update_widget :: (using widget: *Widget) {

@@ -62,7 +62,7 @@ _text_box :: inline (id: int, parent: *At_Location, box: Box, flags: Flags, tool
 }
 
 _text_box :: (text_box: *Text_Box, parent: *At_Location, box: Box, flags: Flags, tooltip: string, text: string) -> *Text_Box {
-    text_box.widget = widget(parent, box, "", flags);
+    text_box.widget = widget(at(parent, box), "", flags);
     text_box.text = text;
     text_box.hot_label = null;
 
@@ -126,7 +126,7 @@ update_text_box :: (using text_box: *Text_Box) {
             row_text.count -= 1;
         _label := *labels[index];
 
-        if label(_label, text_panel, get_box(0,ord(0.0,y), 1.0,ord(0.0,y+theme.text_box_row_height)), row_text, label_flags) {
+        if label(_label, at(text_panel, get_box(0,ord(0.0,y), 1.0,ord(0.0,y+theme.text_box_row_height))), row_text, label_flags) {
             clicked_row_index = row_index;
             clicked_column_index = 0;
         }

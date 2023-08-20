@@ -229,7 +229,7 @@ _data_table :: (data_table: *Data_Table(T), parent: *At_Location, box: Box, flag
         assert(data_table.labels.count == 0);
     }
 
-    data_table.widget = widget(parent, box, "", flags);
+    data_table.widget = widget(at(parent, box), "", flags);
     data_table.data = data;
     data_table.clicked_item = null;
     data_table.clicked_header = false;
@@ -316,7 +316,7 @@ update_data_table :: (using data_table: *Data_Table) {
             for member: info.members {
                 print_to_builder(*builder, #string jai
                     right_ord = %4;
-                    if label(_label, table_panel, get_box(left_ord,y, right_ord,y+theme.data_table_row_height), to_string(row_item.%1), Flags.INTERACTS | .CROP | %2) {
+                    if label(_label, at(table_panel, get_box(left_ord,y, right_ord,y+theme.data_table_row_height)), to_string(row_item.%1), Flags.INTERACTS | .CROP | %2) {
                         clicked_item = *data[row_index];;
                         clicked_item_row_index = row_index;
                         clicked_item_column_index = %3;
