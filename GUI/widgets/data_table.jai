@@ -16,6 +16,9 @@ Data_Table :: struct(T: Type)
     buttons: [] Button;
     labels: [] Label;
 
+    last_clicked_header_index: int;
+    last_clicked_header_parity: bool;
+
     clicked_header: bool;
     clicked_item_row_index: int;
     clicked_item_column_index: int;
@@ -155,6 +158,15 @@ use_scrollwheel :: (using data_table: *Data_Table, force := false) {
 
 to_string :: (i: $T) -> string {
     return tprint("%", i);
+}
+
+sort :: inline (data: [] $T, data_table: *Data_Table($U))
+#modify {
+    t_ok, t_info := is_struct_or_pointer_to_struct(T);
+    _, u_info := is_struct_or_pointer_to_struct(U);
+    return t_ok && t_info == u_info , "data must be an array of struct or pointer-to-struct";
+} {
+    sort(data, data_table.last_clicked_header_index, data_table.last_clicked_header_parity);
 }
 
 sort :: (data: [] $T, member_index: int, reversed: bool)
@@ -303,6 +315,10 @@ update_data_table :: (using data_table: *Data_Table) {
                     clicked_header = true;
                     clicked_item_row_index = -1;
                     clicked_item_column_index = %3;
+                    if last_clicked_header_index == %3
+                        last_clicked_header_parity = !last_clicked_header_parity;
+                    else
+                        last_clicked_header_index = %3;
                 }
                 if is_hot(*buttons[%3])  do_scrollwheel = true;
                 left_ord = right_ord;

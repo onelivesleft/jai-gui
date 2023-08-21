@@ -1,5 +1,12 @@
-// @TODO
-// [ ] draw box
+// @Note This is a very simple default skin.  If you want to make your own skin then
+//       you must export a version of all the procs which this file exports - everything
+//       after #scope_export below.  You must also export a Theme struct and the `themes`
+//       array.  Your Theme struct does not have to include all the members this one does,
+//       though it does need to include some of them: generally speaking, any colors or text
+//       sizes in this theme are not required, but things which specify a default size
+//       (like `padding`) likely will be.
+//       It'll be easy to work out as the compiler will complain about any members you fail
+//       to declare.
 
 theme := Theme.{};
 
