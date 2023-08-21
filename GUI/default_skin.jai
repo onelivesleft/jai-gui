@@ -1,5 +1,5 @@
 // @TODO
-// [ ] draw get_box
+// [ ] draw box
 
 theme := Theme.{};
 

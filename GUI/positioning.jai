@@ -1,12 +1,11 @@
 At_Location :: struct {
     parent: *At_Location;
-    box: Box;
+    _box: Box;
     rect: Rect;
     rect_frame_count: int;
 }
 
 Panel :: At_Location;
-
 
 
 at :: (parent: *At_Location) -> *At_Location #expand #no_debug {
@@ -37,17 +36,17 @@ at :: (tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location #expand #no_debug
     return at(peek_panel(), tlx, tly, brx, bry);
 }
 
-at :: (parent: *At_Location, box: Box) -> *At_Location #expand #no_debug {
-    location := At_Location.{ parent, box, .{}, 0 };
+at :: (parent: *At_Location, _box: Box) -> *At_Location #expand #no_debug {
+    location := At_Location.{ parent, _box, .{}, 0 };
     return *location;
 }
 
-at :: (box: Box) -> *At_Location #expand #no_debug {
-    return at(peek_panel(), box);
+at :: (_box: Box) -> *At_Location #expand #no_debug {
+    return at(peek_panel(), _box);
 }
 
 at :: (parent: *At_Location, auto_place: Placement) -> *At_Location #expand #no_debug {
-    location := At_Location.{ parent, get_box(auto_place), .{}, 0 };
+    location := At_Location.{ parent, box(auto_place), .{}, 0 };
     return *location;
 }
 
@@ -70,30 +69,57 @@ at_top :: (_ord: $T) -> *At_Location #expand #no_debug
 }
 {
     return at(peek_panel(), _ord);
+
 }
 
-at_bottom :: (_ord: $T) -> Box
+at_bottom :: (parent: *At_Location, _ord: $T) -> *At_Location #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
-    return .{ coord(0, ord(_ord)), coord(1.0, 1.0) };
+    return at(parent, 0,ord(_ord), 1.0,1.0);
 }
 
-at_left :: (_ord: $T) -> Box
+at_bottom :: (_ord: $T) -> *At_Location #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
-    return .{ coord(0, 0), coord(ord(_ord), 1.0) };
+    return at(peek_panel(), _ord);
 }
 
-at_right :: (_ord: $T) -> Box
+
+at_left :: (parent: *At_Location, _ord: $T) -> *At_Location #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
-    return .{ coord(ord(_ord), 0), coord(1.0, 1.0) };
+    return at(parent, 0,0, ord(_ord),1.0);
+}
+
+at_left :: (_ord: $T) -> *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return at(peek_panel(), _ord);
+}
+
+
+at_right :: (parent: *At_Location, _ord: $T) -> *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return at(parent, ord(_ord),0, 1.0,1.0);
+}
+
+at_right :: (_ord: $T) -> *At_Location #expand #no_debug
+#modify {
+    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
+}
+{
+    return at(peek_panel(), _ord);
 }
 
 
@@ -102,7 +128,7 @@ split_left_right :: (location: *At_Location, partition_ord: $T) -> *Panel, *Pane
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
-    return at(location, get_box(0,0, partition_ord,1.0)), at(location, get_box(partition_ord,0, 1.0,1.0));
+    return at(location, box(0,0, partition_ord,1.0)), at(location, box(partition_ord,0, 1.0,1.0));
 }
 
 split_top_bottom :: (location: *At_Location, partition_ord: $T) -> *Panel, *Panel #expand #no_debug
@@ -110,7 +136,7 @@ split_top_bottom :: (location: *At_Location, partition_ord: $T) -> *Panel, *Pane
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
-    return at(location, get_box(0,0, 1.0,partition_ord)), at(location, get_box(0,partition_ord, 1.0,1.0));
+    return at(location, box(0,0, 1.0,partition_ord)), at(location, box(0,partition_ord, 1.0,1.0));
 }
 
 
@@ -120,9 +146,9 @@ split_left_middle_right :: (location: *At_Location, left_partition_ord: $T, righ
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
 }
 {
-    return at(location, get_box(0,0, left_partition_ord,1.0)),
-           at(location, get_box(left_partition_ord,0, right_partition_ord,1.0)),
-           at(location, get_box(right_partition_ord,0, 1.0,1.0));
+    return at(location, box(0,0, left_partition_ord,1.0)),
+           at(location, box(left_partition_ord,0, right_partition_ord,1.0)),
+           at(location, box(right_partition_ord,0, 1.0,1.0));
 }
 
 split_top_middle_bottom :: (location: *At_Location, top_partition_ord: $T, bottom_partition_ord: $U) -> *Panel, *Panel, *Panel #expand #no_debug
@@ -131,26 +157,26 @@ split_top_middle_bottom :: (location: *At_Location, top_partition_ord: $T, botto
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
 }
 {
-    return at(location, get_box(0,0, 1.0,top_partition_ord)),
-           at(location, get_box(0,top_partition_ord, 1.0,bottom_partition_ord)),
-           at(location, get_box(0,bottom_partition_ord, 1.0,1.0));
+    return at(location, box(0,0, 1.0,top_partition_ord)),
+           at(location, box(0,top_partition_ord, 1.0,bottom_partition_ord)),
+           at(location, box(0,bottom_partition_ord, 1.0,1.0));
 }
 
 
 split_scrollbar_left :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
-    return at(location, get_box(0,0, theme.scrollbar_size,1.0)), at(location, get_box(theme.scrollbar_size,0, 1.0,1.0));
+    return at(location, box(0,0, theme.scrollbar_size,1.0)), at(location, box(theme.scrollbar_size,0, 1.0,1.0));
 }
 
 split_scrollbar_right :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
-    return at(location, get_box(0,0, -theme.scrollbar_size,1.0)), at(location, get_box(-theme.scrollbar_size,0, 1.0,1.0));
+    return at(location, box(0,0, -theme.scrollbar_size,1.0)), at(location, box(-theme.scrollbar_size,0, 1.0,1.0));
 }
 
 split_scrollbar_top :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
-    return at(location, get_box(0,0, 1.0,theme.scrollbar_size)), at(location, get_box(0,theme.scrollbar_size, 1.0,1.0));
+    return at(location, box(0,0, 1.0,theme.scrollbar_size)), at(location, box(0,theme.scrollbar_size, 1.0,1.0));
 }
 
 split_scrollbar_bottom :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
-    return at(location, get_box(0,0, 1.0,-theme.scrollbar_size)), at(location, get_box(0,-theme.scrollbar_size, 1.0,1.0));
+    return at(location, box(0,0, 1.0,-theme.scrollbar_size)), at(location, box(0,-theme.scrollbar_size, 1.0,1.0));
 }
 
 
@@ -160,10 +186,10 @@ split_quadrants :: (location: *At_Location, horizontal_partition_ord: $T, vertic
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
 }
 {
-    return at(location, get_box(0,0, horizontal_partition_ord,vertical_partition_ord)),
-           at(location, get_box(horizontal_partition_ord,0, 1.0,vertical_partition_ord)),
-           at(location, get_box(0,vertical_partition_ord, horizontal_partition_ord,1.0)),
-           at(location, get_box(horizontal_partition_ord,vertical_partition_ord, 1.0,1.0));
+    return at(location, box(0,0, horizontal_partition_ord,vertical_partition_ord)),
+           at(location, box(horizontal_partition_ord,0, 1.0,vertical_partition_ord)),
+           at(location, box(0,vertical_partition_ord, horizontal_partition_ord,1.0)),
+           at(location, box(horizontal_partition_ord,vertical_partition_ord, 1.0,1.0));
 }
 
 
@@ -256,9 +282,9 @@ Box :: struct {
     bry: Ord;
 }
 
-BOX_FILLED :: #run get_box(0,0, 1.0,1.0);
+BOX_FILLED :: #run box(0,0, 1.0,1.0);
 
-get_box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
+box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT)
@@ -270,39 +296,39 @@ get_box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
 }
 
 
-translate :: (box: *Box, $$x: int, $$y: int) {
-    box.tl.x.abs += x;
-    box.br.x.abs += x;
-    box.tl.y.abs += y;
-    box.br.y.abs += y;
+translate :: (_box: *Box, $$x: int, $$y: int) {
+    _box.tl.x.abs += x;
+    _box.br.x.abs += x;
+    _box.tl.y.abs += y;
+    _box.br.y.abs += y;
 }
 
-abs_width :: (box: Box) -> int {
-    assert(box.tl.x.rel == box.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
-    return box.br.x.abs - box.tl.x.abs;
+abs_width :: (_box: Box) -> int {
+    assert(_box.tl.x.rel == _box.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
+    return _box.br.x.abs - _box.tl.x.abs;
 }
 
-abs_height :: (box: Box) -> int {
-    assert(box.tl.y.rel == box.br.y.rel, "You can only calculate an absolute height if both y Coords use the same origin (i.e. have the same rel)");
-    return box.br.y.abs - box.tl.y.abs;
+abs_height :: (_box: Box) -> int {
+    assert(_box.tl.y.rel == _box.br.y.rel, "You can only calculate an absolute height if both y Coords use the same origin (i.e. have the same rel)");
+    return _box.br.y.abs - _box.tl.y.abs;
 }
 
-shrink :: (panel: *Panel, delta_ord: $T) -> *Panel
+shrink :: (panel: *Panel, delta_ord: $T) -> *Panel #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
-    box := shrink(panel.box, delta_ord);
-    return at(panel.parent, box);
+    _box := shrink(panel._box, delta_ord);
+    return at(panel.parent, _box);
 }
 
-shrink :: (box: Box, delta_ord: $T) -> Box
+shrink :: (_box: Box, delta_ord: $T) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 }
 {
     _ord := ord(delta_ord);
-    result := box;
+    result := _box;
     result.tl.x += _ord;
     result.tl.y += _ord;
     result.br.x -= _ord;;
@@ -311,17 +337,17 @@ shrink :: (box: Box, delta_ord: $T) -> Box
 }
 
 
-shrink :: (panel: *Panel, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> *Panel
+shrink :: (panel: *Panel, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> *Panel #expand #no_debug
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
 }
 {
-    box := shrink(panel.box, horizontal_delta_ord, vertical_delta_ord);
-    return at(panel.parent, box);
+    _box := shrink(panel._box, horizontal_delta_ord, vertical_delta_ord);
+    return at(panel.parent, _box);
 }
 
-shrink :: (box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
+shrink :: (_box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
 #modify {
     return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT)
         && (U == Ord || (cast(*Type_Info)U).type == .INTEGER || (cast(*Type_Info)U).type == .FLOAT);
@@ -329,7 +355,7 @@ shrink :: (box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
 {
     horizontal_ord := ord(horizontal_delta_ord);
     vertical_ord := ord(vertical_delta_ord);
-    result := box;
+    result := _box;
     result.tl.x += horizontal_ord;
     result.tl.y += vertical_ord;
     result.br.x -= horizontal_ord;;
@@ -485,21 +511,21 @@ begin_placing :: (location: *At_Location) {
     new_placement = true;
 }
 
-get_box :: inline (auto_place: Placement) -> Box {
+box :: inline (auto_place: Placement) -> Box {
     if new_placement {
         new_placement = false;
-        return last_widget_location.box;
+        return last_widget_location._box;
     }
     else {
-        return get_box(*last_widget_location, auto_place);
+        return box(*last_widget_location, auto_place);
     }
 }
 
-get_box :: inline (location: *At_Location, auto_place: Placement) -> Box {
-    return get_box(location.box, auto_place);
+box :: inline (location: *At_Location, auto_place: Placement) -> Box {
+    return box(location._box, auto_place);
 }
 
-get_box :: (from_box: Box, auto_place: Placement) -> Box {
+box :: (from_box: Box, auto_place: Placement) -> Box {
     result := from_box;
     spacing := peek_spacing();
 

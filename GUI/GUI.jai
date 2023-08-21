@@ -493,7 +493,7 @@ window_rect : Rect;
 
 set_window_size :: (window_width: int, window_height: int) {
     window_panel.parent = null;
-    window_panel.box = get_box(0, 0, window_width, window_height);
+    window_panel._box = box(0, 0, window_width, window_height);
     window_panel.rect = .{ 0, 0, xx window_width, xx window_height };
 }
 
@@ -508,11 +508,11 @@ resolve_ord :: (pos: float, size: float, ord: Ord) -> float {
     return pos + ord.rel * size + ord.abs;
 }
 
-resolve_rect :: (rect: Rect, box: Box) -> Rect {
-    x := resolve_ord(rect.x, rect.w, box.tl.x);
-    y := resolve_ord(rect.y, rect.h, box.tl.y);
-    w := resolve_ord(rect.x, rect.w, box.br.x) - x;
-    h := resolve_ord(rect.y, rect.h, box.br.y) - y;
+resolve_rect :: (rect: Rect, _box: Box) -> Rect {
+    x := resolve_ord(rect.x, rect.w, _box.tl.x);
+    y := resolve_ord(rect.y, rect.h, _box.tl.y);
+    w := resolve_ord(rect.x, rect.w, _box.br.x) - x;
+    h := resolve_ord(rect.y, rect.h, _box.br.y) - y;
     return .{ x, y, w, h };
 }
 
@@ -525,15 +525,15 @@ calculate_rect :: (at: *$T/At_Location) -> Rect {
     else
         parent_rect = at.parent.rect;
 
-    at.rect = resolve_rect(parent_rect, at.box);
+    at.rect = resolve_rect(parent_rect, at._box);
     at.rect_frame_count = frame.count;
 
     return at.rect;
 }
 
-calculate_rect :: (parent: *$T/At_Location, box: Box) -> Rect {
+calculate_rect :: (parent: *$T/At_Location, _box: Box) -> Rect {
     calculate_rect(parent);
-    return resolve_rect(parent.rect, box);
+    return resolve_rect(parent.rect, _box);
 }
 
 get_rect :: (widget: *Widget) -> Rect {
@@ -621,3 +621,15 @@ trailing_utf8_bytes :: u8.[
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
     2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2, 3,3,3,3,3,3,3,3,4,4,4,4,5,5,5,5,
 ];
+
+is_struct_or_pointer_to_struct :: (T: Type) -> bool, *Type_Info_Struct {
+    info := cast(*Type_Info) T;
+
+    if info.type == .POINTER
+        info = (cast(*Type_Info_Pointer)info).pointer_to;
+
+    if info.type == .STRUCT
+        return true, cast(*Type_Info_Struct) info;
+    else
+        return false, null;
+}

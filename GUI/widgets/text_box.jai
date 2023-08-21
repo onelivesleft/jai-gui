@@ -104,13 +104,13 @@ update_text_box :: (using text_box: *Text_Box) {
     top_index := ifx flags & .SMOOTH {
                     count := cast(float)(lines.count - visible_row_count - 1);
                     count = max(1.0, count);
-                    f := vertical_scrollbar(*scrollbar, at(scrollbar_panel, get_box(.FILL)), 0, .{0, count}, handle_size=1.0 / (count/visible_row_count), flags);
+                    f := vertical_scrollbar(*scrollbar, at(scrollbar_panel, box(.FILL)), 0, .{0, count}, handle_size=1.0 / (count/visible_row_count), flags);
                     result := cast(int) f;
                     offset = f - result;
                     result;
                  }
                  else {
-                    vertical_scrollbar(*scrollbar, at(scrollbar_panel, get_box(.FILL)), 0, .{0, lines.count - visible_row_count - 1});
+                    vertical_scrollbar(*scrollbar, at(scrollbar_panel, box(.FILL)), 0, .{0, lines.count - visible_row_count - 1});
                  };
 
     do_scrollwheel := false;
@@ -128,7 +128,7 @@ update_text_box :: (using text_box: *Text_Box) {
             row_text.count -= 1;
         _label := *labels[index];
 
-        if label(_label, at(text_panel, get_box(0,ord(0.0,y), 1.0,ord(0.0,y+theme.text_box_row_height))), row_text, label_flags) {
+        if label(_label, at(text_panel, box(0,ord(0.0,y), 1.0,ord(0.0,y+theme.text_box_row_height))), row_text, label_flags) {
             clicked_row_index = row_index;
             clicked_column_index = 0;
         }

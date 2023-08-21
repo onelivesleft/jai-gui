@@ -1,12 +1,11 @@
-Data_Table :: struct(T: Type) {
+Data_Table :: struct(T: Type)
+#modify {
+    return T == void || is_struct_or_pointer_to_struct(T) , "data must be an array of struct or pointer-to-struct";
+} {
     #as using widget: Widget;
 
     data : [] T;
 
-    clicked_item: *T;
-    clicked_header: bool;
-    clicked_item_row_index: int;
-    clicked_item_column_index: int;
 
     selected_row_index := -1;
 
@@ -17,12 +16,19 @@ Data_Table :: struct(T: Type) {
     buttons: [] Button;
     labels: [] Label;
 
+    clicked_header: bool;
+    clicked_item_row_index: int;
+    clicked_item_column_index: int;
+
     #insert -> string {
         #if T == void {
-            return "";
+            return #string jai
+                clicked_item: *T;
+            jai;
         }
         else {
-            info := type_info(T);
+            _, info := is_struct_or_pointer_to_struct(T);
+            is_pointer_array := (cast(*Type_Info)T).type == .POINTER;
             builder : String_Builder;
             column_flags : [..] u64;
             column_ends : [..] Ord;
@@ -45,10 +51,14 @@ Data_Table :: struct(T: Type) {
                 array_add(*column_flags, cast(u64)flags);
             }
             column_ends[column_ends.count - 1] = ord(1.0);
+            clicked_item_type := ifx is_pointer_array then "T" else "*T";
             print_to_builder(*builder, #string jai
+                clicked_item: %;
+
+                is_pointer_array :: %;
                 columns :: %;
                 column_flags :: u64.[
-            jai, column_ends.count);
+            jai, clicked_item_type, is_pointer_array, column_ends.count);
 
             for member: info.members {
                 print_to_builder(*builder, #string jai
@@ -74,35 +84,35 @@ Data_Table :: struct(T: Type) {
 
 keep_selection : int = 0xffff_ffff;
 
-data_table :: (location: *At_Location, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+data_table :: (location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
     clicked, widget := _data_table(0, location, flags, data, keep_selection, #insert #run next(*data_table_count));
     return clicked, widget;
 }
 
-data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of data_tables being created)");
     clicked, widget := _data_table(id, location, flags, data, keep_selection, #insert #run next(*data_table_count, reserve));
     return clicked, widget;
 }
 
-data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $T, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
     clicked, widget := _data_table(data_table, location, flags, data, keep_selection);
     return clicked, widget;
 }
 
 
-data_table :: (location: *At_Location, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+data_table :: (location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
     clicked, widget := _data_table(0, location, flags, data, selected_row_index, #insert #run next(*data_table_count));
     return clicked, widget;
 }
 
-data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of data_tables being created)");
     clicked, widget := _data_table(id, location, flags, data, selected_row_index, #insert #run next(*data_table_count, reserve));
     return clicked, widget;
 }
 
-data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $T, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(T) #expand #no_debug {
+data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
     clicked, widget := _data_table(data_table, location, flags, data, selected_row_index);
     return clicked, widget;
 }
@@ -149,14 +159,13 @@ to_string :: (i: $T) -> string {
 
 sort :: (data: [] $T, member_index: int, reversed: bool)
 #modify {
-    info := cast(*Type_Info) T;
-    return info.type == .STRUCT, "data must be array of struct!";
+    return is_struct_or_pointer_to_struct(T) , "data must be an array of struct or pointer-to-struct";
 } {
     _sort :: (data: [] $T, $member_index: int, $reversed: bool) {
         #insert -> string {
-            info := type_info(T);
+            _, info := is_struct_or_pointer_to_struct(T);
             assert(member_index >= 0 && member_index < info.members.count);
-            vars :: string.["a", "b"];
+            vars :=  ifx (cast(*Type_Info)T).type == .POINTER then string.["a.*", "b.*"] else string.["a", "b"];;
             return tprint(#string jai
                 quick_sort(data, (a, b) => compare(%2.%1, %3.%1));
             jai, info.members[member_index].name, vars[xx reversed], vars[xx !reversed]);
@@ -168,7 +177,7 @@ sort :: (data: [] $T, member_index: int, reversed: bool)
         append(*builder, #string jai
             if member_index == {
         jai);
-        info := type_info(T);
+        _, info := is_struct_or_pointer_to_struct(T);
         for 0 .. info.members.count - 1 {
             print_to_builder(*builder, #string jai
                 case %1;
@@ -213,7 +222,10 @@ compare :: inline (a: $T, b: T) -> int
 data_table_data : [] Data_Table(void);
 #no_reset data_table_count := 0;
 
-_data_table :: inline (id: int, location: *At_Location, flags: Flags, data: [] $T, selected_row_index: int, $gui_index: int) -> clicked: bool, *Data_Table(T) {
+_data_table :: inline (id: int, location: *At_Location, flags: Flags, data: [] $T, selected_row_index: int, $gui_index: int) -> clicked: bool, *Data_Table(T)
+#modify {
+    return T == void || is_struct_or_pointer_to_struct(T) , "data must be an array of struct or pointer-to-struct";
+} {
     #assert(size_of(Data_Table(T)) == size_of(type_of(data_table_data[0])));
     clicked, data_table := _data_table(cast(*Data_Table(T))*data_table_data[gui_index + id], location, flags, data, selected_row_index);
     return clicked, data_table;
@@ -221,8 +233,7 @@ _data_table :: inline (id: int, location: *At_Location, flags: Flags, data: [] $
 
 _data_table :: (data_table: *Data_Table(T), location: *At_Location, flags: Flags, data: [] $T, selected_row_index: int) -> clicked: bool, *Data_Table(T)
 #modify {
-    info := cast(*Type_Info) T;
-    return info.type == .STRUCT, "data must be array of struct!";
+    return T == void || is_struct_or_pointer_to_struct(T) , "data must be an array of struct or pointer-to-struct";
 } {
     if !data_table.buttons {
         data_table.buttons = NewArray(data_table.columns + 1, Button);
@@ -260,7 +271,7 @@ update_data_table :: (using data_table: *Data_Table) {
     header_row, top_right_stub := split_scrollbar_right(top);
     table_panel, scrollbar_panel := split_scrollbar_right(bottom);
 
-    top_index := vertical_scrollbar(*scrollbar, at(scrollbar_panel, get_box(.FILL)), 0, .{0, data.count - visible_row_count - 1});
+    top_index := vertical_scrollbar(*scrollbar, at(scrollbar_panel, box(.FILL)), 0, .{0, data.count - visible_row_count - 1});
 
     left_ord, right_ord: Ord;
     do_scrollwheel := false;
@@ -279,12 +290,16 @@ update_data_table :: (using data_table: *Data_Table) {
     }
 
     #insert -> string {
-        info := type_info(T);
+        base_info : *Type_Info = type_info(T);
+        info : *Type_Info_Struct = ifx base_info.type == .POINTER
+                                   then cast(*Type_Info_Struct)(cast(*Type_Info_Pointer)base_info).pointer_to
+                                   else cast(*Type_Info_Struct)base_info;
+        assert(info.type == .STRUCT);
         builder : String_Builder;
         for member: info.members {
             print_to_builder(*builder, #string jai
                 right_ord = %4;
-                if button(*buttons[%3], at(header_row, get_box(left_ord,0, right_ord,1.0)), "%1", %2) {
+                if button(*buttons[%3], at(header_row, box(left_ord,0, right_ord,1.0)), "%1", %2) {
                     clicked_header = true;
                     clicked_item_row_index = -1;
                     clicked_item_column_index = %3;
@@ -297,7 +312,7 @@ update_data_table :: (using data_table: *Data_Table) {
     }
 
     jump_tooltip := ifx jump_destination == .TOP then "Jump to top" else ifx jump_destination == .BOTTOM then "Jump to bottom" else "Jump to selected row";
-    jump_to_top_or_bottom_or_selection = button(*buttons[columns], at(top_right_stub, get_box(.FILL)), "", tooltip=jump_tooltip);
+    jump_to_top_or_bottom_or_selection = button(*buttons[columns], at(top_right_stub, box(.FILL)), "", tooltip=jump_tooltip);
 
     y := 0;
 
@@ -313,13 +328,13 @@ update_data_table :: (using data_table: *Data_Table) {
         left_ord, right_ord = ord(0), ord(0);
 
         #insert -> string {
-            info := type_info(T);
+            _, info := is_struct_or_pointer_to_struct(T);
             builder : String_Builder;
             for member: info.members {
                 print_to_builder(*builder, #string jai
                     right_ord = %4;
-                    if label(_label, at(table_panel, get_box(left_ord,y, right_ord,y+theme.data_table_row_height)), to_string(row_item.%1), Flags.INTERACTS | .CROP | %2) {
-                        clicked_item = *data[row_index];;
+                    if label(_label, at(table_panel, box(left_ord,y, right_ord,y+theme.data_table_row_height)), to_string(row_item.%1), Flags.INTERACTS | .CROP | %2) {
+                        clicked_item = %5data[row_index];;
                         clicked_item_row_index = row_index;
                         clicked_item_column_index = %3;
                     }
@@ -329,7 +344,7 @@ update_data_table :: (using data_table: *Data_Table) {
                     }
                     left_ord = right_ord;
                     _label += 1;
-                jai, member.name, column_flags[it_index], it_index, ord_constructor(column_ends[it_index]));
+                jai, member.name, column_flags[it_index], it_index, ord_constructor(column_ends[it_index]), ifx !is_pointer_array then "*");
             }
             append(*builder, #string jai
                     y += theme.data_table_row_height;
