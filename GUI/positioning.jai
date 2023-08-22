@@ -37,6 +37,10 @@
 //       everything in GUI works using a *At_Location/*Panel parameter.  In order for the procs
 //       below (like `at` and `split_left_right`) to generate data on the stack but still return
 //       a pointer they are all macros.
+//
+//       *DO NOT* attempt to walk up the widget heirarchy; panels only exist long enough for their
+//       child widgets to be positioned.  If you try to go up through a widget's ancestors you may
+//       go through a panel that no longer exists and explode.
 
 
 At_Location :: struct {
@@ -213,7 +217,7 @@ split_scrollbar_bottom :: (location: *At_Location) -> *Panel, scrollbar_panel: *
 
 split_scrollbars_bottom_right :: (location: *At_Location) -> main_area: *Panel, bottom_scrollbar: *Panel, right_scrollbar: *Panel #expand #no_debug {
     tl, tr, bl, br := split_quadrants(location, -theme.scrollbar_size, -theme.scrollbar_size);
-    return tl, bl, br;
+    return tl, bl, tr;
 }
 
 
@@ -255,6 +259,11 @@ operator - :: (a: Ord, b: Ord) -> Ord {
 
 operator + :: (a: Ord, b: Ord) -> Ord {
     return .{ a.rel + b.rel, a.abs + b.abs };
+}
+
+// @TODO rest of these
+operator + :: (a: Ord, b: int) -> Ord #symmetric {
+    return .{ a.rel, a.abs + b };
 }
 
 parse_ord :: (s: string) -> Ord, bool {

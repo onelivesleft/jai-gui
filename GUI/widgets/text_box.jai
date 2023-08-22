@@ -118,7 +118,7 @@ update_text_box :: (using text_box: *Text_Box) {
     y := -cast(int)(theme.text_box_row_height * offset);
     label_flags := flags | .INTERACTS | flags_from_font_style(font_style);
 
-    scissor(text_rect, flags);
+    with_scissor(text_rect, flags);
 
     for index: 0 .. visible_row_count { // not -1 as we want to draw a partial row if the table size leaves space for one
         row_index := index + top_index;

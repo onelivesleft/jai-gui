@@ -336,6 +336,10 @@ widget_type :: (widget: *Widget) -> Type {
 update_widget :: (using widget: *Widget) {
     maybe_calculate_rect(widget);
 
+    scissor := peek_scissor();
+    if scissor && !contains(scissor.*, mouse.x, mouse.y)
+        return;
+
     is_mouse_over := contains(rect, mouse.x, mouse.y);
     if is_mouse_over && tooltip
         tooltip_widget = widget;
@@ -517,22 +521,22 @@ resolve_rect :: (rect: Rect, _box: Box) -> Rect {
     return .{ x, y, w, h };
 }
 
-calculate_rect :: (at: *$T/At_Location) -> Rect {
-    if !at.parent  return at.rect;
+calculate_rect :: (panel: *Panel) -> Rect {
+    if !panel.parent  return panel.rect;
 
     parent_rect : Rect = ---;
-    if at.parent.rect_frame_count < frame.count
-        parent_rect = calculate_rect(at.parent);
+    if panel.parent.rect_frame_count < frame.count
+        parent_rect = calculate_rect(panel.parent);
     else
-        parent_rect = at.parent.rect;
+        parent_rect = panel.parent.rect;
 
-    at.rect = resolve_rect(parent_rect, at._box);
-    at.rect_frame_count = frame.count;
+    panel.rect = resolve_rect(parent_rect, panel._box);
+    panel.rect_frame_count = frame.count;
 
-    return at.rect;
+    return panel.rect;
 }
 
-calculate_rect :: (parent: *$T/At_Location, _box: Box) -> Rect {
+calculate_rect :: (parent: *Panel, _box: Box) -> Rect {
     calculate_rect(parent);
     return resolve_rect(parent.rect, _box);
 }
@@ -633,4 +637,8 @@ is_struct_or_pointer_to_struct :: (T: Type) -> bool, *Type_Info_Struct {
         return true, cast(*Type_Info_Struct) info;
     else
         return false, null;
+}
+
+lerp :: (a: int, b: int, t: float) -> int {
+    return a + cast(int)(cast(float)(b - a) * t);
 }

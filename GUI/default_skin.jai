@@ -306,17 +306,34 @@ switch_theme :: () #expand {
 #scope_export
 
 
-scissor :: (rect: Rect) #expand {
+with_scissor :: (rect: Rect) #expand {
     push_scissor(rect);
     `defer pop_scissor();
 }
 
-scissor :: (rect: Rect, flags: Flags) #expand {
-    scissoring := !(flags & .OVERFLOW) || (flags & .CROP);
-    if scissoring  push_scissor(rect);
-    `defer if scissoring  pop_scissor();
+with_scissor :: (rect: Rect, flags: Flags) #expand {
+    do_scissor := !(flags & .OVERFLOW) || (flags & .CROP);
+    if do_scissor  push_scissor(rect);
+    `defer if do_scissor  pop_scissor();
 }
 
+push_scissor :: (rect: Rect, flags: Flags) {
+    do_scissor := !(flags & .OVERFLOW) || (flags & .CROP);
+    // @Note we always push something if the stack isn't empty, so the user can always unthinkingly pop
+    if do_scissor
+        push_scissor(rect);
+    else if scissor_stack
+        push_scissor(peek(scissor_stack));
+}
+
+maybe_pop_scissor :: () {
+    if scissor_stack  pop_scissor();
+}
+
+peek_scissor :: () -> *Rect {
+    if scissor_stack  return *scissor_stack[scissor_stack.count - 1];
+    else              return null;
+}
 
 clear_window :: () {
     Simp.clear_render_target(theme.background_color.x, theme.background_color.y, theme.background_color.z, theme.background_color.w);
@@ -338,13 +355,13 @@ draw_tooltip :: (using widget: *Widget) {
         tooltip_rect.y -= tooltip_rect.h;
 
     Simp.set_shader_for_color();
-    scissor(tooltip_rect);
+    with_scissor(tooltip_rect);
     draw_rect(tooltip_rect, theme.tooltip_border_color);
     tooltip_rect = shrink(tooltip_rect, theme.tooltip_border);
     draw_rect(tooltip_rect, theme.tooltip_background);
     text_rect = shrink(tooltip_rect, theme.padding);
 
-    scissor(text_rect);
+    with_scissor(text_rect);
     text_x, text_y := text_origin(.CENTER, font, text_rect, text_width);
     Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.tooltip_foreground);
 }
@@ -355,7 +372,7 @@ draw_button :: (using button: *Button) {
     switch_theme();
 
     button_rect := shrink(rect, 0, 0, 1, 1);
-    scissor(button_rect, flags);
+    with_scissor(button_rect, flags);
     Simp.set_shader_for_color();
 
     color := hot_active_else(button, theme.button_background_hot, theme.button_background_active, theme.button_background);
@@ -378,7 +395,7 @@ draw_label :: (using label: *Label) {
 
     label_rect := shrink(rect, 0, 0, 1, 1);
     label_rect = shrink(label_rect, theme.padding);
-    scissor(label_rect, flags);
+    with_scissor(label_rect, flags);
 
     font, text_width := get_font(sans_font(flags), theme.label_text_size, text, fit_width(label_rect, flags));
 
@@ -392,7 +409,7 @@ draw_scrollbar :: (using scrollbar: *Scrollbar) {
     switch_theme();
 
     Simp.set_shader_for_color();
-    scissor(rect, flags);
+    with_scissor(rect, flags);
 
     draw_rect(rect, theme.scrollbar_groove_background);
 
@@ -407,7 +424,7 @@ draw_checkbox :: (using checkbox: *Checkbox) {
     switch_theme();
 
     checkbox_rect := shrink(rect, 0, 0, 1, 1);
-    scissor(checkbox_rect, flags);
+    with_scissor(checkbox_rect, flags);
     Simp.set_shader_for_color();
 
     color := hot_active_else(checkbox, theme.button_background_hot, theme.button_background_active, theme.button_background);
@@ -442,7 +459,7 @@ draw_text_input :: (using text_input: *Text_Input) {
     switch_theme();
 
     text_input_rect := shrink(rect, 0, 0, 1, 1);
-    scissor(text_input_rect, flags);
+    with_scissor(text_input_rect, flags);
     Simp.set_shader_for_color();
 
     draw_rect(text_input_rect, theme.text_input_border_color);
@@ -454,7 +471,7 @@ draw_text_input :: (using text_input: *Text_Input) {
         if !text  return;
 
         text_rect := shrink(text_input_rect, theme.padding);
-        scissor(text_rect, flags);
+        with_scissor(text_rect, flags);
         font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text, fit_width(text_rect, flags));
 
         text_x, text_y := text_origin(left_align(flags), font, text_rect, text_width);
@@ -466,7 +483,7 @@ draw_text_input :: (using text_input: *Text_Input) {
     cursor_rect : Rect = ---;
     font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text_edit.before_cursor, 0);
      {
-        scissor(text_rect, flags);
+        with_scissor(text_rect, flags);
         text_edit.cursor_x = ifx text_width < text_rect.w then text_width else text_rect.w / 2;
 
         left_rect, right_rect := split_left_right(text_rect, text_edit.cursor_x);
@@ -519,7 +536,7 @@ draw_data_table :: (using data_table: *Data_Table) {
         while label <= last_label_on_row {
             label_rect := shrink(label.rect, 0, 0, 1, 1);
             label_rect = shrink(label_rect, theme.padding);
-            scissor(label_rect, label.flags);
+            with_scissor(label_rect, label.flags);
 
             font, text_width := get_font(sans_font(label.flags), theme.label_text_size, label.text, fit_width(label_rect, label.flags));
 

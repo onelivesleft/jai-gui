@@ -10,7 +10,7 @@ word_count : [..] Word_Count;
 word_count_ptr : [..] *Word_Count;
 
 main :: () {
-    window, window_handle := gui_create_window("GUI Test", 1024, 768);
+    window, window_handle := gui_create_window("GUI Test", 1280, 896);
 
     show_wheel := true;
     maybe_lock : Flags;
@@ -89,13 +89,15 @@ main :: () {
         text_box(at(left, 0.5,ord(0.5, -50), -20,ord(0.5, +50)), lorem_text, .SMOOTH);
 
         upper, lower := split_top_bottom(left, 0.66);
-        quadrant_button_panel := scrollable_panel(at(lower), 1000, 1000);
-        tl, tr, bl, br := split_quadrants(quadrant_button_panel, 0.5, 0.5);
-        quadrant_button_flags |= maybe_lock;
-        button(shrink(at(tl), 0.2), "Uno", quadrant_button_flags, "One");
-        button(shrink(at(tr), 0.2), "Dos", quadrant_button_flags, "Two");
-        button(shrink(at(bl), 0.2), "Tres", quadrant_button_flags, "Three");
-        button(shrink(at(br), 0.2), "Mas", quadrant_button_flags, "More");
+
+        quadrant_button_panel := push_scrollable_panel(shrink(lower, 0.1, 0), 1000, 100, maybe_lock | .FIT);
+            tl, tr, bl, br := split_quadrants(quadrant_button_panel, 0.5, 0.5);
+            quadrant_button_flags |= maybe_lock;
+            button(shrink(tl, 0.1), "Uno", quadrant_button_flags, "One");
+            button(shrink(tr, 0.1), "Dos", quadrant_button_flags, "Two");
+            button(shrink(bl, 0.1), "Tres", quadrant_button_flags, "Three");
+            button(shrink(br, 0.1), "Mas", quadrant_button_flags, "More");
+        pop_scrollable_panel();
 
         if label(at(-300,-30, -100,1.0), "Scroll Wheel:", Flags.RIGHT | .INTERACTS, "Get it back")
             show_wheel = !show_wheel;
