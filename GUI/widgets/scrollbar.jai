@@ -60,7 +60,7 @@ horizontal_scrollbar :: (id: int, $reserve: int, location: *At_Location, initial
 }
 
 horizontal_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar #expand #no_debug {
-    value, widget := float_scrollbar(.scrollbar, HORIZONTAL, location, flags, tooltip, initial_value, range, handle_size);
+    value, widget := float_scrollbar(scrollbar, .HORIZONTAL, location, flags, tooltip, initial_value, range, handle_size);
     return value, widget;
 }
 

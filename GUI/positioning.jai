@@ -184,24 +184,6 @@ split_top_middle_bottom :: (location: *At_Location, top_partition_ord: $T, botto
            at(location, box(0,bottom_partition_ord, 1.0,1.0));
 }
 
-
-split_scrollbar_left :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
-    return at(location, box(0,0, theme.scrollbar_size,1.0)), at(location, box(theme.scrollbar_size,0, 1.0,1.0));
-}
-
-split_scrollbar_right :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
-    return at(location, box(0,0, -theme.scrollbar_size,1.0)), at(location, box(-theme.scrollbar_size,0, 1.0,1.0));
-}
-
-split_scrollbar_top :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
-    return at(location, box(0,0, 1.0,theme.scrollbar_size)), at(location, box(0,theme.scrollbar_size, 1.0,1.0));
-}
-
-split_scrollbar_bottom :: (location: *At_Location) -> *Panel, *Panel #expand #no_debug {
-    return at(location, box(0,0, 1.0,-theme.scrollbar_size)), at(location, box(0,-theme.scrollbar_size, 1.0,1.0));
-}
-
-
 split_quadrants :: (location: *At_Location, horizontal_partition_ord: $T, vertical_partition_ord: $U) -> top_left: *Panel, top_right: *Panel, bottom_left: *Panel, bottom_right: *Panel #expand #no_debug
 #modify {
     return is_implicit_ord(T) && is_implicit_ord(U);
@@ -210,6 +192,28 @@ split_quadrants :: (location: *At_Location, horizontal_partition_ord: $T, vertic
            at(location, box(horizontal_partition_ord,0, 1.0,vertical_partition_ord)),
            at(location, box(0,vertical_partition_ord, horizontal_partition_ord,1.0)),
            at(location, box(horizontal_partition_ord,vertical_partition_ord, 1.0,1.0));
+}
+
+
+split_scrollbar_left :: (location: *At_Location) -> scrollbar_panel: *Panel, *Panel #expand #no_debug {
+    return at(location, box(0,0, theme.scrollbar_size,1.0)), at(location, box(theme.scrollbar_size,0, 1.0,1.0));
+}
+
+split_scrollbar_right :: (location: *At_Location) -> *Panel, scrollbar_panel: *Panel #expand #no_debug {
+    return at(location, box(0,0, -theme.scrollbar_size,1.0)), at(location, box(-theme.scrollbar_size,0, 1.0,1.0));
+}
+
+split_scrollbar_top :: (location: *At_Location) -> scrollbar_panel: *Panel, *Panel #expand #no_debug {
+    return at(location, box(0,0, 1.0,theme.scrollbar_size)), at(location, box(0,theme.scrollbar_size, 1.0,1.0));
+}
+
+split_scrollbar_bottom :: (location: *At_Location) -> *Panel, scrollbar_panel: *Panel #expand #no_debug {
+    return at(location, box(0,0, 1.0,-theme.scrollbar_size)), at(location, box(0,-theme.scrollbar_size, 1.0,1.0));
+}
+
+split_scrollbars_bottom_right :: (location: *At_Location) -> main_area: *Panel, bottom_scrollbar: *Panel, right_scrollbar: *Panel #expand #no_debug {
+    tl, tr, bl, br := split_quadrants(location, -theme.scrollbar_size, -theme.scrollbar_size);
+    return tl, bl, br;
 }
 
 

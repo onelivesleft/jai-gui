@@ -534,6 +534,7 @@ draw_data_table :: (using data_table: *Data_Table) {
     highlight_row(first_label_on_hot_row, theme.data_table_background_hot);
 }
 
+draw_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) { }
 draw_text_box :: (using text_box: *Text_Box) { }
 
 

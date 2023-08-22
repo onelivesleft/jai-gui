@@ -14,12 +14,13 @@
 #load "widgets/checkbox.jai";
 #load "widgets/data_table.jai";
 #load "widgets/label.jai";
+#load "widgets/scrollable_panel.jai";
 #load "widgets/scrollbar.jai";
 #load "widgets/text_box.jai";
 #load "widgets/text_input.jai";
 
 Widgets :: Type.[
-    Button, Checkbox, Data_Table, Label, Scrollbar, Text_Input, Text_Box
+    Button, Checkbox, Data_Table, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
 ];
 
 hot_widget:      *Widget;    // prefer is_hot(widget)
@@ -536,16 +537,16 @@ calculate_rect :: (parent: *$T/At_Location, _box: Box) -> Rect {
     return resolve_rect(parent.rect, _box);
 }
 
-get_rect :: (widget: *Widget) -> Rect {
-    if widget.rect_frame_count  == frame.count
-        return widget.rect;
+get_rect :: (panel: *Panel) -> Rect {
+    if panel.rect_frame_count  == frame.count
+        return panel.rect;
     else
-        return calculate_rect(widget);
+        return calculate_rect(panel);
 }
 
-maybe_calculate_rect :: (widget: *Widget) {
-     if widget.rect_frame_count != frame.count
-         widget.rect = calculate_rect(widget);
+maybe_calculate_rect :: (panel: *Panel) {
+     if panel.rect_frame_count != frame.count
+         panel.rect = calculate_rect(panel);
 }
 
 

@@ -89,7 +89,8 @@ main :: () {
         text_box(at(left, 0.5,ord(0.5, -50), -20,ord(0.5, +50)), lorem_text, .SMOOTH);
 
         upper, lower := split_top_bottom(left, 0.66);
-        tl, tr, bl, br := split_quadrants(lower, 0.5, 0.5);
+        quadrant_button_panel := scrollable_panel(at(lower), 1000, 1000);
+        tl, tr, bl, br := split_quadrants(quadrant_button_panel, 0.5, 0.5);
         quadrant_button_flags |= maybe_lock;
         button(shrink(at(tl), 0.2), "Uno", quadrant_button_flags, "One");
         button(shrink(at(tr), 0.2), "Dos", quadrant_button_flags, "Two");
