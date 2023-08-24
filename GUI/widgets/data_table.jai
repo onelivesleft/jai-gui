@@ -311,7 +311,7 @@ update_data_table :: (using data_table: *Data_Table) {
         for member: info.members {
             print_to_builder(*builder, #string jai
                 right_ord = %4;
-                if button(*buttons[%3], at(header_row, box(left_ord,0, right_ord,1.0)), "%1", %2) {
+                if button(*buttons[%3], at(header_row, box(left_ord,0, right_ord,1.0)), "%1", flags=%2) {
                     clicked_header = true;
                     clicked_item_row_index = -1;
                     clicked_item_column_index = %3;

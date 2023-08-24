@@ -35,6 +35,15 @@ select_all :: (text_input: *Text_Input) {
         set_text_edit_selection(0, text_edit.bytes.count);
 }
 
+set_text :: (text_input: *Text_Input, text: string) {
+    if has_focus(text_input) && text_input.flags & .IMMEDIATE
+        set_text_edit(text_input, text);
+    else {
+        if text_input.text  free(text_input.text);
+        text_input.text = copy_string(text);
+    }
+}
+
 
 #scope_module
 

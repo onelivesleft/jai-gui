@@ -116,14 +116,22 @@ update_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) {
     main_panel, bottom_scrollbar_panel, right_scrollbar_panel: *Panel;
     w := cast(float) width;
     h := cast(float) height;
+
     has_vertical_scrollbar = scrollable_panel.rect.h < h;
-    has_horizontal_scrollbar = scrollable_panel.rect.w < w;
+    if has_vertical_scrollbar {
+        has_horizontal_scrollbar = scrollable_panel.rect.w < w - theme.scrollbar_size;
+    }
+    else {
+        has_horizontal_scrollbar = scrollable_panel.rect.w < w;
+        has_vertical_scrollbar = scrollable_panel.rect.h < h - theme.scrollbar_size;
+    }
+
     if !has_vertical_scrollbar && flags & .FIT {
-        h = scrollable_panel.rect.h;
+        h = scrollable_panel.rect.h - ifx has_horizontal_scrollbar then theme.scrollbar_size;
         height = cast(int) h;
     }
     if !has_horizontal_scrollbar && flags & .FIT {
-        w = scrollable_panel.rect.w;
+        w = scrollable_panel.rect.w - ifx has_vertical_scrollbar then theme.scrollbar_size;
         width = cast(int) w;
     }
 
@@ -147,14 +155,14 @@ update_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) {
         handle_size := main_panel.rect.h / h;
         t := vertical_scrollbar(*_vertical_scrollbar, right_scrollbar_panel, handle_size=handle_size, flags);
         vertical_position.rel = t;
-        vertical_position.abs = -lerp(0, width, t);
+        vertical_position.abs = -lerp(0, height, t);
     }
 
     if has_horizontal_scrollbar {
         handle_size := main_panel.rect.w / w;
         t := horizontal_scrollbar(*_horizontal_scrollbar, bottom_scrollbar_panel, handle_size=handle_size, flags);
         horizontal_position.rel = t;
-        horizontal_position.abs = -lerp(0, height, t);
+        horizontal_position.abs = -lerp(0, width, t);
     }
 
     panel.parent = main_panel;
@@ -163,5 +171,6 @@ update_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) {
     push_scissor(main_panel.rect, flags);
     push_panel(panel);
 
-    if has_vertical_scrollbar != has_horizontal_scrollbar  use_scrollwheel(scrollable_panel);
+    if has_vertical_scrollbar != has_horizontal_scrollbar && contains(scrollable_panel.rect, mouse.x, mouse.y)
+         use_scrollwheel(scrollable_panel);
 }

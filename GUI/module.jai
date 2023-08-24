@@ -6,11 +6,12 @@
 #load "GUI.jai";
 #load "default_skin.jai";
 
+#load "icons.jai";
 #load "positioning.jai";
 
-#import "Hash_Table";
 #import "Basic";
 #import "Compiler";
+#import "Hash_Table";
 #import "Math";
 #import "Sort";
 #import "String";

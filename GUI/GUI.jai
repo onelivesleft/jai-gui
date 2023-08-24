@@ -5,7 +5,7 @@
 // [ ] input
 // [ ] text
 // [ ] dropdown
-// [ ] data table
+// [x] data table
 // [ ] icon
 // [ ] icon button
 // [ ] fx blend colors
@@ -13,6 +13,7 @@
 #load "widgets/button.jai";
 #load "widgets/checkbox.jai";
 #load "widgets/data_table.jai";
+#load "widgets/icon.jai";
 #load "widgets/label.jai";
 #load "widgets/scrollable_panel.jai";
 #load "widgets/scrollbar.jai";
@@ -20,17 +21,17 @@
 #load "widgets/text_input.jai";
 
 Widgets :: Type.[
-    Button, Checkbox, Data_Table, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
+    Button, Checkbox, Data_Table, Icon, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
 ];
 
-hot_widget:      *Widget;    // prefer is_hot(widget)
-active_widget:   *Widget;    // prefer is_active(widget)
-focussed_widget: *Widget;    // prefer has_focus(widget)
+hot_widget:      *Widget;    // use is_hot(widget)
+active_widget:   *Widget;    // use is_active(widget)
+focussed_widget: *Widget;    // use has_focus(widget)
 focussed_widget_type: Type;
 
-clicked_widget:  *Widget;    // prefer was_clicked(widget).  Lasts a single frame, when mouse is released on active_widget
-changed_widget:  *Widget;    // prefer was_changed(widget).  Lasts a single frame, a widget which changed substantially, i.e. a scrollbar moving
-scrollwheel_widget: *Widget; // prefer was_scrollwheeled(widget).  Lasts a single frame, when widget has used the scrollwheel for something
+clicked_widget:  *Widget;    // use was_clicked(widget).  Lasts a single frame, when mouse is released on active_widget
+changed_widget:  *Widget;    // use was_changed(widget).  Lasts a single frame, a widget which changed substantially, i.e. a scrollbar moving
+scrollwheel_widget: *Widget; // use was_scrollwheeled(widget).  Lasts a single frame, when widget has used the scrollwheel for something
 
 mouse : struct {
     x, y: float;
@@ -72,6 +73,8 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
         }
         return builder_to_string(*builder);
     }
+
+    init_skin();
 
     allocate_text_edit(1024);
 
@@ -223,8 +226,11 @@ Flags :: enum_flags u64 {
     THEME_B :: 32;
     THEME_C :: 48;
 
+    ALTERNATE :: 64;  // Alternate style
+    ICON_ON_RIGHT :: 64;  // for button
+
     // scrollbar
-    SMOOTH  :: 64;
+    SMOOTH;
     REVERSE_SCROLLWHEEL;  // inverts scrollwheel direction
 
     // flags
@@ -523,6 +529,7 @@ resolve_rect :: (rect: Rect, _box: Box) -> Rect {
 
 calculate_rect :: (panel: *Panel) -> Rect {
     if !panel.parent  return panel.rect;
+    assert(panel.parent != panel);
 
     parent_rect : Rect = ---;
     if panel.parent.rect_frame_count < frame.count
@@ -549,23 +556,19 @@ get_rect :: (panel: *Panel) -> Rect {
 }
 
 maybe_calculate_rect :: (panel: *Panel) {
-     if panel.rect_frame_count != frame.count
-         panel.rect = calculate_rect(panel);
+    if panel.rect_frame_count != frame.count
+        panel.rect = calculate_rect(panel);
 }
-
 
 button_state :: inline (key: Input.Key_Code) -> Input.Key_Current_State {
     return Input.input_button_states[key];
 }
-
 
 lower :: (s: string) -> string {
     result := copy_string(s);
     for i: 0 .. result.count - 1  result[i] = to_lower(result[i]);
     return result;
 }
-
-
 
 get_note_value :: (notes: [] string, id: string, default_value: $T) -> T
 #modify {
@@ -614,7 +617,6 @@ get_note :: (notes: [] string, id: string) -> bool {
     for notes  if it == id  return true;
     return false;
 }
-
 
 trailing_utf8_bytes :: u8.[
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,

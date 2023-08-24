@@ -91,7 +91,10 @@ at :: (parent: *At_Location, auto_place: Placement) -> *At_Location #expand #no_
 }
 
 at :: (auto_place: Placement) -> *At_Location #expand #no_debug {
-    return at(peek_panel(), auto_place);
+    //if placement_panel // @TODO best behaviour is?
+    //    return at(peek_panel(), auto_place);
+    //else
+    return at(last_widget_location.parent, auto_place);
 }
 
 
@@ -264,6 +267,10 @@ operator + :: (a: Ord, b: Ord) -> Ord {
 // @TODO rest of these
 operator + :: (a: Ord, b: int) -> Ord #symmetric {
     return .{ a.rel, a.abs + b };
+}
+
+operator - :: (a: Ord, b: int) -> Ord #symmetric {
+    return .{ a.rel, a.abs - b };
 }
 
 parse_ord :: (s: string) -> Ord, bool {
@@ -507,20 +514,20 @@ box :: (from_box: Box, auto_place: Placement) -> Box {
         translate(*result, 0, +abs_height(from_box) + spacing.vertical);
 
         case .FILL_LEFT;
-        translate(*result, -abs_width(from_box) - spacing.horizontal, 0);
+        result.br.x = result.tl.x - spacing.horizontal;
         result.tl.x = ord(0.0);
 
         case .FILL_RIGHT;
-        translate(*result, +abs_width(from_box) + spacing.horizontal, 0);
+        result.tl.x = result.br.x + spacing.horizontal;
         result.br.x = ord(1.0);
 
         case .FILL_UP;
-        translate(*result, 0, -abs_height(from_box) - spacing.vertical);
+        result.br.y = result.tl.y - spacing.vertical;
         result.tl.y = ord(0.0);
 
         case .FILL_DOWN;
-        translate(*result, 0, +abs_height(from_box) + spacing.vertical);
-        result.br.x = ord(1.0);
+        result.tl.y = result.br.y + spacing.vertical;
+        result.br.y = ord(1.0);
 
         case .FILL;
         result = BOX_FILLED;
@@ -536,9 +543,6 @@ box :: (from_box: Box, auto_place: Placement) -> Box {
 
     return result;
 }
-
-
-#scope_module
 
 
 Rect :: struct {

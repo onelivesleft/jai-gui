@@ -8,6 +8,7 @@
 //       It'll be easy to work out as the compiler will complain about any members you fail
 //       to declare.
 
+
 theme := Theme.{};
 
 Theme :: struct {
@@ -26,6 +27,9 @@ Theme :: struct {
 
     label_foreground := Vector4.{1.0, 1.0, 1.0, 1.0};
     label_text_size : s16 = 16;
+
+    icon_color := Vector4.{1.0, 1.0, 1.0, 1.0};
+    icon_size := 64;
 
     button_background        := Vector4.{0.55, 0.35, 0.35, 1.0};
     button_background_active := Vector4.{0.65, 0.45, 0.45, 1.0};
@@ -76,6 +80,9 @@ alternate_theme := Theme.{
 
     label_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
     label_text_size = 16,
+
+    icon_color = Vector4.{1.0, 1.0, 1.0, 1.0},
+    icon_size = 64,
 
     button_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
     button_background_active = Vector4.{0.45, 0.65, 0.45, 1.0},
@@ -303,41 +310,94 @@ switch_theme :: () #expand {
 }
 
 
-#scope_export
+get_quad :: (r: Rect, snap_coordinates := false) -> (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) {
+    using v4 := gl_vec4(r);
+    p0 := Vector2.{x, y};
+    p1 := Vector2.{z, y};
+    p2 := Vector2.{z, w};
+    p3 := Vector2.{x, w};
 
+    if snap_coordinates {
+        p0.x = floor(p0.x + .5);
+        p0.y = floor(p0.y + .5);
+        p1.x = floor(p1.x + .5);
+        p1.y = floor(p1.y + .5);
+        p2.x = floor(p2.x + .5);
+        p2.y = floor(p2.y + .5);
+        p3.x = floor(p3.x + .5);
+        p3.y = floor(p3.y + .5);
+    }
 
-with_scissor :: (rect: Rect) #expand {
-    push_scissor(rect);
-    `defer pop_scissor();
+    return p0, p1, p2, p3;
 }
 
-with_scissor :: (rect: Rect, flags: Flags) #expand {
-    do_scissor := !(flags & .OVERFLOW) || (flags & .CROP);
-    if do_scissor  push_scissor(rect);
-    `defer if do_scissor  pop_scissor();
+
+// @TODO Ideally we'd only bake in the icons we used, but we can't do that with #no_reset, and we
+//       don't want to require a build metaprogram.  If #no_reset gets an upgrade we can revisit this.
+//       For now we'll just bake in the entire icon atlas...
+
+icon_bitmap_atlas : Simp.Bitmap;
+icon_bitmap_atlas_bytes :: #run -> string {
+    path := join(#filepath, "data/material_design_icons.png");
+    file :: #import "File";
+    file_data, ok := file.read_entire_file(path);
+    assert(ok);
+    return cast(string)file_data;
 }
 
-push_scissor :: (rect: Rect, flags: Flags) {
-    do_scissor := !(flags & .OVERFLOW) || (flags & .CROP);
-    // @Note we always push something if the stack isn't empty, so the user can always unthinkingly pop
-    if do_scissor
-        push_scissor(rect);
-    else if scissor_stack
-        push_scissor(peek(scissor_stack));
+Icon_Bitmap_Bytes :: [ICON_SHEET_ICON_SIZE * ICON_SHEET_ICON_SIZE * 4] u8;
+
+make_icon_bitmap :: (using bitmap: *Simp.Bitmap, bytes: *Icon_Bitmap_Bytes, icon_index: int) {
+    width = ICON_SHEET_ICON_SIZE;
+    height = ICON_SHEET_ICON_SIZE;
+    stride = ICON_SHEET_ICON_SIZE * 4;
+    format = .RGBA8;
+    data.data = bytes.data;
+    data.count = bytes.count;
+
+    bytes_index := 0;
+    size :: ICON_SHEET_ICON_SIZE * ICON_SHEET_ICON_SIZE;
+    for i: 0 .. size - 1 {
+        i_row := i / ICON_SHEET_ICON_SIZE;
+        i_col := i % ICON_SHEET_ICON_SIZE;
+        sheet_row := ICON_SHEET_ICON_SIZE * (icon_index / ICON_SHEET_COLUMN_COUNT) + i_row;
+        sheet_col := ICON_SHEET_ICON_SIZE * (icon_index % ICON_SHEET_COLUMN_COUNT) + i_col;
+        sheet_index := sheet_row * icon_bitmap_atlas.stride + sheet_col;
+        bytes.*[bytes_index+0] = 0xff;
+        bytes.*[bytes_index+1] = 0xff;
+        bytes.*[bytes_index+2] = 0xff;
+        bytes.*[bytes_index+3] = icon_bitmap_atlas.data[sheet_index];
+        bytes_index += 4;
+    }
 }
 
-maybe_pop_scissor :: () {
-    if scissor_stack  pop_scissor();
+get_icon_texture :: (icon_id: Icon_Id) -> *Simp.Texture {
+    index := icon_index_from_icon_id[icon_id];
+    texture : *Simp.Texture = ---;
+    if index {
+        texture = *icon_textures[index - 1];
+    }
+    else {
+        texture = array_add(*icon_textures);
+        icon_index_from_icon_id[icon_id] = xx icon_textures.count;
+        bitmap : Simp.Bitmap;
+        bytes : Icon_Bitmap_Bytes;
+        make_icon_bitmap(*bitmap, *bytes, xx icon_id);
+        Simp.texture_load_from_bitmap(texture, *bitmap);
+        assert(texture != null);
+    }
+    return texture;
 }
 
-peek_scissor :: () -> *Rect {
-    if scissor_stack  return *scissor_stack[scissor_stack.count - 1];
-    else              return null;
-}
+icon_textures: [..] Simp.Texture;
+icon_index_from_icon_id : [#run enum_values_as_s64(Icon_Id).count] u16;
 
-clear_window :: () {
-    Simp.clear_render_target(theme.background_color.x, theme.background_color.y, theme.background_color.z, theme.background_color.w);
 
+#scope_module
+
+
+init_skin :: () {
+    Simp.bitmap_load_from_memory(*icon_bitmap_atlas, xx icon_bitmap_atlas_bytes);
 }
 
 draw_tooltip :: (using widget: *Widget) {
@@ -378,6 +438,27 @@ draw_button :: (using button: *Button) {
     color := hot_active_else(button, theme.button_background_hot, theme.button_background_active, theme.button_background);
     draw_rect(button_rect, color);
 
+    if icon_id {
+        texture := get_icon_texture(icon_id);
+
+        advance := button_rect.h - theme.padding;
+        icon_rect := shrink(button_rect, theme.padding);
+        if !(flags & .ICON_ON_RIGHT)
+            button_rect.x += advance;
+        button_rect.w -= advance;
+
+        if flags & .ICON_ON_RIGHT
+            icon_rect.x += icon_rect.w - icon_rect.h;
+        else if !text
+            icon_rect.x += (icon_rect.h - icon_rect.w) / 2;
+        icon_rect.w = icon_rect.h;
+
+        p0, p1, p2, p3 := get_quad(icon_rect);
+        Simp.set_shader_for_images(texture);
+        Simp.immediate_quad(p0, p1, p2, p3, theme.icon_color);
+        Simp.immediate_flush();
+    }
+
     if text {
         text_rect := shrink(button_rect, theme.padding);
         font, text_width := get_font(sans_font(flags), theme.button_text_size, text, fit_width(text_rect, flags));
@@ -401,6 +482,37 @@ draw_label :: (using label: *Label) {
 
     text_x, text_y := text_origin(left_align(flags), font, label_rect, text_width);
     Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.label_foreground);
+}
+
+draw_icon :: (using icon: *Icon) {
+    assert(rect_frame_count == frame.count);
+
+    switch_theme();
+
+    icon_rect := shrink(rect, 0, 0, 1, 1);
+    icon_rect = shrink(icon_rect, theme.padding);
+    with_scissor(icon_rect, flags);
+
+    texture := get_icon_texture(icon.icon_id);
+
+    if !(flags & .FIT) {
+        size := ifx icon_size else theme.icon_size;
+        icon_rect.y += icon_rect.h / 2;
+        icon_rect.h = xx size;
+        icon_rect.y -= icon_rect.h / 2;
+        w := icon_rect.w;
+        icon_rect.w = xx size;
+        align := center_align(flags);
+        if align == {
+            case .CENTER;  icon_rect.x += (w - icon_rect.w) / 2;
+            case .RIGHT;   icon_rect.x += w - icon_rect.w;
+        }
+    }
+
+    p0, p1, p2, p3 := get_quad(icon_rect);
+    Simp.set_shader_for_images(texture);
+    Simp.immediate_quad(p0, p1, p2, p3, theme.icon_color);
+    Simp.immediate_flush();
 }
 
 draw_scrollbar :: (using scrollbar: *Scrollbar) {
@@ -552,6 +664,7 @@ draw_data_table :: (using data_table: *Data_Table) {
 }
 
 draw_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) { }
+
 draw_text_box :: (using text_box: *Text_Box) { }
 
 
@@ -588,4 +701,66 @@ bite_text_line_for_width :: (text: string, default_font: Font_Style, size: s16, 
     advance(*remainder, line.count);
 
     return line, remainder;
+}
+
+
+#scope_export
+
+
+with_scissor :: (rect: Rect) #expand {
+    push_scissor(rect);
+    `defer pop_scissor();
+}
+
+with_scissor :: (rect: Rect, flags: Flags) #expand {
+    do_scissor := !(flags & .OVERFLOW) || (flags & .CROP);
+    if do_scissor  push_scissor(rect);
+    `defer if do_scissor  pop_scissor();
+}
+
+push_scissor :: (rect: Rect, flags: Flags) {
+    do_scissor := !(flags & .OVERFLOW) || (flags & .CROP);
+    // @Note we always push something if the stack isn't empty, so the user can always unthinkingly pop
+    if do_scissor
+        push_scissor(rect);
+    else if scissor_stack
+        push_scissor(peek(scissor_stack));
+}
+
+maybe_pop_scissor :: () {
+    if scissor_stack  pop_scissor();
+}
+
+peek_scissor :: () -> *Rect {
+    if scissor_stack  return *scissor_stack[scissor_stack.count - 1];
+    else              return null;
+}
+
+clear_window :: () {
+    Simp.clear_render_target(theme.background_color.x, theme.background_color.y, theme.background_color.z, theme.background_color.w);
+
+}
+
+
+draw_box :: inline (location: *At_Location, color: Vector4) {
+    rect := calculate_rect(location);
+    draw_box(rect, color);
+}
+
+draw_box :: (rect: Rect, color: Vector4) {
+    Simp.set_shader_for_color();
+    draw_rect(rect, color);
+}
+
+draw_text :: inline (location: *At_Location, text: string, color: Vector4, size : s16 = 0, align := Text_Alignment.CENTER, font_style := Font_Style.SANS) -> text_width: float {
+    rect := calculate_rect(location);
+    return draw_text(rect, text, color, size, align, font_style);
+}
+
+draw_text :: (rect: Rect, text: string, color: Vector4, size : s16 = 0, align := Text_Alignment.CENTER, font_style := Font_Style.SANS) -> text_width: float {
+    if !size  size = theme.label_text_size;
+    font, text_width := get_font(font_style, size, text);
+    text_x, text_y := text_origin(align, font, rect, text_width);
+    Simp.draw_prepared_text(font, xx text_x, xx text_y, color);
+    return text_width;
 }
