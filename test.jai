@@ -25,7 +25,7 @@ toast_gravity :: 200.0;
 toast_up_speed :: 200.0;
 
 main :: () {
-    window, window_handle := gui_create_window("GUI Test", 1280, 896);
+    window, window_handle := gui_create_window("GUI Test", 1280, 896, 2100, 40);
 
     show_wheel := true;
     maybe_lock : Flags;
@@ -79,7 +79,11 @@ main :: () {
                 button(it, button_count, at(button_panel,  box(.COPY_DOWN)),  lorem[it % lorem.count], .LEFT | .SERIF);
         }
 
-        text_box(at(bottom, 0.5,0.0, 0.8,ord(1.0,-20)), lorem_text, .SMOOTH);
+        clicked=, _text_box := text_box(at(bottom, 0.5,0.0, 0.8,ord(1.0,-20)), lorem_text, .SMOOTH);
+        if clicked {
+            using _text_box;
+            start_toast(labels[clicked_row_index - first_visible_row_index].text);
+        }
 
         text_input(shrink(at_top(left, height), 0.2, 0), "Hola");
         icon(at(.FILL_LEFT), .Z_WAVE, height, .RIGHT);
@@ -219,7 +223,7 @@ main :: () {
 
 start_toast :: (text: string) {
     if toast_text  free(toast_text);
-    toast_text = text;
+    toast_text = copy_string(text);
     toast_pos = Vector2.{mouse.x, mouse.y};
     toast_speed = Vector2.{0.0, -toast_up_speed};
     toast_start_time = frame.time;

@@ -690,7 +690,7 @@ bite_text_line_for_width :: (text: string, default_font: Font_Style, size: s16, 
             break;
         }
 
-        if get_text_width(font, line) > width
+        if width && get_text_width(font, line) > width
             break;
 
         line.count += 1 + trailing_utf8_bytes[c];
@@ -748,7 +748,7 @@ draw_box :: inline (location: *At_Location, color: Vector4) {
 }
 
 draw_box :: (rect: Rect, color: Vector4) {
-    Simp.set_shader_for_color();
+    Simp.set_shader_for_color(true);
     draw_rect(rect, color);
 }
 
