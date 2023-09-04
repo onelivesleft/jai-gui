@@ -65,6 +65,11 @@ free :: (text_box: *Text_Box) {
     if text_box.lines   array_free(text_box.lines);
 }
 
+label_for_text_row :: (using text_box: *Text_Box, row: int) -> *Label {
+    if row < first_visible_row_index || row > first_visible_row_index + visible_row_count
+        return null;
+    return *labels[row - first_visible_row_index];
+}
 
 
 #scope_module

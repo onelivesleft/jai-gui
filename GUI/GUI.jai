@@ -49,10 +49,10 @@ frame : struct {
     count: int;
     time: float64;
     dt: float;
+    notable: bool;
 }
 
 gui_window : Window_Creation.Window_Type;
-
 
 gui_create_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *At_Location, *Window_Creation.Window_Type {
     #if OS == .WINDOWS {
@@ -99,6 +99,7 @@ gui_begin_frame :: () -> continue_running: bool {
     prev_frame_time = frame.time;
     frame.time = get_time();
     frame.dt = cast(float)(frame.time - prev_frame_time);
+    frame.notable = false;
 
     Input.update_window_events();
 
@@ -197,7 +198,7 @@ gui_end_frame :: inline () {
 
     Simp.swap_buffers(gui_window);
 
-    if active_widget_frame_count != frame.count && hot_widget_frame_count != frame.count && !clicked_widget && !changed_widget {
+    if !frame.notable && active_widget_frame_count != frame.count && hot_widget_frame_count != frame.count && !clicked_widget && !changed_widget {
         // Nothing immediate happened so sleep a little
         dt := get_time() - frame.time;
         ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
@@ -207,6 +208,9 @@ gui_end_frame :: inline () {
     reset_temporary_storage();
 }
 
+gui_notable_frame :: () {
+    frame.notable = true;
+}
 
 Flags :: enum_flags u64 {
     NONE    :: 0;

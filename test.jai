@@ -2,6 +2,7 @@
 #import "Basic";
 #import "Clipboard";
 #import "Math";
+#import "DPI";
 
 Word_Count :: struct {
     word: string; @Width(0.7) @Left;
@@ -44,6 +45,12 @@ main :: () {
         array_add(*icon_names, name);
     }
 
+    os_dpi_init();
+    {
+        x, y, w, h := os_dpi_get_backing_coordinates(window_handle, 0, 0, 1280, 896);
+        print("% % % %\n", x, y, w, h);
+    }
+
 
     while gui_begin_frame() {
         top, middle, bottom := split_top_middle_bottom(window, 100, -100);
@@ -61,6 +68,10 @@ main :: () {
             if new_id < 0  new_id += xx Icon_Id.Z_WAVE;
             if new_id > xx Icon_Id.Z_WAVE  new_id -= xx Icon_Id.Z_WAVE;
             icon_id = xx new_id;
+        }
+        {
+            w, h := Simp.get_render_dimensions(window_handle);
+            label(at(.COPY_RIGHT), tprint("% %", w, h));
         }
 
         show_table := checkbox(at(top, 0.5,20, ord(0.5,200),20+height), "Show Wordcount");
