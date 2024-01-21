@@ -68,6 +68,7 @@ Data_Table :: struct(T: Type)
                     %,
                 jai, column_flags[it_index]);
             }
+
             append(*builder, #string jai
                 ];
                 column_ends :: Ord.[
@@ -79,7 +80,17 @@ Data_Table :: struct(T: Type)
             }
             append(*builder, #string jai
                 ];
+                column_headers :: string.[
             jai);
+            for member: info.members {
+                print_to_builder(*builder, #string jai
+                        "%",
+                jai, get_note_value(member.notes, "Title", ""));
+            }
+            append(*builder, #string jai
+                ];
+            jai);
+
             return builder_to_string(*builder);
         }
     }
@@ -177,7 +188,7 @@ sort :: (data: [] $T, member_index: int, reversed: bool)
         #insert -> string {
             _, info := is_struct_or_pointer_to_struct(T);
             assert(member_index >= 0 && member_index < info.members.count);
-            vars :=  ifx (cast(*Type_Info)T).type == .POINTER then string.["a.*", "b.*"] else string.["a", "b"];;
+            vars :: string.["a", "b"];
             return tprint(#string jai
                 quick_sort(data, (a, b) => compare(%2.%1, %3.%1));
             jai, info.members[member_index].name, vars[xx reversed], vars[xx !reversed]);
@@ -288,7 +299,7 @@ update_data_table :: (using data_table: *Data_Table) {
     left_ord, right_ord: Ord;
     do_scrollwheel := false;
 
-    jump_to_top_or_bottom_or_selection := false;
+    jump_to_top_or_bottom_of_selection := false;
     jump_destination : enum { TOP; SELECTION; BOTTOM; } = .TOP;
     if selected_row_index >= 0 {
         if top_index + visible_row_count < selected_row_index
@@ -322,13 +333,13 @@ update_data_table :: (using data_table: *Data_Table) {
                 }
                 if is_hot(*buttons[%3])  do_scrollwheel = true;
                 left_ord = right_ord;
-            jai, member.name, column_flags[it_index], it_index, ord_constructor(column_ends[it_index]));
+            jai, ifx column_headers[it_index] then column_headers[it_index] else member.name, column_flags[it_index], it_index, ord_constructor(column_ends[it_index]));
         }
         return builder_to_string(*builder);
     }
 
     jump_tooltip := ifx jump_destination == .TOP then "Jump to top" else ifx jump_destination == .BOTTOM then "Jump to bottom" else "Jump to selected row";
-    jump_to_top_or_bottom_or_selection = button(*buttons[columns], at(top_right_stub, box(.FILL)), "", tooltip=jump_tooltip);
+    jump_to_top_or_bottom_of_selection = button(*buttons[columns], at(top_right_stub, box(.FILL)), "", tooltip=jump_tooltip);
 
     y := 0;
 
@@ -371,7 +382,7 @@ update_data_table :: (using data_table: *Data_Table) {
 
     if do_scrollwheel  use_scrollwheel(data_table);
 
-    if jump_to_top_or_bottom_or_selection {
+    if jump_to_top_or_bottom_of_selection {
         if #complete jump_destination == {
             case .TOP;        scrollbar.int_value = 0;
             case .SELECTION;  scrollbar.int_value = max(0, selected_row_index - visible_row_count / 2);

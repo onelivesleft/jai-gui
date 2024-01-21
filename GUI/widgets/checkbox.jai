@@ -75,8 +75,10 @@ _checkbox :: (checkbox: *Checkbox, location: *At_Location, flags: Flags, tooltip
     last_widget_location = location.*;
 
     update_widget(checkbox);
-    if was_clicked(checkbox)
+    if was_clicked(checkbox) {
         checkbox.value = !checkbox.value;
+        set_changed(checkbox);
+    }
     draw_checkbox(checkbox);
 
     immediate_value := checkbox.value;

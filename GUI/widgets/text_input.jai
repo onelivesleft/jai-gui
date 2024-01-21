@@ -41,6 +41,7 @@ set_text :: (text_input: *Text_Input, text: string) {
     else {
         if text_input.text  free(text_input.text);
         text_input.text = copy_string(text);
+        set_changed(text_input);
     }
 }
 
@@ -114,6 +115,7 @@ lost_focus ::  (using text_input: *Text_Input, reason: Lost_Focus_Reason) {
     if reason == .CONFIRMED || (reason == .SOFT && flags & .IMMEDIATE) {
         free(text);
         text = copy_string(text_edit.as_string);
+        set_changed(text_input);
     }
 }
 
@@ -179,6 +181,8 @@ insert_text_edit :: (s: string) {
     bytes.count += s.count;
     if select_anchor >= cursor  select_anchor += s.count;
     cursor += s.count;
+    if currently_editting.flags & .IMMEDIATE
+        set_changed(currently_editting);
     update_text_edit();
 }
 
@@ -197,6 +201,8 @@ remove_text_edit :: (from: int, to: int) {
         if select_anchor <= to  select_anchor = from;
         else                    select_anchor -= (to - from);
     }
+    if currently_editting.flags & .IMMEDIATE
+        set_changed(currently_editting);
     update_text_edit();
 }
 

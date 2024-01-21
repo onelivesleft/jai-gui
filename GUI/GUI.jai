@@ -49,7 +49,7 @@ frame : struct {
     count: int;
     time: float64;
     dt: float;
-    notable: bool;
+    no_sleep: bool;
 }
 
 gui_window : Window_Creation.Window_Type;
@@ -97,9 +97,15 @@ gui_begin_frame :: () -> continue_running: bool {
 
     frame.count += 1;
     prev_frame_time = frame.time;
-    frame.time = get_time();
+    frame.time = seconds_since_init();
     frame.dt = cast(float)(frame.time - prev_frame_time);
-    frame.notable = false;
+    frame.no_sleep = false;
+
+    tooltip_widget = null;
+    clicked_widget = null;
+    changed_widget = null;
+    next_hot_widget = null;
+    scrollwheel_widget = null;
 
     Input.update_window_events();
 
@@ -165,11 +171,6 @@ gui_begin_frame :: () -> continue_running: bool {
         mouse.scrollwheel_fraction -= 1.0;
     }
 
-    tooltip_widget = null;
-    clicked_widget = null;
-    next_hot_widget = null;
-    scrollwheel_widget = null;
-
     return continue_running;
 }
 
@@ -198,9 +199,9 @@ gui_end_frame :: inline () {
 
     Simp.swap_buffers(gui_window);
 
-    if !frame.notable && active_widget_frame_count != frame.count && hot_widget_frame_count != frame.count && !clicked_widget && !changed_widget {
+    if !frame.no_sleep && active_widget_frame_count != frame.count && hot_widget_frame_count != frame.count && !clicked_widget && !changed_widget {
         // Nothing immediate happened so sleep a little
-        dt := get_time() - frame.time;
+        dt := seconds_since_init() - frame.time;
         ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
         sleep_milliseconds(ms);
     }
@@ -208,8 +209,8 @@ gui_end_frame :: inline () {
     reset_temporary_storage();
 }
 
-gui_notable_frame :: () {
-    frame.notable = true;
+gui_no_sleep_this_frame :: () {
+    frame.no_sleep = true;
 }
 
 Flags :: enum_flags u64 {
@@ -500,6 +501,22 @@ active_hot_else :: (widget: *Widget, active: $U, hot: U, default: U) -> U {
 }
 
 
+calculate_rect :: (panel: *Panel) -> Rect {
+    if !panel.parent  return panel.rect;
+    assert(panel.parent != panel);
+
+    parent_rect : Rect = ---;
+    if panel.parent.rect_frame_count < frame.count
+        parent_rect = calculate_rect(panel.parent);
+    else
+        parent_rect = panel.parent.rect;
+
+    panel.rect = resolve_rect(parent_rect, panel._box);
+    panel.rect_frame_count = frame.count;
+
+    return panel.rect;
+}
+
 #scope_module
 
 
@@ -530,22 +547,6 @@ resolve_rect :: (rect: Rect, _box: Box) -> Rect {
     w := resolve_ord(rect.x, rect.w, _box.br.x) - x;
     h := resolve_ord(rect.y, rect.h, _box.br.y) - y;
     return .{ x, y, w, h };
-}
-
-calculate_rect :: (panel: *Panel) -> Rect {
-    if !panel.parent  return panel.rect;
-    assert(panel.parent != panel);
-
-    parent_rect : Rect = ---;
-    if panel.parent.rect_frame_count < frame.count
-        parent_rect = calculate_rect(panel.parent);
-    else
-        parent_rect = panel.parent.rect;
-
-    panel.rect = resolve_rect(parent_rect, panel._box);
-    panel.rect_frame_count = frame.count;
-
-    return panel.rect;
 }
 
 calculate_rect :: (parent: *Panel, _box: Box) -> Rect {
@@ -611,7 +612,9 @@ get_note_value :: (notes: [] string, id: string, default_value: $T) -> T
             __jai;
 
             return #string __jai
-                return it_value;
+                return ifx (it_value.count >= 2) && (it_value[0] == #char "\"") && (it_value[it_value.count - 1] == #char "\"")
+                    then string.{it_value.count - 2, it_value.data + 1}
+                    else it_value;
             __jai;
         }
     }

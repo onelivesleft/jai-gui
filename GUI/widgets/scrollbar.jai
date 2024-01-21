@@ -132,10 +132,16 @@ set_value :: (using scrollbar: *Scrollbar, value: $T)
     return info.type == .INTEGER || info.type == .FLOAT;
 }
 {
-    if scrollbar.type == .FLOAT
-        scrollbar.float_value = value;
-    else
-        scrollbar.int_value = value;
+    if scrollbar.type == .FLOAT {
+        _value := cast(float) value;
+        float_value = clamp(_value, float_range.min, float_range.max);
+        handle_position = (float_value - float_range.min) / (float_range.max - float_range.min);
+    }
+    else {
+        _value := cast(int) value;
+        scrollbar.int_value = clamp(_value, int_range.min, int_range.max);
+        handle_position = calculate_handle_position(int_value, int_range);
+    }
 }
 
 

@@ -2,7 +2,7 @@
 #import "Basic";
 #import "Clipboard";
 #import "Math";
-#import "DPI";
+//#import "DPI";
 
 Word_Count :: struct {
     word: string; @Width(0.7) @Left;
@@ -26,6 +26,8 @@ toast_gravity :: 200.0;
 toast_up_speed :: 200.0;
 
 main :: () {
+    //array_add(*found_icons, "Hi");
+
     window, window_handle := gui_create_window("GUI Test", 1280, 896, 2100, 40);
 
     show_wheel := true;
@@ -45,12 +47,13 @@ main :: () {
         array_add(*icon_names, name);
     }
 
+    /*
     os_dpi_init();
     {
         x, y, w, h := os_dpi_get_backing_coordinates(window_handle, 0, 0, 1280, 896);
         print("% % % %\n", x, y, w, h);
     }
-
+    */
 
     while gui_begin_frame() {
         top, middle, bottom := split_top_middle_bottom(window, 100, -100);
@@ -102,6 +105,9 @@ main :: () {
         s_min :: -3;
         s_max :: +13;
 
+        search_instead_of_filter := false;
+        search_criteria_changed := false;
+
         quadrant_button_flags : Flags;
 
         {
@@ -129,6 +135,10 @@ main :: () {
             maybe_lock = ifx checkbox(at(.COPY_DOWN), "Lock it down", maybe_lock != 0, .RIGHT | .IMMEDIATE, "Not allowed")
                          then .LOCKED
                          else xx 0;
+
+            search_instead_of_filter=, search_instead_of_filter_checkbox := checkbox(at(.COPY_DOWN), "Search instead of filter", flags=.OVERFLOW);
+            if was_changed(search_instead_of_filter_checkbox)
+                search_criteria_changed = true;
         }
 
         {
@@ -140,16 +150,28 @@ main :: () {
                 set_text(search_input, "");
             }
             reset_scroll := false;
-            if search_text != previous_search_text {
+            if search_text != previous_search_text || search_criteria_changed {
                 previous_search_text = search_text;
                 reset_scroll = true;
-                array_reset(*found_icons);
-                for Icon_Id.ABACUS .. Icon_Id.Z_WAVE {
-                    if search_text == "" {
-                        array_add(*found_icons, it);
+                if search_instead_of_filter && search_text {
+                    array_reset(*found_icons);
+                    found := false;
+                    for Icon_Id.ABACUS .. Icon_Id.Z_WAVE {
+                        if icon_names[it] == search_text
+                            found = true;
+                        if found
+                            array_add(*found_icons, it);
                     }
-                    else if contains(icon_names[it], search_text) {
-                        array_add(*found_icons, it);
+                }
+                else {
+                    array_reset(*found_icons);
+                    for Icon_Id.ABACUS .. Icon_Id.Z_WAVE {
+                        if search_text == "" {
+                            array_add(*found_icons, it);
+                        }
+                        else if contains(icon_names[it], search_text) {
+                            array_add(*found_icons, it);
+                        }
                     }
                 }
             }

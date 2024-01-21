@@ -142,9 +142,9 @@ themes : [4] *type_of(theme) : .[*theme, *alternate_theme, *theme_b, *theme_c];
 
 Font :: Simp.Dynamic_Font;
 
-font_sans_data ::  #run global_data("Montreal-Regular.ttf");
-font_serif_data :: #run global_data("CharisSIL-R.ttf");
-font_fixed_data :: #run global_data("FantasqueSansMono-Regular.ttf");
+font_sans_data ::  #run global_data(FONT_SANS);
+font_serif_data :: #run global_data(FONT_SERIF);
+font_fixed_data :: #run global_data(FONT_FIXED);
 font_data :: string.[font_sans_data, font_sans_data, font_serif_data, font_fixed_data];
 
 Font_Identifier :: struct {
@@ -161,7 +161,9 @@ global_data :: (filename: string) -> (memory: string, success: bool) {
     compiler :: #import "Compiler";  // We are not currently restricting this to compile-time, hmm.
     file :: #import "File";      // We should do that somehow.
 
-    full_name := tprint("%data/%", #filepath, filename);
+    full_name := ifx contains(filename, "/")
+                 then filename
+                 else tprint("%data/%", #filepath, filename);
 
     file_data, success := file.read_entire_file(full_name);
     if !success {
@@ -405,7 +407,7 @@ draw_tooltip :: (using widget: *Widget) {
 
     switch_theme();
 
-    font, text_width := get_font(.SERIF, theme.tooltip_text_size, tooltip);
+    font, text_width := get_font(.SANS, theme.tooltip_text_size, tooltip);
     width := min(theme.tooltip_max_width, text_width + theme.padding * 2);
     text_rect := Rect.{mouse.x + theme.tooltip_offset.x, mouse.y + theme.tooltip_offset.y, width, xx theme.tooltip_text_size };
     tooltip_rect := expand(text_rect, (theme.tooltip_border + theme.padding) * 2);
@@ -763,4 +765,17 @@ draw_text :: (rect: Rect, text: string, color: Vector4, size : s16 = 0, align :=
     text_x, text_y := text_origin(align, font, rect, text_width);
     Simp.draw_prepared_text(font, xx text_x, xx text_y, color);
     return text_width;
+}
+
+draw_icon :: inline (location: *At_Location, icon_id: Icon_Id, color: Vector4) {
+    rect := calculate_rect(location);
+    draw_icon(rect, icon_id, color);
+}
+
+draw_icon :: (rect: Rect, icon_id: Icon_Id, color: Vector4) {
+    texture := get_icon_texture(icon_id);
+    p0, p1, p2, p3 := get_quad(rect);
+    Simp.set_shader_for_images(texture);
+    Simp.immediate_quad(p0, p1, p2, p3, color);
+    Simp.immediate_flush();
 }

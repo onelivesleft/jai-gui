@@ -4,4 +4,5 @@
 *.dSYM/
 *.dmg
 .DS_Store
-
+*.exe
+*.pdb

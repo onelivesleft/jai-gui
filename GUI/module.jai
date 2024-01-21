@@ -1,6 +1,10 @@
 #module_parameters (
-    MANUAL_END_FRAME := false  // Normally gui_begin_frame will call gui_end_frame for you; you can disable
-                               // that with this (though you then *must* call gui_end_frame yourself!)
+    MANUAL_END_FRAME := false,  // Normally gui_begin_frame will call gui_end_frame for you; you can disable
+                                // that with this (though you then *must* call gui_end_frame yourself!)
+
+    FONT_SANS  := "Montreal-Regular.ttf",
+    FONT_SERIF := "CharisSIL-R.ttf",
+    FONT_FIXED := "FantasqueSansMono-Regular.ttf"
 );
 
 #load "GUI.jai";
