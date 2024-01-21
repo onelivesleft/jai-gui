@@ -630,8 +630,8 @@ get_note_value :: (notes: [] string, id: string, default_value: $T) -> T
 
             return #string __jai
                 return ifx (it_value.count >= 2) && (it_value[0] == #char "\"") && (it_value[it_value.count - 1] == #char "\"")
-                    then string.{it_value.count - 2, it_value.data + 1}
-                    else it_value;
+                    then replace(string.{it_value.count - 2, it_value.data + 1}, "_", " ")
+                    else replace(it_value, "_", " ");
             __jai;
         }
     }

@@ -638,6 +638,8 @@ draw_data_table :: (using data_table: *Data_Table) {
 
     switch_theme();
 
+    with_scissor(data_table.rect);
+
     highlight_row :: (first_label_on_row: *Label, color: Vector4) #expand {
         if !first_label_on_row  return;
         last_label_on_row := first_label_on_row + columns - 1;

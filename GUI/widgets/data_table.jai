@@ -89,8 +89,16 @@ Data_Table :: struct(T: Type)
             }
             append(*builder, #string jai
                 ];
+                column_tooltips :: string.[
             jai);
-
+            for member: info.members {
+                print_to_builder(*builder, #string jai
+                        "%",
+                jai, get_note_value(member.notes, "Tooltip", ""));
+            }
+            append(*builder, #string jai
+                ];
+            jai);
             return builder_to_string(*builder);
         }
     }
@@ -282,6 +290,7 @@ _data_table :: (data_table: *Data_Table(T), location: *At_Location, flags: Flags
 
 update_data_table :: (using data_table: *Data_Table) {
     maybe_calculate_rect(data_table);
+    with_scissor(data_table.rect);
 
     visible_row_count := cast(int)(data_table.rect.h / theme.data_table_row_height) - 1;
     label_count := (visible_row_count + 1) * columns;
@@ -322,7 +331,7 @@ update_data_table :: (using data_table: *Data_Table) {
         for member: info.members {
             print_to_builder(*builder, #string jai
                 right_ord = %4;
-                if button(*buttons[%3], at(header_row, box(left_ord,0, right_ord,1.0)), "%1", flags=%2) {
+                if button(*buttons[%3], at(header_row, box(left_ord,0, right_ord,1.0)), "%1", flags=%2, tooltip="%5") {
                     clicked_header = true;
                     clicked_item_row_index = -1;
                     clicked_item_column_index = %3;
@@ -333,7 +342,12 @@ update_data_table :: (using data_table: *Data_Table) {
                 }
                 if is_hot(*buttons[%3])  do_scrollwheel = true;
                 left_ord = right_ord;
-            jai, ifx column_headers[it_index] then column_headers[it_index] else member.name, column_flags[it_index], it_index, ord_constructor(column_ends[it_index]));
+            jai, ifx column_headers[it_index] then column_headers[it_index] else member.name,
+                 column_flags[it_index],
+                 it_index,
+                 ord_constructor(column_ends[it_index]),
+                 column_tooltips[it_index]
+            );
         }
         return builder_to_string(*builder);
     }
