@@ -56,9 +56,9 @@ gui_window : Window_Creation.Window_Type;
 
 gui_create_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *At_Location, *Window_Creation.Window_Type {
     #if OS == .WINDOWS {
-        Windows :: #import "Windows";
-        Windows.SetProcessDPIAware();
-        Windows.timeBeginPeriod(1);
+        using Windows :: #import "Windows";
+        SetProcessDPIAware();
+        timeBeginPeriod(1);
     }
 
     #insert -> string {
@@ -79,6 +79,23 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
     allocate_text_edit(1024);
 
     set_window_size(window_width, window_height);
+
+    #if OS == .WINDOWS {
+        if window_x == -1 {
+            using Windows :: #import "Windows";
+            mouse_position: POINT;
+            if GetCursorPos(*mouse_position) {
+                monitor := MonitorFromPoint(mouse_position, MONITOR_DEFAULTTONEAREST);
+                info := MONITORINFO.{cbSize = size_of(MONITORINFO)};
+                if GetMonitorInfoW(monitor, *info) {
+                    screen := info.rcMonitor;
+                    window_x = screen.left + (screen.right - screen.left - window_width) / 2;
+                    window_y = screen.top + (screen.bottom - screen.top - window_height) / 2;
+                }
+            }
+        }
+    }
+
     gui_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y);
 
     Simp.set_render_target(gui_window);

@@ -174,6 +174,10 @@ insert_text_edit :: (s: string) {
     if !s  return;
     using text_edit;
 
+    has_selection, start, end := text_edit_selection();
+    if has_selection
+        remove_text_edit(start, end);
+
     allocate_text_edit(bytes.count + s.count);
     if cursor < bytes.count
         memcpy(bytes.data + cursor + s.count, bytes.data + cursor, bytes.count - cursor);
