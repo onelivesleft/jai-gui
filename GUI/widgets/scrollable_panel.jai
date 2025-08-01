@@ -14,7 +14,7 @@ Scrollable_Panel :: struct {
 push_scrollable_panel :: (location: *At_Location, width: int, height: int, flags := Flags.NONE) -> panel: *Panel, *Scrollable_Panel #expand #no_debug {
     interior_panel : Panel = ---;
     widget := _scrollable_panel(0, location, flags, width, height, *interior_panel, #insert #run next(*scrollable_panel_count));
-    assert(interior_panel.rect_frame_count == frame.count);
+    assert(interior_panel.calculated_rect_frame_index == frame.index);
     return *interior_panel, widget;
 }
 
@@ -78,11 +78,12 @@ move_by_steps :: (using scrollable_panel: *Scrollable_Panel, steps: int) {
         move_by_steps(*_horizontal_scrollbar, steps);
 }
 
-use_scrollwheel :: (using scrollable_panel: *Scrollable_Panel, force := false) {
-    if has_vertical_scrollbar
-        use_scrollwheel(*_vertical_scrollbar, force);
-    else if has_horizontal_scrollbar
-        use_scrollwheel(*_horizontal_scrollbar, force);
+use_scrollwheel :: (using scrollable_panel: *Scrollable_Panel) {
+    if has_vertical_scrollbar == has_horizontal_scrollbar
+        return;
+
+    if has_vertical_scrollbar  use_scrollwheel(*_vertical_scrollbar);
+    else                       use_scrollwheel(*_horizontal_scrollbar);
 }
 
 
@@ -97,7 +98,7 @@ _scrollable_panel :: inline (id: int, location: *At_Location, flags: Flags, widt
 }
 
 _scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, flags: Flags, width: int, height: int, interior_panel: *Panel) -> *Scrollable_Panel {
-    scrollable_panel.widget = widget(location, "", flags);
+    scrollable_panel.widget = widget(.SCROLLABLE_PANEL, location, "", flags | .USE_SCROLLWHEEL);
     scrollable_panel.width = width;
     scrollable_panel.height = height;
     scrollable_panel.panel = interior_panel;
@@ -111,38 +112,38 @@ _scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Locatio
 }
 
 update_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) {
-    maybe_calculate_rect(scrollable_panel);
+    update_widget(scrollable_panel);
 
     main_panel, bottom_scrollbar_panel, right_scrollbar_panel: *Panel;
     w := cast(float) width;
     h := cast(float) height;
 
-    has_vertical_scrollbar = scrollable_panel.rect.h < h;
+    has_vertical_scrollbar = scrollable_panel.calculated_rect.h < h;
     if has_vertical_scrollbar {
-        has_horizontal_scrollbar = scrollable_panel.rect.w < w - theme.scrollbar_size;
+        has_horizontal_scrollbar = scrollable_panel.calculated_rect.w < w - theme.scrollbar_size;
     }
     else {
-        has_horizontal_scrollbar = scrollable_panel.rect.w < w;
-        has_vertical_scrollbar = scrollable_panel.rect.h < h - theme.scrollbar_size;
+        has_horizontal_scrollbar = scrollable_panel.calculated_rect.w < w;
+        has_vertical_scrollbar = scrollable_panel.calculated_rect.h < h - theme.scrollbar_size;
     }
 
     if !has_vertical_scrollbar && flags & .FIT {
-        h = scrollable_panel.rect.h - ifx has_horizontal_scrollbar then theme.scrollbar_size;
+        h = scrollable_panel.calculated_rect.h - ifx has_horizontal_scrollbar then theme.scrollbar_size;
         height = cast(int) h;
     }
     if !has_horizontal_scrollbar && flags & .FIT {
-        w = scrollable_panel.rect.w - ifx has_vertical_scrollbar then theme.scrollbar_size;
+        w = scrollable_panel.calculated_rect.w - ifx has_vertical_scrollbar then theme.scrollbar_size;
         width = cast(int) w;
     }
 
     if has_vertical_scrollbar {
         if has_horizontal_scrollbar
-            main_panel, bottom_scrollbar_panel, right_scrollbar_panel = split_scrollbars_bottom_right(scrollable_panel);
+            main_panel, bottom_scrollbar_panel, right_scrollbar_panel = split_for_bottom_and_right_scrollbars(scrollable_panel);
         else
-            main_panel, right_scrollbar_panel = split_scrollbar_right(scrollable_panel);
+            main_panel, right_scrollbar_panel = split_for_right_scrollbar(scrollable_panel);
     }
     else if has_horizontal_scrollbar {
-        main_panel, bottom_scrollbar_panel = split_scrollbar_bottom(scrollable_panel);
+        main_panel, bottom_scrollbar_panel = split_for_bottom_scrollbar(scrollable_panel);
     }
     else {
         main_panel = scrollable_panel;
@@ -152,25 +153,22 @@ update_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) {
     vertical_position, horizontal_position: Ord;
 
     if has_vertical_scrollbar {
-        handle_size := main_panel.rect.h / h;
+        handle_size := main_panel.calculated_rect.h / h;
         t := vertical_scrollbar(*_vertical_scrollbar, right_scrollbar_panel, handle_size=handle_size, flags);
         vertical_position.rel = t;
         vertical_position.abs = -lerp(0, height, t);
     }
 
     if has_horizontal_scrollbar {
-        handle_size := main_panel.rect.w / w;
+        handle_size := main_panel.calculated_rect.w / w;
         t := horizontal_scrollbar(*_horizontal_scrollbar, bottom_scrollbar_panel, handle_size=handle_size, flags);
         horizontal_position.rel = t;
         horizontal_position.abs = -lerp(0, width, t);
     }
 
     panel.parent = main_panel;
-    panel._box = box(horizontal_position,vertical_position, horizontal_position+width, vertical_position+height);
+    panel.desired_box = box(horizontal_position,vertical_position, horizontal_position+width, vertical_position+height);
     calculate_rect(panel); // finalize panel for this frame, as its parent main_panel is about to disappear off the stack
-    push_scissor(main_panel.rect, flags);
+    push_scissor(main_panel.calculated_rect, flags);
     push_panel(panel);
-
-    if has_vertical_scrollbar != has_horizontal_scrollbar && contains(scrollable_panel.rect, mouse.x, mouse.y)
-         use_scrollwheel(scrollable_panel);
 }

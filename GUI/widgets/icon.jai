@@ -44,7 +44,7 @@ _icon :: inline (id: int, location: *At_Location, flags: Flags, icon_id: Icon_Id
 }
 
 _icon :: (icon: *Icon, location: *At_Location, flags: Flags, icon_id: Icon_Id, size: int, tooltip: string) -> clicked: bool, *Icon {
-    icon.* = .{ widget(location, tooltip, flags | .LOCKED | .OVERFLOW), icon_id, size };
+    icon.* = .{ widget(.ICON, location, tooltip, flags | .LOCKED | .OVERFLOW), icon_id, size };
     last_widget_location = location.*;
 
     update_widget(icon);

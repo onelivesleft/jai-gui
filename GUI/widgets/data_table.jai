@@ -3,13 +3,13 @@ Data_Table :: struct(T: Type)
     return T == void || is_struct_or_pointer_to_struct(T) , "data must be an array of struct or pointer-to-struct";
 } {
     #as using widget: Widget;
+    type = .DATA_TABLE;
 
     data : [] T;
 
-
     selected_row_index := -1;
 
-    first_label_on_hot_row: *Label;
+    first_label_on_warm_row: *Label;
     first_label_on_selected_row: *Label;
 
     scrollbar: Scrollbar;
@@ -27,6 +27,8 @@ Data_Table :: struct(T: Type)
         #if T == void {
             return #string jai
                 clicked_item: *T;
+                default_last_clicked_header_index :: 0;
+                default_last_clicked_header_parity :: false;
             jai;
         }
         else {
@@ -35,33 +37,63 @@ Data_Table :: struct(T: Type)
             builder : String_Builder;
             column_flags : [..] u64;
             column_ends : [..] Ord;
+            column_visible : [..] bool;
+            visible_column_count := 0;
             abs_total := 0;
             rel_total := 0.0;
+            default_sort_index := -1;
+            default_sort_parity := false;
             for member: info.members {
-                o := get_note_value(member.notes, "Width", ord(0));
+                o := ifx get_note(member.notes, "Hidden")
+                     then ord(0)
+                     else get_note_value(member.notes, "Width", ord(0));
+                if o != ord(0) {
+                    array_add(*column_visible, true);
+                    visible_column_count += 1;
+                }
+                else {
+                    array_add(*column_visible, false);
+                }
                 abs_total += o.abs;
                 rel_total += o.rel;
                 array_add(*column_ends, ord(abs_total, rel_total));
 
                 flags : Flags;
-                if get_note(member.notes, "Left")    flags |= .LEFT;
-                if get_note(member.notes, "Right")   flags |= .RIGHT;
-                if get_note(member.notes, "Center")  flags |= .CENTER;
-                if get_note(member.notes, "Sans")    flags |= .SANS;
-                if get_note(member.notes, "Serif")   flags |= .SERIF;
-                if get_note(member.notes, "Fixed")   flags |= .FIXED;
+                if get_note(member.notes, "Left")            flags |= .LEFT;
+                if get_note(member.notes, "Right")           flags |= .RIGHT;
+                if get_note(member.notes, "Center")          flags |= .CENTER;
+                if get_note(member.notes, "Sans")            flags |= .SANS;
+                if get_note(member.notes, "Serif")           flags |= .SERIF;
+                if get_note(member.notes, "Fixed")           flags |= .FIXED;
+                if get_note(member.notes, "SansAlternate")   flags |= .SANS_ALTERNATE;
+                if get_note(member.notes, "SerifAlternate")  flags |= .SERIF_ALTERNATE;
+                if get_note(member.notes, "FixedAlternate")  flags |= .FIXED_ALTERNATE;
+                if get_note(member.notes, "Icon")            flags |= .ICON;
+                if get_note(member.notes, "DefaultSort") {
+                    default_sort_index = it_index;
+                    default_sort_parity = false;
+                }
+                if get_note(member.notes, "DefaultSortReverse") {
+                    default_sort_index = it_index;
+                    default_sort_parity = true;
+                }
                 if flags & .CENTER == 0  flags |= .CENTER;
                 array_add(*column_flags, cast(u64)flags);
             }
             column_ends[column_ends.count - 1] = ord(1.0);
+
             clicked_item_type := ifx is_pointer_array then "T" else "*T";
             print_to_builder(*builder, #string jai
                 clicked_item: %;
 
+                default_last_clicked_header_index :: %;
+                default_last_clicked_header_parity :: %;
+
                 is_pointer_array :: %;
                 columns :: %;
+                visible_columns :: %;
                 column_flags :: u64.[
-            jai, clicked_item_type, is_pointer_array, column_ends.count);
+            jai, clicked_item_type, default_sort_index, default_sort_parity, is_pointer_array, column_ends.count, visible_column_count);
 
             for member: info.members {
                 print_to_builder(*builder, #string jai
@@ -77,6 +109,15 @@ Data_Table :: struct(T: Type)
                 print_to_builder(*builder, #string jai
                         .{%, %},
                 jai, formatFloat(column_ends[it_index].rel, zero_removal=.NO), column_ends[it_index].abs);
+            }
+            append(*builder, #string jai
+                ];
+                column_visible :: bool.[
+            jai);
+            for member: info.members {
+                print_to_builder(*builder, #string jai
+                        %,
+                jai, column_visible[it_index]);
             }
             append(*builder, #string jai
                 ];
@@ -169,11 +210,6 @@ clear_row_selection :: (using data_table: *Data_Table) {
 move_by_steps :: (using data_table: *Data_Table, steps: int) {
     move_by_steps(*scrollbar, steps);
 }
-
-use_scrollwheel :: (using data_table: *Data_Table, force := false) {
-    use_scrollwheel(*scrollbar, force);
-}
-
 
 to_string :: (i: $T) -> string {
     return tprint("%", i);
@@ -269,13 +305,15 @@ _data_table :: (data_table: *Data_Table(T), location: *At_Location, flags: Flags
     if !data_table.buttons {
         data_table.buttons = NewArray(data_table.columns + 1, Button);
         assert(data_table.labels.count == 0);
+        data_table.last_clicked_header_index = data_table.default_last_clicked_header_index;
+        data_table.last_clicked_header_parity = data_table.default_last_clicked_header_parity;
     }
 
-    data_table.widget = widget(location, "", flags);
+    data_table.widget = widget(.DATA_TABLE, location, "", flags | .USE_SCROLLWHEEL);
     data_table.data = data;
     data_table.clicked_item = null;
     data_table.clicked_header = false;
-    data_table.first_label_on_hot_row = null;
+    data_table.first_label_on_warm_row = null;
     data_table.first_label_on_selected_row = null;
     if selected_row_index != keep_selection
         data_table.selected_row_index = selected_row_index;
@@ -289,10 +327,10 @@ _data_table :: (data_table: *Data_Table(T), location: *At_Location, flags: Flags
 }
 
 update_data_table :: (using data_table: *Data_Table) {
-    maybe_calculate_rect(data_table);
-    with_scissor(data_table.rect);
+    update_widget(data_table);
+    with_scissor(data_table.calculated_rect);
 
-    visible_row_count := cast(int)(data_table.rect.h / theme.data_table_row_height) - 1;
+    visible_row_count := cast(int)(data_table.calculated_rect.h / theme.data_table_row_height) - 1;
     label_count := (visible_row_count + 1) * columns;
     if labels.count < label_count {
         if labels.data  free(labels.data);
@@ -300,13 +338,12 @@ update_data_table :: (using data_table: *Data_Table) {
     }
 
     top, bottom := split_top_bottom(data_table, theme.data_table_row_height);
-    header_row, top_right_stub := split_scrollbar_right(top);
-    table_panel, scrollbar_panel := split_scrollbar_right(bottom);
+    header_row, top_right_stub := split_for_right_scrollbar(top);
+    table_panel, scrollbar_panel := split_for_right_scrollbar(bottom);
 
     top_index := vertical_scrollbar(*scrollbar, at(scrollbar_panel, box(.FILL)), 0, .{0, data.count - visible_row_count - 1});
 
     left_ord, right_ord: Ord;
-    do_scrollwheel := false;
 
     jump_to_top_or_bottom_of_selection := false;
     jump_destination : enum { TOP; SELECTION; BOTTOM; } = .TOP;
@@ -329,6 +366,7 @@ update_data_table :: (using data_table: *Data_Table) {
         assert(info.type == .STRUCT);
         builder : String_Builder;
         for member: info.members {
+            if !column_visible[it_index]  continue;
             print_to_builder(*builder, #string jai
                 right_ord = %4;
                 if button(*buttons[%3], at(header_row, box(left_ord,0, right_ord,1.0)), "%1", flags=%2, tooltip="%5") {
@@ -340,7 +378,6 @@ update_data_table :: (using data_table: *Data_Table) {
                     else
                         last_clicked_header_index = %3;
                 }
-                if is_hot(*buttons[%3])  do_scrollwheel = true;
                 left_ord = right_ord;
             jai, ifx column_headers[it_index] then column_headers[it_index] else member.name,
                  column_flags[it_index],
@@ -372,6 +409,7 @@ update_data_table :: (using data_table: *Data_Table) {
             _, info := is_struct_or_pointer_to_struct(T);
             builder : String_Builder;
             for member: info.members {
+                if !column_visible[it_index]  continue;
                 print_to_builder(*builder, #string jai
                     right_ord = %4;
                     if label(_label, at(table_panel, box(left_ord,y, right_ord,y+theme.data_table_row_height)), to_string(row_item.%1), Flags.INTERACTS | .CROP | %2) {
@@ -379,10 +417,8 @@ update_data_table :: (using data_table: *Data_Table) {
                         clicked_item_row_index = row_index;
                         clicked_item_column_index = %3;
                     }
-                    if is_hot(_label) || is_active(_label) {
-                        first_label_on_hot_row = first_label_on_row;
-                        do_scrollwheel = true;
-                    }
+                    if is_warm(_label) || is_hot(_label)
+                        first_label_on_warm_row = first_label_on_row;
                     left_ord = right_ord;
                     _label += 1;
                 jai, member.name, column_flags[it_index], it_index, ord_constructor(column_ends[it_index]), ifx !is_pointer_array then "*");
@@ -393,8 +429,6 @@ update_data_table :: (using data_table: *Data_Table) {
             return builder_to_string(*builder);
         }
     }
-
-    if do_scrollwheel  use_scrollwheel(data_table);
 
     if jump_to_top_or_bottom_of_selection {
         if #complete jump_destination == {

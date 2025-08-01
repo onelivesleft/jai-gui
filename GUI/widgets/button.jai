@@ -1,5 +1,6 @@
 Button :: struct {
     #as using widget: Widget;
+    type = .BUTTON;
 
     text: string;
     icon_id: Icon_Id;
@@ -76,7 +77,7 @@ _button :: inline (id: int, location: *At_Location, flags: Flags, text: string, 
 }
 
 _button :: (button: *Button, location: *At_Location, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string) -> clicked: bool, *Button {
-    button.* = .{ widget(location, tooltip, flags), text, icon_id };
+    button.* = .{ widget(.BUTTON, location, tooltip, flags), text, icon_id };
     last_widget_location = location.*;
 
     update_widget(button);

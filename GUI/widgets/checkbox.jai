@@ -1,5 +1,6 @@
 Checkbox :: struct {
     #as using widget: Widget;
+    type = .CHECKBOX;
 
     initialized := false;
 
@@ -8,14 +9,16 @@ Checkbox :: struct {
 }
 
 
+// @TODO Make a checkbox which takes [value_flags_pointer: *$T(enum_flags), flag: T] and returns [changed, checkbox]
+
 checkbox :: (location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox #expand #no_debug {
     value, widget := _checkbox(0, location, flags, tooltip, text, initial_value, null, #insert #run next(*checkbox_count));
     return value, widget;
 }
 
-checkbox :: (location: *At_Location, text: string, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox #expand #no_debug {
-    value, widget := _checkbox(0, location, flags, tooltip, text, false, value_pointer, #insert #run next(*checkbox_count));
-    return value, widget;
+checkbox :: (location: *At_Location, text: string, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox #expand #no_debug {
+    _, widget := _checkbox(0, location, flags, tooltip, text, false, value_pointer, #insert #run next(*checkbox_count));
+    return was_changed(widget), widget;
 }
 
 
@@ -25,10 +28,10 @@ checkbox :: (id: int, $reserve: int, location: *At_Location, text: string, initi
     return value, widget;
 }
 
-checkbox :: (id: int, $reserve: int, location: *At_Location, text: string, value_pointer : *bool = null, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox #expand #no_debug {
+checkbox :: (id: int, $reserve: int, location: *At_Location, text: string, value_pointer: *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox #expand #no_debug {
     assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of checkbox_data being created)");
-    value, widget := _checkbox(id, location, flags, tooltip, text, false, value_pointer, #insert #run next(*checkbox_count, reserve));
-    return value, widget;
+    _, widget := _checkbox(id, location, flags, tooltip, text, false, value_pointer, #insert #run next(*checkbox_count, reserve));
+    return was_changed(widget), widget;
 }
 
 
@@ -37,9 +40,9 @@ checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, initial_
     return value, widget;
 }
 
-checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox #expand #no_debug {
-    value, widget := _checkbox(checkbox, location, flags, tooltip, text, false, value_pointer);
-    return value, widget;
+checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox #expand #no_debug {
+    _, widget := _checkbox(checkbox, location, flags, tooltip, text, false, value_pointer);
+    return was_changed(widget), widget;
 }
 
 
@@ -64,14 +67,14 @@ _checkbox :: inline (id: int, location: *At_Location, flags: Flags, tooltip: str
 
 _checkbox :: (checkbox: *Checkbox, location: *At_Location, flags: Flags, tooltip: string, text: string, initial_value: bool, value_pointer: *bool) -> value: bool, *Checkbox {
     _value : bool = ---;
-    if value_pointer && !(flags & .IMMEDIATE && is_active(checkbox))
+    if value_pointer && !(flags & .IMMEDIATE && is_hot(checkbox))
         _value = value_pointer.*;
     else if !checkbox.initialized
         _value = initial_value;
     else
         _value = checkbox.value;
 
-    checkbox.* = .{ widget(location, tooltip, flags), true, _value, text };
+    checkbox.* = .{ widget(.CHECKBOX, location, tooltip, flags), true, _value, text };
     last_widget_location = location.*;
 
     update_widget(checkbox);
@@ -82,7 +85,7 @@ _checkbox :: (checkbox: *Checkbox, location: *At_Location, flags: Flags, tooltip
     draw_checkbox(checkbox);
 
     immediate_value := checkbox.value;
-    if checkbox.flags & .IMMEDIATE && is_active(checkbox) && is_hot(checkbox) {
+    if checkbox.flags & .IMMEDIATE && is_hot(checkbox) && is_warm(checkbox) {
         immediate_value = !immediate_value;
         set_changed(checkbox);
     }

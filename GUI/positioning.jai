@@ -45,9 +45,9 @@
 
 At_Location :: struct {
     parent: *At_Location;
-    _box: Box;
-    rect: Rect;
-    rect_frame_count: int;
+    desired_box: Box;
+    calculated_rect: Rect;
+    calculated_rect_frame_index: int;
 }
 
 Panel :: At_Location;
@@ -202,23 +202,23 @@ split_quadrants :: (location: *At_Location, horizontal_partition_ord: $T, vertic
 }
 
 
-split_scrollbar_left :: (location: *At_Location) -> scrollbar_panel: *Panel, *Panel #expand #no_debug {
+split_for_left_scrollbar :: (location: *At_Location) -> scrollbar_panel: *Panel, *Panel #expand #no_debug {
     return at(location, box(0,0, theme.scrollbar_size,1.0)), at(location, box(theme.scrollbar_size,0, 1.0,1.0));
 }
 
-split_scrollbar_right :: (location: *At_Location) -> *Panel, scrollbar_panel: *Panel #expand #no_debug {
+split_for_right_scrollbar :: (location: *At_Location) -> *Panel, scrollbar_panel: *Panel #expand #no_debug {
     return at(location, box(0,0, -theme.scrollbar_size,1.0)), at(location, box(-theme.scrollbar_size,0, 1.0,1.0));
 }
 
-split_scrollbar_top :: (location: *At_Location) -> scrollbar_panel: *Panel, *Panel #expand #no_debug {
+split_for_top_scrollbar :: (location: *At_Location) -> scrollbar_panel: *Panel, *Panel #expand #no_debug {
     return at(location, box(0,0, 1.0,theme.scrollbar_size)), at(location, box(0,theme.scrollbar_size, 1.0,1.0));
 }
 
-split_scrollbar_bottom :: (location: *At_Location) -> *Panel, scrollbar_panel: *Panel #expand #no_debug {
+split_for_bottom_scrollbar :: (location: *At_Location) -> *Panel, scrollbar_panel: *Panel #expand #no_debug {
     return at(location, box(0,0, 1.0,-theme.scrollbar_size)), at(location, box(0,-theme.scrollbar_size, 1.0,1.0));
 }
 
-split_scrollbars_bottom_right :: (location: *At_Location) -> main_area: *Panel, bottom_scrollbar: *Panel, right_scrollbar: *Panel #expand #no_debug {
+split_for_bottom_and_right_scrollbars :: (location: *At_Location) -> main_area: *Panel, bottom_scrollbar: *Panel, right_scrollbar: *Panel #expand #no_debug {
     tl, tr, bl, br := split_quadrants(location, -theme.scrollbar_size, -theme.scrollbar_size);
     return tl, bl, tr;
 }
@@ -228,16 +228,14 @@ shrink :: (panel: *Panel, delta_ord: $T) -> *Panel #expand #no_debug
 #modify {
     return is_implicit_ord(T);
 } {
-    _box := shrink(panel._box, delta_ord);
-    return at(panel.parent, _box);
+    return at(panel.parent, shrink(panel.desired_box, delta_ord));
 }
 
 shrink :: (panel: *Panel, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> *Panel #expand #no_debug
 #modify {
     return is_implicit_ord(T) && is_implicit_ord(U);
 } {
-    _box := shrink(panel._box, horizontal_delta_ord, vertical_delta_ord);
-    return at(panel.parent, _box);
+    return at(panel.parent, shrink(panel.desired_box, horizontal_delta_ord, vertical_delta_ord));
 }
 
 
@@ -251,6 +249,10 @@ ord :: inline (rel: float, abs: int) -> Ord #symmetric { return .{ rel, abs }; }
 ord :: inline (rel: float) -> Ord { return .{ rel, 0 }; }
 ord :: inline (abs: int) -> Ord { return ifx abs < 0 then Ord.{ 1.0, abs } else Ord.{ 0.0, abs }; }
 ord :: inline (_ord: Ord) -> Ord { return _ord; };
+
+operator == :: (a: Ord, b: Ord) -> bool {
+    return a.abs == b.abs && a.rel == b.rel;
+}
 
 operator - :: (a: Ord) -> Ord {
     return .{ 1.0 - a.rel, -a.abs };
@@ -485,7 +487,7 @@ begin_placing :: (location: *At_Location) {
 box :: inline (auto_place: Placement) -> Box {
     if new_placement {
         new_placement = false;
-        return last_widget_location._box;
+        return last_widget_location.desired_box;
     }
     else {
         return box(*last_widget_location, auto_place);
@@ -493,7 +495,7 @@ box :: inline (auto_place: Placement) -> Box {
 }
 
 box :: inline (location: *At_Location, auto_place: Placement) -> Box {
-    return box(location._box, auto_place);
+    return box(location.desired_box, auto_place);
 }
 
 box :: (from_box: Box, auto_place: Placement) -> Box {

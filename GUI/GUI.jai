@@ -1,13 +1,10 @@
 // @TODO
-// [x] tooltips
-// [x] checkbox
+// [ ] Click on down instead of up
+// [ ] Remove need for widget id
+// [x] Scrollwheel
+
 // [ ] radio buttons
-// [ ] input
-// [ ] text
 // [ ] dropdown
-// [x] data table
-// [ ] icon
-// [ ] icon button
 // [ ] fx blend colors
 
 #load "widgets/button.jai";
@@ -20,18 +17,21 @@
 #load "widgets/text_box.jai";
 #load "widgets/text_input.jai";
 
-Widgets :: Type.[
+Widget_Types :: Type.[
     Button, Checkbox, Data_Table, Icon, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
 ];
 
-hot_widget:      *Widget;    // use is_hot(widget)
-active_widget:   *Widget;    // use is_active(widget)
-focussed_widget: *Widget;    // use has_focus(widget)
-focussed_widget_type: Type;
+widget_allocator_pool: Flat_Pool;
+widget_allocator: Allocator;
 
-clicked_widget:  *Widget;    // use was_clicked(widget).  Lasts a single frame, when mouse is released on active_widget
-changed_widget:  *Widget;    // use was_changed(widget).  Lasts a single frame, a widget which changed substantially, i.e. a scrollbar moving
-scrollwheel_widget: *Widget; // use was_scrollwheeled(widget).  Lasts a single frame, when widget has used the scrollwheel for something
+warm_widget:  *Widget;    // use is_warm(widget) - state widget needs to be in before it can become hot, typically this means the mouse is hovering over it.
+hot_widget:   *Widget;    // use is_hot(widget) - state widget is in when user is engaging with it with the mouse.
+focussed_widget: *Widget;    // use has_focus(widget) - widget is single focus of application, is receiving keyboard input.
+
+clicked_widget:  *Widget;    // use was_clicked(widget).  Lasts a single frame, when mouse is clicked on hot_widget.
+released_widget:  *Widget;   // use was_released(widget).  Lasts a single frame, when mouse is released on hot_widget.
+changed_widget:  *Widget;    // use was_changed(widget).  Lasts a single frame, a widget with a value which changed, e.g. a scrollbar moving.
+scrollwheel_widget: *Widget; // At end of frame use_scrollwheel is called on this widget.  Call block_scrollwheel during a frame to stop it (i.e. if you have used the scrollwheel input for something)
 
 mouse : struct {
     x, y: float;
@@ -40,13 +40,13 @@ mouse : struct {
     right_button_down, right_button_up, right_button_held: bool;
     scrollwheel: int;             // normalized, will typically be -1, +1 or 0
     scrollwheel_fraction: float;  // on devices with high-precision wheels this can be (-1.0, +1.0)
-                                        // (though you can typically ignore it as it will automaticaly accumulate
-                                        //  into scrollwheel)
+                                  // (though you can typically ignore it as it will automaticaly accumulate
+                                  //  into scrollwheel)
     scrollwheel_resolution :: 120;
 }
 
 frame : struct {
-    count: int;
+    index := 1;
     time: float64;
     dt: float;
     no_sleep: bool;
@@ -55,20 +55,31 @@ frame : struct {
 gui_window : Window_Creation.Window_Type;
 
 gui_create_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *At_Location, *Window_Creation.Window_Type {
+    assert(widget_allocator.proc == null, "You should only call gui_create_window once!");
+
     #if OS == .WINDOWS {
         using Windows :: #import "Windows";
-        SetProcessDPIAware();
         timeBeginPeriod(1);
+        // The following would tell windows that we don't look at the system DPI, and so windows should automatically scale
+        // for us.  However, that's the default behaviour, so...
+        //  user32   :: #system_library "user32";
+        //  SetThreadDpiAwarenessContext :: (awareness: DPI_AWARENESS_CONTEXT) -> BOOL #foreign user32;
+        //  SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);
     }
+
+    widget_allocator.proc = flat_pool_allocator_proc;
+    widget_allocator.data = *widget_allocator_pool;
+    widget_table: Table(Widget_Id, *Widget, given_compare_function=Widget_Id.equals);
 
     #insert -> string {
         builder : String_Builder;
-        for Widgets {
+        for Widget_Types {
             info := cast(*Type_Info) it;
+            // Polymporphic types (like Data_Table($T) need to be postfixed; we can check for them via their 0 runtime_size.
             type_name := tprint(ifx info.runtime_size >= 0 then "%" else "%(void)", it);
             name := lower(tprint("%", it));
             print_to_builder(*builder, #string jai
-                %1_data = NewArray(%1_count, %2);
+                %1_data = NewArray(%1_count, %2,, widget_allocator);
             jai, name, type_name);
         }
         return builder_to_string(*builder);
@@ -112,7 +123,7 @@ gui_begin_frame :: () -> continue_running: bool {
     #if !MANUAL_END_FRAME
         gui_end_frame();
 
-    frame.count += 1;
+    frame.index += 1;
     prev_frame_time = frame.time;
     frame.time = seconds_since_init();
     frame.dt = cast(float)(frame.time - prev_frame_time);
@@ -121,8 +132,8 @@ gui_begin_frame :: () -> continue_running: bool {
     tooltip_widget = null;
     clicked_widget = null;
     changed_widget = null;
-    next_hot_widget = null;
-    scrollwheel_widget = null;
+    next_warm_widget = null;
+    next_scrollwheel_widget = null;
 
     Input.update_window_events();
 
@@ -146,8 +157,8 @@ gui_begin_frame :: () -> continue_running: bool {
                 dispatch_event_to_focussed_widget(event);
             }
             else if event.key_pressed && event.key_code == .ESCAPE {
-                continue_running = false;
-                //active_widget_deactivate_all();
+                continue_running = false; // @TODO  Don't leave this in
+                //hot_widget_deactivate_all();
             }
 
             case .DRAG_AND_DROP_FILES;
@@ -193,20 +204,24 @@ gui_begin_frame :: () -> continue_running: bool {
 
 gui_end_frame :: inline () {
     if mouse.left_button_held {
-        if mouse.left_button_down && !active_widget && focussed_widget
-            set_focus(focussed_widget, false, .SOFT);
+        if mouse.left_button_down && !hot_widget && focussed_widget
+            remove_focus(focussed_widget);
     }
-    else {
-        if active_widget {
-            active_widget.lost_active_time = frame.time;
-            active_widget = null;
-        }
+    else if hot_widget {
+        hot_widget.lost_hot_time = frame.time;
+        hot_widget = null;
     }
 
-    if next_hot_widget
-        set_hot(next_hot_widget, true);
-    else if hot_widget
-        set_hot(hot_widget, false);
+    if next_warm_widget {
+        if warm_widget != next_warm_widget
+            set_warm(next_warm_widget, true);
+    }
+    else if warm_widget {
+        set_warm(warm_widget, false);
+    }
+
+    if scrollwheel_widget  use_scrollwheel(scrollwheel_widget);
+    scrollwheel_widget = next_scrollwheel_widget;
 
     if tooltip_widget && tooltip_widget != prev_tooltip_widget
         became_tooltip_widget_at = frame.time;
@@ -216,7 +231,7 @@ gui_end_frame :: inline () {
 
     Simp.swap_buffers(gui_window);
 
-    if !frame.no_sleep && active_widget_frame_count != frame.count && hot_widget_frame_count != frame.count && !clicked_widget && !changed_widget {
+    if !frame.no_sleep && hot_widget_frame_index != frame.index && warm_widget_frame_index != frame.index && !clicked_widget && !changed_widget {
         // Nothing immediate happened so sleep a little
         dt := seconds_since_init() - frame.time;
         ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
@@ -239,18 +254,22 @@ Flags :: enum_flags u64 {
     CENTER :: 3;
 
     // masked out to get font style
-    SANS   :: 4;
-    SERIF  :: 8;
-    FIXED  :: 12;
+    SANS            :: 4;
+    SERIF           :: 8;
+    FIXED           :: 12;
+    SANS_ALTERNATE  :: 16;
+    SERIF_ALTERNATE :: 20;
+    FIXED_ALTERNATE :: 24;
+    ICON            :: 28;
 
     // masked out to get theme index (set none of these for default theme)
-    THEME_A :: 16;
-    THEME_B :: 32;
-    THEME_C :: 48;
+    THEME_A :: 32;
+    THEME_B :: 64;
+    THEME_C :: 96;
 
-    ALTERNATE :: 64;      // Alternate style
-    ICON_ON_RIGHT :: 64;  // for button
-    NO_WRAP :: 64;        // text box
+    ALTERNATE :: 128;      // Alternate style
+    ICON_ON_RIGHT :: 128;  // For button
+    NO_WRAP :: 128;        // Text box
 
     // scrollbar
     SMOOTH;
@@ -264,8 +283,15 @@ Flags :: enum_flags u64 {
     CROP;       // do scissor even if OVERFLOW is set
     FIT;
     IMMEDIATE;  // update value immediately, rather than when user completes action
-
+    USE_SCROLLWHEEL;
 }
+
+is_locked :: inline (flags: Flags) -> bool { return (flags & .LOCKED) && !(flags & .INTERACTS); }
+is_locked :: inline (widget: Widget) -> bool { return is_locked(widget.flags); }
+
+should_scissor :: inline (flags: Flags) -> bool { return !(flags & .OVERFLOW) || (flags & .CROP); }
+should_scissor :: inline (widget: *Widget) -> bool { return should_scissor(widget.flags); }
+
 
 fit_width :: (rect: Rect, flags: Flags) -> float {
     return ifx flags & .FIT then rect.w else 0;
@@ -292,13 +318,17 @@ center_align :: #bake_arguments text_alignment_from_flags(default_text_alignment
 right_align :: #bake_arguments text_alignment_from_flags(default_text_alignment=.RIGHT);
 
 
-font_style_mask : u64 : 0b1100;
+font_style_mask : u64 : 0b11100;
 
 Font_Style :: enum u8 {
-    DEFAULT :: 0;
-    SANS    :: 1;
-    SERIF   :: 2;
-    FIXED   :: 3;
+    DEFAULT         :: 0;
+    SANS            :: 1;
+    SERIF           :: 2;
+    FIXED           :: 3;
+    SANS_ALTERNATE  :: 4;
+    SERIF_ALTERNATE :: 5;
+    FIXED_ALTERNATE :: 6;
+    ICON            :: 7;
 }
 
 flags_from_font_style :: (font_style: Font_Style) -> Flags {
@@ -311,51 +341,106 @@ font_style_from_flags :: (flags: Flags, default_font_style: Font_Style) -> Font_
     else           return default_font_style;
 }
 
-sans_font :: #bake_arguments font_style_from_flags(default_font_style=.SANS);
+sans_font ::  #bake_arguments font_style_from_flags(default_font_style=.SANS);
 serif_font :: #bake_arguments font_style_from_flags(default_font_style=.SERIF);
 fixed_font :: #bake_arguments font_style_from_flags(default_font_style=.FIXED);
+sans_alternate_font ::  #bake_arguments font_style_from_flags(default_font_style=.SANS_ALTERNATE);
+serif_alternate_font :: #bake_arguments font_style_from_flags(default_font_style=.SERIF_ALTERNATE);
+fixed_alternate_font :: #bake_arguments font_style_from_flags(default_font_style=.FIXED_ALTERNATE);
+icon_font :: #bake_arguments font_style_from_flags(default_font_style=.ICON);
 
-
-theme_index_mask : u64 : 0b110000;
+theme_index_mask : u64 : 0b1100000;
 
 theme_index :: (flags: Flags) -> int {
-    return xx (theme_index_mask & xx flags) >> 4;
+    return xx (theme_index_mask & xx flags) >> 5;
 }
+
+
+Widget_Indirect :: struct {
+    // Widget_Indirect is used when one callsite generates more than one widget;
+    // instead of the widget_data holding the widget itself, it holds one of these,
+    // which tracks the widget over the frame, allowing the program to pull out the
+    // correct widget data from the widget_table.
+
+    // Top of struct mirrors Widget's layout
+    location: At_Location;
+    type : type_of(Widget.type);
+    updated_on_frame_index: int;
+
+    // Then indirect only data follows. This cannot be allowed to go beyond the size of the
+    // smallest widget... but it won't because it's much smaller.
+    last_used_widget_index: int;
+}
+
+// Widget and Widget_Indirect must start the same:
+#assert type_info(Widget).members[0].name == type_info(Widget_Indirect).members[0].name;
+#assert type_info(Widget).members[1].name == type_info(Widget_Indirect).members[1].name;
+#assert type_info(Widget).members[2].name == "timestamps";
+#assert type_info(Widget_Indirect).members[2].name == "updated_on_frame_index";
+#assert type_info(Widget).members[0].offset_in_bytes == type_info(Widget_Indirect).members[0].offset_in_bytes;
+#assert type_info(Widget).members[1].offset_in_bytes == type_info(Widget_Indirect).members[1].offset_in_bytes;
+#assert type_info(Widget).members[2].offset_in_bytes == type_info(Widget_Indirect).members[2].offset_in_bytes;
 
 
 Widget :: struct {
     #as using location: At_Location;
+
+    type : enum { // Need to use an enum because the Type itself can be polymorphic, e.g. Data_Table($T)
+        INDIRECT;
+
+        BUTTON;
+        CHECKBOX;
+        DATA_TABLE;
+        ICON;
+        LABEL;
+        SCROLLABLE_PANEL;
+        SCROLLBAR;
+        TEXT_BOX;
+        TEXT_INPUT;
+    }
+
     using timestamps: struct {
+        updated_on_frame_index: int; // Must be first here so that it matches with Widget_Indirect
+
         // @Performance These could be moved to a set of arrays or hashmaps
         //              only while pertinent, instead of having them all on
         //              all widgets.  However, this is a lot simpler...
+        became_warm_time: float64;
+        lost_warm_time: float64;
         became_hot_time: float64;
         lost_hot_time: float64;
-        became_active_time: float64;
-        lost_active_time: float64;
         became_focussed_time: float64;
         lost_focussed_time: float64;
         was_clicked_time: float64;
         was_changed_time: float64;
     }
+
     tooltip : string;
     flags : Flags;
 }
 
-widget :: inline (location: *At_Location, tooltip: string, flags: Flags) -> Widget {
-    return .{ location, .{}, tooltip, flags };
+
+widget :: inline (type: type_of(Widget.type), location: *At_Location, tooltip: string, flags: Flags) -> Widget {
+    return .{ location, type, .{}, tooltip, flags };
+}
+
+Widget_Id :: struct {
+    callsite_index: int;
+    widget_index: int;
+
+    equals :: (a: Widget_Id, b: Widget_Id) -> bool { return a.callsite_index == b.callsite_index && a.widget_index == b.widget_index; }
 }
 
 widget_type :: (widget: *Widget) -> Type {
     #insert -> string {
         builder : String_Builder;
-        for Widgets {
+        for Widget_Types {
             info := cast(*Type_Info) it;
-            type_name := tprint(ifx info.runtime_size >= 0 then "%" else "%(void)", it);
-            name := lower(tprint("%", it));
+            type_name := tprint("%", it);
+            enum_name := upper(tprint("%", it));
             print_to_builder(*builder, #string jai
-                if widget >= xx %1_data.data && widget < xx (%1_data.data + %1_data.count)  return %2;
-            jai, lower(name), type_name);
+                if widget.type == .%1  return %2%3;
+            jai, enum_name, type_name, ifx info.runtime_size >= 0 then "" else "(void)");
         }
         return builder_to_string(*builder);
     }
@@ -369,47 +454,66 @@ update_widget :: (using widget: *Widget) {
     if scissor && !contains(scissor.*, mouse.x, mouse.y)
         return;
 
-    is_mouse_over := contains(rect, mouse.x, mouse.y);
+    is_mouse_over := contains(calculated_rect, mouse.x, mouse.y);
     if is_mouse_over && tooltip
         tooltip_widget = widget;
 
-    if (flags & .LOCKED) && !(flags & .INTERACTS)
-    || active_widget && active_widget != widget
+    if is_locked(widget)
+        return;
+
+    if is_mouse_over && flags & .USE_SCROLLWHEEL
+        request_scrollwheel(widget);
+
+    if hot_widget && hot_widget != widget
         return;
 
     if is_mouse_over
-        request_hot(widget);
+        request_warmth(widget);
 
-    if is_active(widget) {
+    if is_hot(widget) {
         if mouse.left_button_up {
-            set_active(widget, false);
+            set_hot(widget, false);
             if is_mouse_over
                 set_clicked(widget);
         }
     }
 
-    if is_hot(widget) {
+    if is_warm(widget) {
         if !is_mouse_over
-            set_hot(widget, false);
+            set_warm(widget, false);
         else if mouse.left_button_down
-            set_active(widget, true);
+            set_hot(widget, true);
     }
 }
 
+use_scrollwheel :: (using widget: *Widget) {
+    if widget.type == {
+        case .DATA_TABLE;        use_scrollwheel(*(cast(*Data_Table(void))widget).scrollbar);
+        case .SCROLLABLE_PANEL;  use_scrollwheel(cast(*Scrollable_Panel) widget);
+        case .SCROLLBAR;         use_scrollwheel(cast(*Scrollbar) widget);
+        case .TEXT_BOX;          use_scrollwheel(*(cast(*Text_Box)widget).scrollbar);
+    }
+}
+
+block_scrollwheel :: () {
+    scrollwheel_widget = null;
+}
+
 prev_frame_time: float64;
-next_hot_widget: *Widget;
+next_warm_widget: *Widget;
+next_scrollwheel_widget: *Widget;
 tooltip_widget: *Widget;
 prev_tooltip_widget: *Widget;
 became_tooltip_widget_at: float64;
-active_widget_frame_count: int;
-hot_widget_frame_count: int;
+hot_widget_frame_index: int;
+warm_widget_frame_index: int;
+
+is_warm :: inline (widget: *Widget) -> bool {
+    return widget == warm_widget;
+}
 
 is_hot :: inline (widget: *Widget) -> bool {
     return widget == hot_widget;
-}
-
-is_active :: inline (widget: *Widget) -> bool {
-    return widget == active_widget;
 }
 
 has_focus :: inline (widget: *Widget) -> bool {
@@ -424,74 +528,71 @@ was_changed :: inline (widget: *Widget) -> bool {
     return widget == changed_widget;
 }
 
-was_scrollwheeled :: inline (widget: *Widget) -> bool {
-    return widget == scrollwheel_widget;
+request_warmth :: (widget: *Widget) {
+    // warm_widget will be set at end of frame, to the last thing that called this.
+    next_warm_widget = widget;
 }
+
+request_scrollwheel :: (widget: *Widget) {
+    // scrollwheel_widget will be set at end of frame, to the last thing that called this.
+    next_scrollwheel_widget = widget;
+}
+
+set_warm :: (widget: *Widget, warm: bool) {
+    if warm {
+        if warm_widget && warm_widget != widget
+            warm_widget.lost_warm_time = frame.time;
+        warm_widget = widget;
+        widget.became_warm_time = frame.time;
+        warm_widget_frame_index = frame.index;
+    }
+    else if warm_widget == widget {
+        widget.lost_warm_time = frame.time;
+        warm_widget = null;
+        warm_widget_frame_index = frame.index;
+    }
+}
+
 
 set_hot :: (widget: *Widget, hot: bool) {
     if hot {
+        if focussed_widget && focussed_widget != widget
+            focus(focussed_widget);
         if hot_widget && hot_widget != widget
             hot_widget.lost_hot_time = frame.time;
         hot_widget = widget;
         widget.became_hot_time = frame.time;
-        hot_widget_frame_count = frame.count;
+        hot_widget_frame_index = frame.index;
     }
     else if hot_widget == widget {
-        widget.lost_hot_time = frame.time;
+        hot_widget.lost_hot_time = frame.time;
         hot_widget = null;
-        hot_widget_frame_count = frame.count;
-    }
-}
-
-request_hot :: (widget: *Widget) {
-    // The idea of request_hot is we set hot_widget at end of frame, so only one widget can ever be considered
-    // hot in a given frame.  However, this may not be an issue, so we're just going to set hot directly for now.
-    // Return to this when we support windows / layers / popups...
-    hot_widget = widget; // @TODO
-    next_hot_widget = widget;
-}
-
-set_active :: (widget: *Widget, active: bool) {
-    if active {
-        if focussed_widget && focussed_widget != widget
-            set_focus(focussed_widget, false, .SOFT);
-        if active_widget && active_widget != widget
-            active_widget.lost_active_time = frame.time;
-        active_widget = widget;
-        widget.became_active_time = frame.time;
-        active_widget_frame_count = frame.count;
-    }
-    else if active_widget == widget {
-        active_widget.lost_active_time = frame.time;
-        active_widget = null;
     }
 }
 
 Lost_Focus_Reason :: enum {
-    NONE; CONFIRMED; CANCELLED; SOFT;
+    UNDETERMINED; CONFIRMED; CANCELLED;
 }
 
-set_focus :: (widget: *$T/Widget, focussed: bool, reason := Lost_Focus_Reason.NONE) {
-    if focussed {
-        if focussed_widget && focussed_widget != widget
-            focussed_widget.lost_focussed_time = frame.time;
-        focussed_widget = widget;
-        focussed_widget.became_focussed_time = frame.time;
-        focussed_widget_type = T;
+focus :: (widget: *$T/Widget) {
+    if focussed_widget && focussed_widget != widget
+        remove_focus(focussed_widget);
+    focussed_widget = widget;
+    focussed_widget.became_focussed_time = frame.time;
+}
+
+remove_focus :: (widget: *$T/Widget, reason := Lost_Focus_Reason.UNDETERMINED) {
+    if focussed_widget != widget  return;
+    focussed_widget.lost_focussed_time = frame.time;
+    if focussed_widget.type == {
+        case .TEXT_INPUT; lost_focus(cast(*Text_Input)widget, reason);
     }
-    else if focussed_widget == widget {
-        assert(reason != .NONE);
-        focussed_widget.lost_focussed_time = frame.time;
-        focussed_widget = null;
-        if focussed_widget_type == {
-            case Text_Input; lost_focus(cast(*Text_Input)widget, reason);
-        }
-    }
+    focussed_widget = null;
 }
 
 dispatch_event_to_focussed_widget :: (event: Input.Event) {
-    if focussed_widget_type == {
-        case Text_Input;  handle_event(cast(*Text_Input)focussed_widget, event);
+    if focussed_widget.type == {
+        case .TEXT_INPUT;  handle_event(cast(*Text_Input)focussed_widget, event);
     }
 }
 
@@ -505,33 +606,33 @@ set_changed :: (widget: *Widget) {
     changed_widget.was_changed_time = frame.time;
 }
 
-hot_active_else :: (widget: *Widget, hot: $U, active: U, default: U) -> U {
-    return ifx is_hot(widget) then hot
-      else ifx is_active(widget) then active
+warm_hot_else :: (widget: *Widget, warm: $U, hot: U, default: U) -> U {
+    return ifx is_warm(widget) then warm
+      else ifx is_hot(widget) then hot
       else default;
 }
 
-active_hot_else :: (widget: *Widget, active: $U, hot: U, default: U) -> U {
-    return ifx is_active(widget) then active
-      else ifx is_hot(widget) then hot
+hot_warm_else :: (widget: *Widget, hot: $U, warm: U, default: U) -> U {
+    return ifx is_hot(widget) then hot
+      else ifx is_warm(widget) then warm
       else default;
 }
 
 
 calculate_rect :: (panel: *Panel) -> Rect {
-    if !panel.parent  return panel.rect;
+    if !panel.parent  return panel.calculated_rect;
     assert(panel.parent != panel);
 
     parent_rect : Rect = ---;
-    if panel.parent.rect_frame_count < frame.count
+    if panel.parent.calculated_rect_frame_index < frame.index
         parent_rect = calculate_rect(panel.parent);
     else
-        parent_rect = panel.parent.rect;
+        parent_rect = panel.parent.calculated_rect;
 
-    panel.rect = resolve_rect(parent_rect, panel._box);
-    panel.rect_frame_count = frame.count;
+    panel.calculated_rect = resolve_rect(parent_rect, panel.desired_box);
+    panel.calculated_rect_frame_index = frame.index;
 
-    return panel.rect;
+    return panel.calculated_rect;
 }
 
 #scope_module
@@ -543,8 +644,8 @@ window_rect : Rect;
 
 set_window_size :: (window_width: int, window_height: int) {
     window_panel.parent = null;
-    window_panel._box = box(0, 0, window_width, window_height);
-    window_panel.rect = .{ 0, 0, xx window_width, xx window_height };
+    window_panel.desired_box = box(0, 0, window_width, window_height);
+    window_panel.calculated_rect = .{ 0, 0, xx window_width, xx window_height };
 }
 
 next :: (index: *int, $reserve := 1) -> Code #expand {
@@ -579,12 +680,18 @@ get_rect :: (panel: *Panel) -> Rect {
 }
 
 maybe_calculate_rect :: (panel: *Panel) {
-    if panel.rect_frame_count != frame.count
-        panel.rect = calculate_rect(panel);
+    if panel.calculated_rect_frame_index != frame.index
+        panel.calculated_rect = calculate_rect(panel);
 }
 
 button_state :: inline (key: Input.Key_Code) -> Input.Key_Current_State {
     return Input.input_button_states[key];
+}
+
+upper :: (s: string) -> string {
+    result := copy_string(s);
+    for i: 0 .. result.count - 1  result[i] = to_upper(result[i]);
+    return result;
 }
 
 lower :: (s: string) -> string {

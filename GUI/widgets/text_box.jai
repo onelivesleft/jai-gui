@@ -55,10 +55,6 @@ move_by_steps :: (using text_box: *Text_Box, steps: int) {
     move_by_steps(*scrollbar, steps);
 }
 
-use_scrollwheel :: (using text_box: *Text_Box, force := false) {
-    use_scrollwheel(*scrollbar, force);
-}
-
 free :: (text_box: *Text_Box) {
     if text_box.text    free(text_box.text);
     if text_box.labels  free(text_box.labels.data);
@@ -84,7 +80,7 @@ _text_box :: inline (id: int, location: *At_Location, flags: Flags, tooltip: str
 }
 
 _text_box :: (text_box: *Text_Box, location: *At_Location, flags: Flags, tooltip: string, initial_text: string) -> clicked: bool, *Text_Box {
-    text_box.widget = widget(location, "", flags);
+    text_box.widget = widget(.TEXT_BOX, location, "", flags | .USE_SCROLLWHEEL);
     if !text_box.initialized {
         text_box.text = copy_string(initial_text);
         text_box.initialized = true;
@@ -100,18 +96,18 @@ _text_box :: (text_box: *Text_Box, location: *At_Location, flags: Flags, tooltip
 }
 
 update_text_box :: (using text_box: *Text_Box) -> bool {
-    maybe_calculate_rect(text_box);
+    update_widget(text_box);
 
     clicked := false;
 
-    visible_row_count = cast(int)(text_box.rect.h / theme.text_box_row_height);
+    visible_row_count = cast(int)(text_box.calculated_rect.h / theme.text_box_row_height);
     label_count := visible_row_count + 1;
     if labels.count < label_count {
         if labels.data  free(labels.data);
         labels = NewArray(label_count, Label);
     }
 
-    text_panel, scrollbar_panel := split_scrollbar_right(text_box);
+    text_panel, scrollbar_panel := split_for_right_scrollbar(text_box);
     text_rect := calculate_rect(text_panel);
 
 
@@ -143,10 +139,8 @@ update_text_box :: (using text_box: *Text_Box) -> bool {
                                  vertical_scrollbar(*scrollbar, at(scrollbar_panel, box(.FILL)), 0, .{0, lines.count - visible_row_count - 1});
                               };
 
-    do_scrollwheel := false;
-
     y := -cast(int)(theme.text_box_row_height * offset);
-    label_flags := flags | .INTERACTS | flags_from_font_style(font_style);
+    label_flags := (flags | .INTERACTS | flags_from_font_style(font_style)) & ~.USE_SCROLLWHEEL;
 
     with_scissor(text_rect, flags);
 
@@ -164,15 +158,11 @@ update_text_box :: (using text_box: *Text_Box) -> bool {
             clicked = true;
         }
 
-        if is_hot(_label) || is_active(_label) {
+        if is_warm(_label) || is_hot(_label)
             hot_label = _label;
-            do_scrollwheel = true;
-        }
 
         y += theme.text_box_row_height;
     }
-
-    if do_scrollwheel  use_scrollwheel(text_box);
 
     return clicked;
 }

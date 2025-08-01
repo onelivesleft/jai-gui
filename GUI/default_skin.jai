@@ -31,10 +31,10 @@ Theme :: struct {
     icon_color := Vector4.{1.0, 1.0, 1.0, 1.0};
     icon_size := 64;
 
-    button_background        := Vector4.{0.55, 0.35, 0.35, 1.0};
-    button_background_active := Vector4.{0.65, 0.45, 0.45, 1.0};
-    button_background_hot    := Vector4.{0.75, 0.55, 0.55, 1.0};
-    button_foreground        := Vector4.{1.0, 1.0, 1.0, 1.0};
+    button_background         := Vector4.{0.55, 0.35, 0.35, 1.0};
+    button_background_hot  := Vector4.{0.65, 0.45, 0.45, 1.0};
+    button_background_warm    := Vector4.{0.75, 0.55, 0.55, 1.0};
+    button_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
     button_text_size : s16 = 16;
 
     checkbox_border := 2;
@@ -43,26 +43,26 @@ Theme :: struct {
     cursor_color := Vector4.{1.0, 1.0, 1.0, 1.0};
     selection_color := Vector4.{0.7, 0.7, 0.7, 1.0};
 
-    text_input_border_color      := Vector4.{0.55, 0.35, 0.35, 1.0};
-    text_input_background        := Vector4.{0.35, 0.25, 0.25, 1.0};
-    text_input_background_active := Vector4.{0.45, 0.35, 0.35, 1.0};
-    text_input_background_hot    := Vector4.{0.45, 0.35, 0.35, 1.0};
-    text_input_foreground        := Vector4.{1.0, 1.0, 1.0, 1.0};
+    text_input_border_color       := Vector4.{0.55, 0.35, 0.35, 1.0};
+    text_input_background         := Vector4.{0.35, 0.25, 0.25, 1.0};
+    text_input_background_hot  := Vector4.{0.45, 0.35, 0.35, 1.0};
+    text_input_background_warm    := Vector4.{0.45, 0.35, 0.35, 1.0};
+    text_input_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
     text_input_border := 2;
     text_input_text_size : s16 = 16;
 
-    scrollbar_groove_background        := Vector4.{0.35, 0.25, 0.25, 1.0};
-    scrollbar_handle_background        := Vector4.{0.55, 0.35, 0.35, 1.0};
-    scrollbar_handle_background_active := Vector4.{0.75, 0.55, 0.55, 1.0};
-    scrollbar_handle_background_hot    := Vector4.{0.65, 0.45, 0.45, 1.0};
+    scrollbar_groove_background         := Vector4.{0.35, 0.25, 0.25, 1.0};
+    scrollbar_handle_background         := Vector4.{0.55, 0.35, 0.35, 1.0};
+    scrollbar_handle_background_hot  := Vector4.{0.75, 0.55, 0.55, 1.0};
+    scrollbar_handle_background_warm    := Vector4.{0.65, 0.45, 0.45, 1.0};
     scrollbar_min_handle_size := 1.0 / 40;
     scrollbar_size := 20;
 
     text_box_text_size : s16 = 16;
     text_box_row_height := 20;
 
-    data_table_background_hot := Vector4.{0.75, 0.55, 0.55, 1.0};
-    data_table_foreground_hot := Vector4.{0.1, 0.1, 0.1, 1.0};
+    data_table_background_warm    := Vector4.{0.75, 0.55, 0.55, 1.0};
+    data_table_foreground_warm    := Vector4.{0.1, 0.1, 0.1, 1.0};
     data_table_row_height := 30;
 }
 
@@ -84,10 +84,10 @@ alternate_theme := Theme.{
     icon_color = Vector4.{1.0, 1.0, 1.0, 1.0},
     icon_size = 64,
 
-    button_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
-    button_background_active = Vector4.{0.45, 0.65, 0.45, 1.0},
-    button_background_hot    = Vector4.{0.55, 0.75, 0.55, 1.0},
-    button_foreground        = Vector4.{1.0, 1.0, 1.0, 1.0},
+    button_background         = Vector4.{0.35, 0.55, 0.35, 1.0},
+    button_background_hot  = Vector4.{0.45, 0.65, 0.45, 1.0},
+    button_background_warm    = Vector4.{0.55, 0.75, 0.55, 1.0},
+    button_foreground         = Vector4.{1.0, 1.0, 1.0, 1.0},
     button_text_size = 16,
 
     checkbox_border = 2,
@@ -96,26 +96,26 @@ alternate_theme := Theme.{
     cursor_color = Vector4.{1.0, 1.0, 1.0, 1.0},
     selection_color = Vector4.{0.7, 0.7, 0.7, 1.0},
 
-    text_input_border_color      = Vector4.{0.55, 0.35, 0.35, 1.0},
-    text_input_background        = Vector4.{0.35, 0.25, 0.25, 1.0},
-    text_input_background_active = Vector4.{0.45, 0.35, 0.35, 1.0},
-    text_input_background_hot    = Vector4.{0.45, 0.35, 0.35, 1.0},
-    text_input_foreground        = Vector4.{1.0, 1.0, 1.0, 1.0},
+    text_input_border_color       = Vector4.{0.55, 0.35, 0.35, 1.0},
+    text_input_background         = Vector4.{0.35, 0.25, 0.25, 1.0},
+    text_input_background_hot  = Vector4.{0.45, 0.35, 0.35, 1.0},
+    text_input_background_warm    = Vector4.{0.45, 0.35, 0.35, 1.0},
+    text_input_foreground         = Vector4.{1.0, 1.0, 1.0, 1.0},
     text_input_border = 2,
     text_input_text_size = 16,
 
-    scrollbar_groove_background        = Vector4.{0.25, 0.35, 0.25, 1.0},
-    scrollbar_handle_background        = Vector4.{0.35, 0.55, 0.35, 1.0},
-    scrollbar_handle_background_active = Vector4.{0.55, 0.75, 0.55, 1.0},
-    scrollbar_handle_background_hot    = Vector4.{0.45, 0.65, 0.45, 1.0},
+    scrollbar_groove_background         = Vector4.{0.25, 0.35, 0.25, 1.0},
+    scrollbar_handle_background         = Vector4.{0.35, 0.55, 0.35, 1.0},
+    scrollbar_handle_background_hot  = Vector4.{0.55, 0.75, 0.55, 1.0},
+    scrollbar_handle_background_warm    = Vector4.{0.45, 0.65, 0.45, 1.0},
     scrollbar_min_handle_size = 1.0 / 40,
     scrollbar_size = 20,
 
     text_box_text_size = 16,
     text_box_row_height = 20,
 
-    data_table_background_hot = Vector4.{0.75, 0.55, 0.55, 1.0},
-    data_table_foreground_hot = Vector4.{0.1, 0.1, 0.1, 1.0},
+    data_table_background_warm    = Vector4.{0.75, 0.55, 0.55, 1.0},
+    data_table_foreground_warm    = Vector4.{0.1, 0.1, 0.1, 1.0},
     data_table_row_height = 30,
 };
 
@@ -145,7 +145,11 @@ Font :: Simp.Dynamic_Font;
 font_sans_data ::  #run global_data(FONT_SANS);
 font_serif_data :: #run global_data(FONT_SERIF);
 font_fixed_data :: #run global_data(FONT_FIXED);
-font_data :: string.[font_sans_data, font_sans_data, font_serif_data, font_fixed_data];
+font_sans_alternate_data ::  #run global_data(FONT_SANS_ALTERNATE);
+font_serif_alternate_data :: #run global_data(FONT_SERIF_ALTERNATE);
+font_fixed_alternate_data :: #run global_data(FONT_FIXED_ALTERNATE);
+font_icons_data :: #run global_data(FONT_ICONS);
+font_data :: string.[font_sans_data, font_sans_data, font_serif_data, font_fixed_data, font_sans_alternate_data, font_serif_alternate_data, font_fixed_alternate_data, font_icons_data];
 
 Font_Identifier :: struct {
     style: Font_Style;
@@ -157,9 +161,11 @@ Font_Identifier :: struct {
 
 font_cache : Table(u32, *Font);
 
-global_data :: (filename: string) -> (memory: string, success: bool) {
-    compiler :: #import "Compiler";  // We are not currently restricting this to compile-time, hmm.
-    file :: #import "File";      // We should do that somehow.
+global_data :: (filename: string) -> (memory: string, success: bool) #compile_time {
+    if !filename  return "", true;
+
+    compiler :: #import "Compiler";
+    file :: #import "File";
 
     full_name := ifx contains(filename, "/")
                  then filename
@@ -221,8 +227,8 @@ default_text_baseline :: (font: *Font, height: float) -> float {
     if !font return 0;  // :NullFont Handle incomplete implementation via the user passing us null for a font.
     // Just a heuristic to try to line up fonts, kind of.
     // Could probably be better.
-    active_height := font.character_height * 0.55;
-    pad := height - active_height;
+    hot_height := font.character_height * 0.55;
+    pad := height - hot_height;
 
     return floor(pad * 0.5);
 }
@@ -248,7 +254,7 @@ text_origin :: (alignment: Text_Alignment, font: *Font, r: Rect, text_width: flo
 
     // y := text_baseline(font, y, y+r.h);
     vert := default_text_baseline(font, r.h);
-    y := window_panel.rect.h - (r.y + r.h - vert);
+    y := window_panel.calculated_rect.h - (r.y + r.h - vert);
 
     // Due to atlassed texture rendering, we draw text at integer coordinates currently.
     // If we wish to change this, don't round! (Or round to whatever subpixel resolution
@@ -260,14 +266,14 @@ text_origin :: (alignment: Text_Alignment, font: *Font, r: Rect, text_width: flo
 
 
 gl_vec4 :: (rect: Rect) -> Vector4 {
-    return .{rect.x, window_panel.rect.h - rect.y - rect.h, rect.x + rect.w, window_panel.rect.h - rect.y};
+    return .{rect.x, window_panel.calculated_rect.h - rect.y - rect.h, rect.x + rect.w, window_panel.calculated_rect.h - rect.y};
 }
 
 clamp_to_window :: (v: *Vector4) {
-    Clamp(*v.x, 0, window_panel.rect.w);
-    Clamp(*v.y, 0, window_panel.rect.h);
-    Clamp(*v.z, v.x, window_panel.rect.w);
-    Clamp(*v.w, v.y, window_panel.rect.h);
+    Clamp(*v.x, 0, window_panel.calculated_rect.w);
+    Clamp(*v.y, 0, window_panel.calculated_rect.h);
+    Clamp(*v.z, v.x, window_panel.calculated_rect.w);
+    Clamp(*v.w, v.y, window_panel.calculated_rect.h);
 }
 
 
@@ -308,7 +314,7 @@ draw_rect :: (rect: Rect, color: Vector4) {
 }
 
 switch_theme :: () #expand {
-    `theme := ifx `flags & .LOCKED then locked_theme else themes[theme_index(`flags)];
+    `theme := ifx is_locked(`flags) then locked_theme else themes[theme_index(`flags)];
 }
 
 
@@ -403,17 +409,17 @@ init_skin :: () {
 }
 
 draw_tooltip :: (using widget: *Widget) {
-    assert(rect_frame_count == frame.count);
+    assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
-    font, text_width := get_font(.SANS, theme.tooltip_text_size, tooltip);
+    font, text_width := get_font(.SERIF, theme.tooltip_text_size, tooltip);
     width := min(theme.tooltip_max_width, text_width + theme.padding * 2);
     text_rect := Rect.{mouse.x + theme.tooltip_offset.x, mouse.y + theme.tooltip_offset.y, width, xx theme.tooltip_text_size };
     tooltip_rect := expand(text_rect, (theme.tooltip_border + theme.padding) * 2);
-    if tooltip_rect.x + tooltip_rect.w > window_panel.rect.w
+    if tooltip_rect.x + tooltip_rect.w > window_panel.calculated_rect.w
         tooltip_rect.x -= (tooltip_rect.w + theme.tooltip_offset.x);
-    if tooltip_rect.y + tooltip_rect.h > window_panel.rect.h
+    if tooltip_rect.y + tooltip_rect.h > window_panel.calculated_rect.h
         tooltip_rect.y -= tooltip_rect.h;
 
     Simp.set_shader_for_color();
@@ -429,15 +435,15 @@ draw_tooltip :: (using widget: *Widget) {
 }
 
 draw_button :: (using button: *Button) {
-    assert(rect_frame_count == frame.count);
+    assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
-    button_rect := shrink(rect, 0, 0, 1, 1);
+    button_rect := shrink(calculated_rect, 0, 0, 1, 1);
     with_scissor(button_rect, flags);
     Simp.set_shader_for_color();
 
-    color := hot_active_else(button, theme.button_background_hot, theme.button_background_active, theme.button_background);
+    color := warm_hot_else(button, theme.button_background_warm, theme.button_background_hot, theme.button_background);
     draw_rect(button_rect, color);
 
     if icon_id {
@@ -471,12 +477,12 @@ draw_button :: (using button: *Button) {
 }
 
 draw_label :: (using label: *Label) {
-    assert(rect_frame_count == frame.count);
+    assert(calculated_rect_frame_index == frame.index);
     if !text  return;
 
     switch_theme();
 
-    label_rect := shrink(rect, 0, 0, 1, 1);
+    label_rect := shrink(calculated_rect, 0, 0, 1, 1);
     label_rect = shrink(label_rect, theme.padding);
     with_scissor(label_rect, flags);
 
@@ -487,11 +493,11 @@ draw_label :: (using label: *Label) {
 }
 
 draw_icon :: (using icon: *Icon) {
-    assert(rect_frame_count == frame.count);
+    assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
-    icon_rect := shrink(rect, 0, 0, 1, 1);
+    icon_rect := shrink(calculated_rect, 0, 0, 1, 1);
     icon_rect = shrink(icon_rect, theme.padding);
     with_scissor(icon_rect, flags);
 
@@ -518,30 +524,30 @@ draw_icon :: (using icon: *Icon) {
 }
 
 draw_scrollbar :: (using scrollbar: *Scrollbar) {
-    assert(rect_frame_count == frame.count);
+    assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
     Simp.set_shader_for_color();
-    with_scissor(rect, flags);
+    with_scissor(calculated_rect, flags);
 
-    draw_rect(rect, theme.scrollbar_groove_background);
+    draw_rect(calculated_rect, theme.scrollbar_groove_background);
 
     _, handle_rect, _ : = get_scrollbar_rects(scrollbar);
-    color := active_hot_else(scrollbar, theme.scrollbar_handle_background_active, theme.scrollbar_handle_background_hot, theme.scrollbar_handle_background);
+    color := hot_warm_else(scrollbar, theme.scrollbar_handle_background_hot, theme.scrollbar_handle_background_warm, theme.scrollbar_handle_background);
     draw_rect(shrink(handle_rect, 1), color);
 }
 
 draw_checkbox :: (using checkbox: *Checkbox) {
-    assert(rect_frame_count == frame.count);
+    assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
-    checkbox_rect := shrink(rect, 0, 0, 1, 1);
+    checkbox_rect := shrink(calculated_rect, 0, 0, 1, 1);
     with_scissor(checkbox_rect, flags);
     Simp.set_shader_for_color();
 
-    color := hot_active_else(checkbox, theme.button_background_hot, theme.button_background_active, theme.button_background);
+    color := warm_hot_else(checkbox, theme.button_background_warm, theme.button_background_hot, theme.button_background);
     box_rect, text_rect : Rect = ---;
     if flags & .RIGHT
         text_rect, box_rect = split_left_right(checkbox_rect, -checkbox_rect.h);
@@ -552,7 +558,7 @@ draw_checkbox :: (using checkbox: *Checkbox) {
     box_rect = shrink(box_rect, theme.checkbox_border);
     draw_rect(box_rect, theme.background_color);
 
-    _value := ifx is_active(checkbox) && is_hot(checkbox) then !value else value;
+    _value := ifx is_hot(checkbox) && is_warm(checkbox) then !value else value;
     if _value {
         box_rect = shrink(box_rect, theme.checkbox_border);
         draw_rect(box_rect, color);
@@ -568,16 +574,16 @@ draw_checkbox :: (using checkbox: *Checkbox) {
 }
 
 draw_text_input :: (using text_input: *Text_Input) {
-    assert(rect_frame_count == frame.count);
+    assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
-    text_input_rect := shrink(rect, 0, 0, 1, 1);
+    text_input_rect := shrink(calculated_rect, 0, 0, 1, 1);
     with_scissor(text_input_rect, flags);
     Simp.set_shader_for_color();
 
     draw_rect(text_input_rect, theme.text_input_border_color);
-    color := hot_active_else(text_input, theme.text_input_background_hot, theme.text_input_background_active, theme.text_input_background);
+    color := warm_hot_else(text_input, theme.text_input_background_warm, theme.text_input_background_hot, theme.text_input_background);
     text_input_rect = shrink(text_input_rect, theme.text_input_border);
     draw_rect(text_input_rect, color);
 
@@ -634,37 +640,37 @@ draw_text_input :: (using text_input: *Text_Input) {
 }
 
 draw_data_table :: (using data_table: *Data_Table) {
-    if !first_label_on_hot_row && !first_label_on_selected_row  return;
+    if !first_label_on_warm_row && !first_label_on_selected_row  return;
 
     switch_theme();
 
-    with_scissor(data_table.rect);
+    with_scissor(data_table.calculated_rect);
 
     highlight_row :: (first_label_on_row: *Label, color: Vector4) #expand {
         if !first_label_on_row  return;
-        last_label_on_row := first_label_on_row + columns - 1;
-        row_rect := first_label_on_row.rect;
-        row_rect.w = last_label_on_row.rect.x + last_label_on_row.rect.w - first_label_on_row.rect.x;
+        last_label_on_row := first_label_on_row + visible_columns - 1;
+        row_rect := first_label_on_row.calculated_rect;
+        row_rect.w = last_label_on_row.calculated_rect.x + last_label_on_row.calculated_rect.w - first_label_on_row.calculated_rect.x;
         Simp.set_shader_for_color();
         draw_rect(row_rect, color);
 
         label := first_label_on_row;
         while label <= last_label_on_row {
-            label_rect := shrink(label.rect, 0, 0, 1, 1);
+            label_rect := shrink(label.calculated_rect, 0, 0, 1, 1);
             label_rect = shrink(label_rect, theme.padding);
             with_scissor(label_rect, label.flags);
 
             font, text_width := get_font(sans_font(label.flags), theme.label_text_size, label.text, fit_width(label_rect, label.flags));
 
             text_x, text_y := text_origin(left_align(label.flags), font, label_rect, text_width);
-            Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.data_table_foreground_hot);
+            Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.data_table_foreground_warm);
             label += 1;
         }
     }
 
-    if first_label_on_selected_row != first_label_on_hot_row
+    if first_label_on_selected_row != first_label_on_warm_row
         highlight_row(first_label_on_selected_row, theme.selection_color);
-    highlight_row(first_label_on_hot_row, theme.data_table_background_hot);
+    highlight_row(first_label_on_warm_row, theme.data_table_background_warm);
 }
 
 draw_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) { }
@@ -717,13 +723,13 @@ with_scissor :: (rect: Rect) #expand {
 }
 
 with_scissor :: (rect: Rect, flags: Flags) #expand {
-    do_scissor := !(flags & .OVERFLOW) || (flags & .CROP);
+    do_scissor := should_scissor(flags);
     if do_scissor  push_scissor(rect);
     `defer if do_scissor  pop_scissor();
 }
 
 push_scissor :: (rect: Rect, flags: Flags) {
-    do_scissor := !(flags & .OVERFLOW) || (flags & .CROP);
+    do_scissor := should_scissor(flags);
     // @Note we always push something if the stack isn't empty, so the user can always unthinkingly pop
     if do_scissor
         push_scissor(rect);

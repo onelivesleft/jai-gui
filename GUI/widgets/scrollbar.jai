@@ -1,16 +1,17 @@
 Scrollbar :: struct {
     #as using widget: Widget;
+    type = .SCROLLBAR;
 
     initialized := false;
 
     Orientation :: enum u8 { HORIZONTAL; VERTICAL; };
     orientation := Orientation.VERTICAL;
 
-    type: enum u8 { FLOAT; INTEGER; } = .FLOAT;
-
     handle_move_step: float;
     handle_size: float;
     handle_position: float;
+
+    value_type: enum u8 { FLOAT; INTEGER; } = .FLOAT;
 
     int_range : Int_Range = ---;
     int_value : int = ---;
@@ -106,7 +107,7 @@ get_index :: (scrollbar: *Scrollbar) -> int {
 }
 
 move_by_steps :: (using scrollbar: *Scrollbar, steps: int) {
-    if type == .INTEGER {
+    if value_type == .INTEGER {
         int_value += steps;
         Clamp(*int_value, int_range.min, int_range.max);
         handle_position = calculate_handle_position(int_value, int_range);
@@ -118,11 +119,10 @@ move_by_steps :: (using scrollbar: *Scrollbar, steps: int) {
     }
 }
 
-use_scrollwheel :: (using scrollbar: *Scrollbar, force := false) {
-    if mouse.scrollwheel && (!scrollwheel_widget || force)  {
+use_scrollwheel :: (using scrollbar: *Scrollbar) {
+    if mouse.scrollwheel {
         steps := ifx (flags & .REVERSE_SCROLLWHEEL) then mouse.scrollwheel else -mouse.scrollwheel;
         move_by_steps(scrollbar, steps);
-        scrollwheel_widget = scrollbar;
     }
 }
 
@@ -164,7 +164,7 @@ int_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, loc
     spread := cast(float)(_range.max - _range.min + 1);
     handle_move_step : float = 1.0 / spread;
     handle_size : float = max(theme.scrollbar_min_handle_size, handle_move_step);
-    scrollbar.* = .{ widget(location, tooltip, flags), true, orientation, .INTEGER, handle_move_step, handle_size, calculate_handle_position(value, _range), _range, value};
+    scrollbar.* = .{ widget(.SCROLLBAR, location, tooltip, flags | .USE_SCROLLWHEEL), true, orientation, handle_move_step, handle_size, calculate_handle_position(value, _range), .INTEGER, _range, value};
     last_widget_location = location.*;
 
     prev_handle_position := scrollbar.handle_position;
@@ -189,7 +189,7 @@ float_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, l
     Clamp(*value, _range.min, _range.max);
     handle_move_step := handle_size;
     Clamp(*handle_size, theme.scrollbar_min_handle_size, handle_size);
-    scrollbar.* = .{ widget(location, tooltip, flags), true, orientation, .FLOAT, handle_move_step, handle_size, calculate_handle_position(value, _range), .{}, 0};
+    scrollbar.* = .{ widget(.SCROLLBAR, location, tooltip, flags | .USE_SCROLLWHEEL), true, orientation, handle_move_step, handle_size, calculate_handle_position(value, _range), .FLOAT, .{}, 0};
     scrollbar.float_range = _range;
     scrollbar.float_value = value;
     last_widget_location = location.*;
@@ -204,27 +204,27 @@ float_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, l
 }
 
 update_scrollbar :: (using scrollbar: *Scrollbar) {
-    was_active := is_active(scrollbar);
+    was_hot := is_hot(scrollbar);
     update_widget(scrollbar);
 
-    if !is_active(scrollbar) {
-        if is_hot(scrollbar)
+    if !is_hot(scrollbar) {
+        if is_warm(scrollbar)
             use_scrollwheel(scrollbar);
         return;
     }
 
-    if !was_active { // just pressed
+    if !was_hot { // just pressed
         _, handle, _ := get_scrollbar_rects(scrollbar);
         mouse_pos, start, handle_start : float = ---;
         if #complete orientation == {
             case .HORIZONTAL;
             mouse_pos = mouse.x;
-            start = rect.x;
+            start = calculated_rect.x;
             handle_start = handle.x;
 
             case .VERTICAL;
             mouse_pos = mouse.y;
-            start = rect.y;
+            start = calculated_rect.y;
             handle_start = handle.y;
         }
 
@@ -233,7 +233,7 @@ update_scrollbar :: (using scrollbar: *Scrollbar) {
             scrollbar_grab_value = handle_position;
         }
         else {
-            set_active(scrollbar, false);
+            set_hot(scrollbar, false);
             if mouse_pos < handle_start
                 move_by_steps(scrollbar, -1);
             else
@@ -245,18 +245,18 @@ update_scrollbar :: (using scrollbar: *Scrollbar) {
         if #complete orientation == {
             case .HORIZONTAL;
             mouse_pos = mouse.x;
-            start = rect.x;
-            size = rect.w;
+            start = calculated_rect.x;
+            size = calculated_rect.w;
 
             case .VERTICAL;
             mouse_pos = mouse.y;
-            start = rect.y;
-            size = rect.h;
+            start = calculated_rect.y;
+            size = calculated_rect.h;
         }
 
         handle_position = scrollbar_grab_value + (mouse_pos - scrollbar_grab_offset - start) / (size * (1.0 - handle_move_step));
         Clamp(*handle_position, 0.0, 1.0);
-        if type == .INTEGER {
+        if value_type == .INTEGER {
             spread := cast(float) int_range.max - int_range.min + 1;
             f := spread * handle_position;
             int_value = int_range.min + cast(int) f;
@@ -288,29 +288,29 @@ calculate_handle_position :: (value: float, range: Float_Range) -> float {
 }
 
 get_scrollbar_rects :: (using scrollbar: *Scrollbar) -> Rect, Rect, Rect {
-    before, handle, after := rect;
+    before, handle, after := calculated_rect;
     if #complete orientation == {
         case .HORIZONTAL;
-        actual_handle_size := rect.w * handle_size;
-        groove_length := rect.w - actual_handle_size;
+        actual_handle_size := calculated_rect.w * handle_size;
+        groove_length := calculated_rect.w - actual_handle_size;
         handle_start := groove_length * handle_position;
         handle_end := handle_start + actual_handle_size;
-        before.w = handle_start - rect.x;
+        before.w = handle_start - calculated_rect.x;
         handle.x += handle_start;
         handle.w = actual_handle_size;
         after.x += handle_end;
-        after.w = rect.w - after.x;
+        after.w = calculated_rect.w - after.x;
 
         case .VERTICAL;
-        actual_handle_size := rect.h * handle_size;
-        groove_length := rect.h - actual_handle_size;
+        actual_handle_size := calculated_rect.h * handle_size;
+        groove_length := calculated_rect.h - actual_handle_size;
         handle_start := groove_length * handle_position;
         handle_end := handle_start + actual_handle_size;
-        before.h = handle_start - rect.y;
+        before.h = handle_start - calculated_rect.y;
         handle.y += handle_start;
         handle.h = actual_handle_size;
         after.y += handle_end;
-        after.h = rect.h - after.y;
+        after.h = calculated_rect.h - after.y;
     }
     return before, handle, after;
 }

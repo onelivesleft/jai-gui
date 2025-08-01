@@ -35,6 +35,35 @@ select_all :: (text_input: *Text_Input) {
         set_text_edit_selection(0, text_edit.bytes.count);
 }
 
+copy_selection :: (text_input: *Text_Input) {
+    if text_edit.currently_editting != text_input
+        return;
+
+    using text_edit;
+    has_selection, start, end := text_edit_selection();
+    if has_selection
+        os_clipboard_set_text(string.{end - start, *bytes[start]});
+}
+
+cut_selection :: (text_input: *Text_Input) {
+    if text_edit.currently_editting != text_input
+        return;
+
+    using text_edit;
+    has_selection, start, end := text_edit_selection();
+    if has_selection {
+        os_clipboard_set_text(string.{end - start, *bytes[start]});
+        remove_text_edit(start, end);
+    }
+}
+
+paste :: (text_input: *Text_Input) {
+    if text_edit.currently_editting != text_input
+        return;
+
+    insert_text_edit(os_clipboard_get_text());
+}
+
 set_text :: (text_input: *Text_Input, text: string) {
     if has_focus(text_input) && text_input.flags & .IMMEDIATE
         set_text_edit(text_input, text);
@@ -59,7 +88,7 @@ _text_input :: inline (id: int, location: *At_Location, flags: Flags, initial_te
 
 _text_input :: (text_input: *Text_Input, location: *At_Location, flags: Flags, initial_text: string, tooltip: string) -> text: string, *Text_Input {
     text := ifx text_input.initialized then text_input.text else copy_string(initial_text);
-    text_input.* = .{ widget(location, tooltip, flags), true, text };
+    text_input.* = .{ widget(.TEXT_INPUT, location, tooltip, flags), true, text };
     last_widget_location = location.*;
 
     update_text_input(text_input);
@@ -72,11 +101,11 @@ _text_input :: (text_input: *Text_Input, location: *At_Location, flags: Flags, i
 }
 
 update_text_input :: (using text_input: *Text_Input) {
-    was_active := is_active(text_input);
+    was_hot := is_hot(text_input);
     update_widget(text_input);
 
-    if is_active(text_input) && !was_active {
-        set_focus(text_input, true);
+    if is_hot(text_input) && !was_hot {
+        focus(text_input);
         set_text_edit(text_input, text);
     }
 }
@@ -95,9 +124,9 @@ handle_event :: (using text_input: *Text_Input, event: Input.Event) {
         case .KEYBOARD;
         if event.key_pressed {
             if event.key_code == {
-                case .ESCAPE;       set_focus(text_input, false, .CANCELLED);
-                case .ENTER;        set_focus(text_input, false, .CONFIRMED);
-                case .TAB;          set_focus(text_input, false, .SOFT);
+                case .ESCAPE;       remove_focus(text_input, .CANCELLED);
+                case .ENTER;        remove_focus(text_input, .CONFIRMED);
+                case .TAB;          remove_focus(text_input, .UNDETERMINED);
                 case .ARROW_LEFT;   move_cursor(-1, event.shift_pressed);
                 case .ARROW_RIGHT;  move_cursor(+1, event.shift_pressed);
                 case .BACKSPACE;    backspace();
@@ -105,6 +134,9 @@ handle_event :: (using text_input: *Text_Input, event: Input.Event) {
                 case .HOME;         set_text_edit_cursor(0, event.shift_pressed);
                 case .END;          set_text_edit_cursor(text_edit.bytes.count, event.shift_pressed);
                 case #char "A";     if event.ctrl_pressed  select_all(text_input);
+                case #char "C";     if event.ctrl_pressed  copy_selection(text_input);
+                case #char "X";     if event.ctrl_pressed  cut_selection(text_input);
+                case #char "V";     if event.ctrl_pressed  paste(text_input);
             }
         }
 
@@ -112,7 +144,7 @@ handle_event :: (using text_input: *Text_Input, event: Input.Event) {
 }
 
 lost_focus ::  (using text_input: *Text_Input, reason: Lost_Focus_Reason) {
-    if reason == .CONFIRMED || (reason == .SOFT && flags & .IMMEDIATE) {
+    if reason == .CONFIRMED || (reason == .UNDETERMINED && flags & .IMMEDIATE) {
         free(text);
         text = copy_string(text_edit.as_string);
         set_changed(text_input);

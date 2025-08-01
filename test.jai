@@ -4,6 +4,7 @@
 #import "Math";
 //#import "DPI";
 
+
 Word_Count :: struct {
     word: string; @Width(0.7) @Left;
     count: int; @Width(0.3) @Fixed;
@@ -17,6 +18,8 @@ icon_names : [..] string;
 max_found_buttons :: 256;
 buttons : [max_found_buttons] Button;
 
+// B2EC12B8
+
 toast_text: string;
 toast_pos: Vector2;
 toast_speed: Vector2;
@@ -25,15 +28,40 @@ toast_duration : float64 : 2.0;
 toast_gravity :: 200.0;
 toast_up_speed :: 200.0;
 
-main :: () {
-    //array_add(*found_icons, "Hi");
 
-    window, window_handle := gui_create_window("GUI Test", 1280, 896, 2100, 40);
+main_pointer: *u64;
+
+get_rbp :: () -> *u64 #expand {
+    base_pointer: u64;
+    #asm {
+        rbp: gpr === bp;
+        mov base_pointer, rbp;
+    }
+    return xx base_pointer;
+}
+
+print_call_stack :: () #expand {
+    base_pointer: *u64;
+    print("---\n");
+    foo: u64;
+    #asm {
+        rbp: gpr === bp;
+        mov foo, rbp;
+    }
+    base_pointer = xx foo;
+    while base_pointer && base_pointer != main_pointer {
+        print("%\n", base_pointer);
+        base_pointer = xx base_pointer.*;
+    }
+}
+
+main :: () {
+    window, window_handle := gui_create_window("GUI Test", 1280, 896, 3100, 40);
 
     show_wheel := true;
     maybe_lock : Flags;
 
-    prev_hot_widget : *Widget;
+    prev_warm_widget : *Widget;
 
     generate_word_count();
     for * word_count  array_add(*word_count_ptr, it);
@@ -65,8 +93,8 @@ main :: () {
         if clicked {
             icon_id += 1;
         }
-        if mouse.scrollwheel && is_hot(icon_button) && !scrollwheel_widget {
-            scrollwheel_widget = icon_button;
+        if mouse.scrollwheel && is_warm(icon_button) && !scrollwheel_widget {
+            block_scrollwheel();
             new_id := cast(int)icon_id + mouse.scrollwheel;
             if new_id < 0  new_id += xx Icon_Id.Z_WAVE;
             if new_id > xx Icon_Id.Z_WAVE  new_id -= xx Icon_Id.Z_WAVE;
@@ -133,8 +161,7 @@ main :: () {
             checkbox(at(.COPY_DOWN), "Show Scroll Wheel", *show_wheel, .IMMEDIATE | maybe_lock, tooltip = "It might be hidden!");
 
             maybe_lock = ifx checkbox(at(.COPY_DOWN), "Lock it down", maybe_lock != 0, .RIGHT | .IMMEDIATE, "Not allowed")
-                         then .LOCKED
-                         else xx 0;
+                         then .LOCKED;
 
             search_instead_of_filter=, search_instead_of_filter_checkbox := checkbox(at(.COPY_DOWN), "Search instead of filter", flags=.OVERFLOW);
             if was_changed(search_instead_of_filter_checkbox)
@@ -175,7 +202,7 @@ main :: () {
                     }
                 }
             }
-            panel_width : int = xx icon_search_panel.rect.w - theme.scrollbar_size;
+            panel_width : int = xx icon_search_panel.calculated_rect.w - theme.scrollbar_size;
             icons_per_row : int = panel_width / size;
             panel_height : int = min(max_found_buttons, found_icons.count) / icons_per_row;
             panel, scrollable_panel := push_scrollable_panel(at(bottom), panel_width, size * panel_height);
@@ -222,16 +249,14 @@ main :: () {
             if clicked
                 show_wheel = false;
 
-            if is_hot(b) {
-                use_scrollwheel(left_scrollbar, true);
-                use_scrollwheel(right_scrollbar, true);
+            if is_warm(b) {
+                use_scrollwheel(left_scrollbar);
+                use_scrollwheel(right_scrollbar);
             }
         }
 
-        if hot_widget != prev_hot_widget {
-            //print("New hot widget: %\n", hot_widget);
-            prev_hot_widget = hot_widget;
-        }
+        if warm_widget != prev_warm_widget
+            prev_warm_widget = warm_widget;
 
         if clicked_widget {
             t := widget_type(clicked_widget);
@@ -247,12 +272,16 @@ main :: () {
             else {
                 text = tprint("%", t);
             }
-            print("% : % = %\n", text, clicked_widget._box, clicked_widget.rect);
+            print("% : % = %\n", text, clicked_widget.desired_box, clicked_widget.calculated_rect);
         }
+
+        label(at(0,1.0, 50,-20), tprint("%", scrollwheel_widget));
 
         update_toast();
     }
 }
+
+
 
 start_toast :: (text: string) {
     if toast_text  free(toast_text);
