@@ -6,40 +6,33 @@ Icon :: struct {
 }
 
 
-icon :: (location: *At_Location, icon_id: Icon_Id, size := 0, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Icon #expand #no_debug {
-    clicked, widget := _icon(0, location, flags, icon_id, size, tooltip, #insert #run next(*icon_count));
+icon :: (location: *At_Location, icon_id: Icon_Id, size := 0, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Icon {
+    clicked, widget := _icon(0, location, flags, icon_id, size, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
 
-icon :: (id: int, $reserve: int, location: *At_Location, icon_id: Icon_Id, size := 0, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Icon #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of icons being created)");
-    clicked, widget := _icon(id, location, flags, icon_id, size, tooltip, #insert #run next(*icon_count, reserve));
+icon :: (id: int, location: *At_Location, icon_id: Icon_Id, size := 0, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Icon {
+    clicked, widget := _icon(id, location, flags, icon_id, size, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-icon :: (icon: *Icon, location: *At_Location, icon_id: Icon_Id, size := 0, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Icon #expand #no_debug {
+icon :: (icon: *Icon, location: *At_Location, icon_id: Icon_Id, size := 0, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Icon {
     clicked, widget := _icon(icon, location, flags, icon_id, size, tooltip);
     return clicked, widget;
-}
-
-
-get_index :: (icon: *Icon) -> int {
-    index := icon - icon_data.data;
-    assert(0 <= index && index < icon_data.count, "Called get_index with a user-allocated icon");
-    return index;
 }
 
 
 #scope_module
 
 
-icon_data : [] Icon;
-#no_reset icon_count := 0;
+icon_data : Table(u64, Icon);
 
 
-_icon :: inline (id: int, location: *At_Location, flags: Flags, icon_id: Icon_Id, size: int, tooltip: string, $gui_index: int) -> clicked: bool, *Icon {
-    clicked, icon:= _icon(*icon_data[gui_index + id], location, flags, icon_id, size, tooltip);
+_icon :: inline (id: int, location: *At_Location, flags: Flags, icon_id: Icon_Id, size: int, tooltip: string, callsite_key: u64) -> clicked: bool, *Icon {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    icon := find_or_add(*icon_data, key);
+    clicked := _icon(icon, location, flags, icon_id, size, tooltip);
     return clicked, icon;
 }
 

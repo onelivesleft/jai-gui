@@ -7,28 +7,21 @@ Text_Input :: struct {
 }
 
 
-text_input :: (location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> text: string, *Text_Input #expand #no_debug {
-    text, widget := _text_input(0, location, flags, initial_text, tooltip,  #insert #run next(*text_input_count));
+text_input :: (location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Text_Input {
+    text, widget := _text_input(0, location, flags, initial_text, tooltip, callsite_key(callsite));
     return text, widget;
 }
 
-text_input :: (id: int, $reserve: int, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> text: string, *Text_Input #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of inputs being created)");
-    text, widget := _text_input(id, location, flags, initial_text, tooltip, #insert #run next(*text_input_count, reserve));
+text_input :: (id: int, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Text_Input {
+    text, widget := _text_input(id, location, flags, initial_text, tooltip, callsite_key(callsite));
     return text, widget;
 }
 
-text_input :: (text_input: *Text_Input, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> text: string, *Text_Input #expand #no_debug {
+text_input :: (text_input: *Text_Input, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> text: string, *Text_Input {
     text, widget := _text_input(text_input, location, flags, initial_text, tooltip);
     return text, widget;
 }
 
-
-get_index :: (text_input: *Text_Input) -> int {
-    index := text_input - text_input_data.data;
-    assert(0 <= index && index < text_input_data.count);
-    return index;
-}
 
 select_all :: (text_input: *Text_Input) {
     if text_edit.currently_editting == text_input
@@ -78,11 +71,13 @@ set_text :: (text_input: *Text_Input, text: string) {
 #scope_module
 
 
-text_input_data : [] Text_Input;
-#no_reset text_input_count := 0;
+text_input_data: Table(u64, Text_Input);
 
-_text_input :: inline (id: int, location: *At_Location, flags: Flags, initial_text: string, tooltip: string, $gui_index: int) -> text: string, *Text_Input {
-    text, text_input := _text_input(*text_input_data[gui_index + id], location, flags, initial_text, tooltip);
+
+_text_input :: inline (id: int, location: *At_Location, flags: Flags, initial_text: string, tooltip: string, callsite_key: u64) -> text: string, *Text_Input {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    text_input := find_or_add(*text_input_data, key);
+    text := _text_input(text_input, location, flags, initial_text, tooltip);
     return text, text_input;
 }
 

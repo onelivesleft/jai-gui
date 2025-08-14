@@ -32,79 +32,69 @@ Float_Range :: struct {
 }
 
 
-horizontal_scrollbar :: (location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar #expand #no_debug {
-    value, widget := int_scrollbar(.HORIZONTAL, 0, location, flags, tooltip, initial_value, range, #insert #run next(*scrollbar_count));
+horizontal_scrollbar :: (location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(.HORIZONTAL, 0, location, flags, tooltip, initial_value, range, callsite_key(callsite));
     return value, widget;
 }
 
-horizontal_scrollbar :: (id: int, $reserve: int, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
-    value, widget := int_scrollbar(.HORIZONTAL, id, location, flags, tooltip, initial_value, range, #insert #run next(*scrollbar_count, reserve));
+horizontal_scrollbar :: (id: int, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(.HORIZONTAL, id, location, flags, tooltip, initial_value, range, callsite_key(callsite));
     return value, widget;
 }
 
-horizontal_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar #expand #no_debug {
+horizontal_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar {
     value, widget := int_scrollbar(scrollbar, .HORIZONTAL, location, flags, tooltip, initial_value, range);
     return value, widget;
 }
 
 
-horizontal_scrollbar :: (location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar #expand #no_debug {
-    value, widget := float_scrollbar(.HORIZONTAL, 0, location, flags, tooltip, initial_value, range, handle_size, #insert #run next(*scrollbar_count));
+horizontal_scrollbar :: (location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(.HORIZONTAL, 0, location, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
     return value, widget;
 }
 
-horizontal_scrollbar :: (id: int, $reserve: int, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
-    value, widget := float_scrollbar(.HORIZONTAL, id, location, flags, tooltip, initial_value, range, handle_size, #insert #run next(*scrollbar_count, reserve));
+horizontal_scrollbar :: (id: int, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(.HORIZONTAL, id, location, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
     return value, widget;
 }
 
-horizontal_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar #expand #no_debug {
+horizontal_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar {
     value, widget := float_scrollbar(scrollbar, .HORIZONTAL, location, flags, tooltip, initial_value, range, handle_size);
     return value, widget;
 }
 
 
-vertical_scrollbar :: (location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar #expand #no_debug {
-    value, widget := int_scrollbar(.VERTICAL, 0, location, flags, tooltip, initial_value, range, #insert #run next(*scrollbar_count));
+vertical_scrollbar :: (location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(.VERTICAL, 0, location, flags, tooltip, initial_value, range, callsite_key(callsite));
     return value, widget;
 }
 
-vertical_scrollbar :: (id: int, $reserve: int, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
-    value, widget := int_scrollbar(.VERTICAL, id, location, flags, tooltip, initial_value, range, #insert #run next(*scrollbar_count, reserve));
+vertical_scrollbar :: (id: int, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(.VERTICAL, id, location, flags, tooltip, initial_value, range, callsite_key(callsite));
     return value, widget;
 }
 
-vertical_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar #expand #no_debug {
+vertical_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar {
     value, widget := int_scrollbar(scrollbar, .VERTICAL, location, flags, tooltip, initial_value, range);
     return value, widget;
 }
 
 
-vertical_scrollbar :: (location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar #expand #no_debug {
-    value, widget := float_scrollbar(.VERTICAL, 0, location, flags, tooltip, initial_value, range, handle_size, #insert #run next(*scrollbar_count));
+vertical_scrollbar :: (location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(.VERTICAL, 0, location, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
     return value, widget;
 }
 
-vertical_scrollbar :: (id: int, $reserve: int, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollbars being created)");
-    value, widget := float_scrollbar(.VERTICAL, id, location, flags, tooltip, initial_value, range, handle_size, #insert #run next(*scrollbar_count, reserve));
+vertical_scrollbar :: (id: int, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(.VERTICAL, id, location, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
     return value, widget;
 }
 
-vertical_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar #expand #no_debug {
+vertical_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar {
     value, widget := float_scrollbar(scrollbar, .VERTICAL, location, flags, tooltip, initial_value, range, handle_size);
     return value, widget;
 }
 
-
-get_index :: (scrollbar: *Scrollbar) -> int {
-    index := scrollbar - scrollbar_data.data;
-    assert(0 <= index && index < scrollbar_data.count, "Called get_index with a user-allocated scrollbar");
-    return index;
-}
 
 move_by_steps :: (using scrollbar: *Scrollbar, steps: int) {
     if value_type == .INTEGER {
@@ -123,6 +113,7 @@ use_scrollwheel :: (using scrollbar: *Scrollbar) {
     if mouse.scrollwheel {
         steps := ifx (flags & .REVERSE_SCROLLWHEEL) then mouse.scrollwheel else -mouse.scrollwheel;
         move_by_steps(scrollbar, steps);
+        deplete_scrollwheel();
     }
 }
 
@@ -148,11 +139,13 @@ set_value :: (using scrollbar: *Scrollbar, value: $T)
 #scope_module
 
 
-scrollbar_data : [] Scrollbar;
-#no_reset scrollbar_count := 0;
+scrollbar_data : Table(u64, Scrollbar);
 
-int_scrollbar :: inline (orientation: Scrollbar.Orientation, id: int, location: *At_Location, flags: Flags, tooltip: string, initial_value: int, range: Int_Range, $gui_index: int) -> value: int, *Scrollbar {
-    value, scrollbar := int_scrollbar(*scrollbar_data[gui_index + id], orientation, location, flags, tooltip, initial_value, range);
+
+int_scrollbar :: inline (orientation: Scrollbar.Orientation, id: int, location: *At_Location, flags: Flags, tooltip: string, initial_value: int, range: Int_Range, callsite_key: u64) -> value: int, *Scrollbar {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    scrollbar := find_or_add(*scrollbar_data, key);
+    value := int_scrollbar(scrollbar, orientation, location, flags, tooltip, initial_value, range);
     return value, scrollbar;
 }
 
@@ -177,8 +170,10 @@ int_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, loc
 }
 
 
-float_scrollbar :: inline (orientation: Scrollbar.Orientation, id: int, location: *At_Location, flags: Flags, tooltip: string, initial_value: float, range: Float_Range, handle_size: float, $gui_index: int) -> value: float, *Scrollbar {
-    value, scrollbar := float_scrollbar(*scrollbar_data[gui_index + id], orientation, location, flags, tooltip, initial_value, range, handle_size);
+float_scrollbar :: inline (orientation: Scrollbar.Orientation, id: int, location: *At_Location, flags: Flags, tooltip: string, initial_value: float, range: Float_Range, handle_size: float, callsite_key: u64) -> value: float, *Scrollbar {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    scrollbar := find_or_add(*scrollbar_data, key);
+    value := float_scrollbar(scrollbar, orientation, location, flags, tooltip, initial_value, range, handle_size);
     return value, scrollbar;
 }
 

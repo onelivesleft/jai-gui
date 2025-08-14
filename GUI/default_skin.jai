@@ -16,6 +16,16 @@ Theme :: struct {
 
     background_color := Vector4.{0.2, 0.2, 0.2, 1.0};
 
+    window_background_color := Vector4.{0.0, 0.0, 0.0, 0.5};
+
+    window_decoration_background         := Vector4.{0.35, 0.35, 0.55, 1.0};
+    window_decoration_background_clicked := Vector4.{0.65, 0.65, 0.85, 1.0};
+    window_decoration_background_hot     := Vector4.{0.55, 0.55, 0.75, 1.0};
+    window_decoration_background_warm    := Vector4.{0.45, 0.45, 0.65, 1.0};
+    window_decoration_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
+    window_decoration_size : s16 = 32;
+    window_decoration_text_size : s16 = 16;
+
     tooltip_background   := Vector4.{1.0, 1.0, 1.0, 1.0};
     tooltip_border_color := Vector4.{0.0, 0.0, 0.0, 1.0};
     tooltip_foreground   := Vector4.{0.0, 0.0, 0.0, 1.0};
@@ -32,8 +42,9 @@ Theme :: struct {
     icon_size := 64;
 
     button_background         := Vector4.{0.55, 0.35, 0.35, 1.0};
-    button_background_hot  := Vector4.{0.65, 0.45, 0.45, 1.0};
-    button_background_warm    := Vector4.{0.75, 0.55, 0.55, 1.0};
+    button_background_clicked := Vector4.{0.85, 0.65, 0.65, 1.0};
+    button_background_hot     := Vector4.{0.75, 0.55, 0.55, 1.0};
+    button_background_warm    := Vector4.{0.65, 0.45, 0.45, 1.0};
     button_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
     button_text_size : s16 = 16;
 
@@ -71,6 +82,16 @@ alternate_theme := Theme.{
 
     background_color = Vector4.{0.2, 0.2, 0.2, 1.0},
 
+    window_background_color = Vector4.{1.0, 1.0, 1.0, 0.25},
+
+    window_decoration_background         = Vector4.{0.35, 0.55, 0.55, 1.0},
+    window_decoration_background_clicked = Vector4.{0.65, 0.85, 0.85, 1.0},
+    window_decoration_background_hot     = Vector4.{0.55, 0.75, 0.75, 1.0},
+    window_decoration_background_warm    = Vector4.{0.45, 0.65, 0.65, 1.0},
+    window_decoration_foreground         = Vector4.{1.0, 1.0, 1.0, 1.0},
+    window_decoration_size = 32,
+    window_decoration_text_size = 16,
+
     tooltip_background = Vector4.{0.55, 0.35, 0.35, 1.0},
     tooltip_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
     tooltip_offset = Vector2.{20, 20},
@@ -84,10 +105,11 @@ alternate_theme := Theme.{
     icon_color = Vector4.{1.0, 1.0, 1.0, 1.0},
     icon_size = 64,
 
-    button_background         = Vector4.{0.35, 0.55, 0.35, 1.0},
-    button_background_hot  = Vector4.{0.45, 0.65, 0.45, 1.0},
-    button_background_warm    = Vector4.{0.55, 0.75, 0.55, 1.0},
-    button_foreground         = Vector4.{1.0, 1.0, 1.0, 1.0},
+    button_background =          Vector4.{0.35, 0.55, 0.35, 1.0},
+    button_background_clicked =  Vector4.{0.65, 0.85, 0.65, 1.0},
+    button_background_hot =      Vector4.{0.55, 0.75, 0.55, 1.0},
+    button_background_warm =     Vector4.{0.45, 0.65, 0.45, 1.0},
+    button_foreground =          Vector4.{1.0, 1.0, 1.0, 1.0},
     button_text_size = 16,
 
     checkbox_border = 2,
@@ -96,30 +118,33 @@ alternate_theme := Theme.{
     cursor_color = Vector4.{1.0, 1.0, 1.0, 1.0},
     selection_color = Vector4.{0.7, 0.7, 0.7, 1.0},
 
-    text_input_border_color       = Vector4.{0.55, 0.35, 0.35, 1.0},
-    text_input_background         = Vector4.{0.35, 0.25, 0.25, 1.0},
-    text_input_background_hot  = Vector4.{0.45, 0.35, 0.35, 1.0},
-    text_input_background_warm    = Vector4.{0.45, 0.35, 0.35, 1.0},
-    text_input_foreground         = Vector4.{1.0, 1.0, 1.0, 1.0},
+    text_input_border_color =    Vector4.{0.55, 0.35, 0.35, 1.0},
+    text_input_background =      Vector4.{0.35, 0.25, 0.25, 1.0},
+    text_input_background_hot =  Vector4.{0.45, 0.35, 0.35, 1.0},
+    text_input_background_warm = Vector4.{0.45, 0.35, 0.35, 1.0},
+    text_input_foreground =      Vector4.{1.0, 1.0, 1.0, 1.0},
     text_input_border = 2,
     text_input_text_size = 16,
 
-    scrollbar_groove_background         = Vector4.{0.25, 0.35, 0.25, 1.0},
-    scrollbar_handle_background         = Vector4.{0.35, 0.55, 0.35, 1.0},
-    scrollbar_handle_background_hot  = Vector4.{0.55, 0.75, 0.55, 1.0},
-    scrollbar_handle_background_warm    = Vector4.{0.45, 0.65, 0.45, 1.0},
+    scrollbar_groove_background =      Vector4.{0.25, 0.35, 0.25, 1.0},
+    scrollbar_handle_background =      Vector4.{0.35, 0.55, 0.35, 1.0},
+    scrollbar_handle_background_hot =  Vector4.{0.55, 0.75, 0.55, 1.0},
+    scrollbar_handle_background_warm = Vector4.{0.45, 0.65, 0.45, 1.0},
     scrollbar_min_handle_size = 1.0 / 40,
     scrollbar_size = 20,
 
     text_box_text_size = 16,
     text_box_row_height = 20,
 
-    data_table_background_warm    = Vector4.{0.75, 0.55, 0.55, 1.0},
-    data_table_foreground_warm    = Vector4.{0.1, 0.1, 0.1, 1.0},
+    data_table_background_warm = Vector4.{0.75, 0.55, 0.55, 1.0},
+    data_table_foreground_warm = Vector4.{0.1, 0.1, 0.1, 1.0},
     data_table_row_height = 30,
 };
 
 locked_theme := Theme.{
+    window_decoration_background = Vector4.{0.5, 0.5, 0.5, 1.0},
+    window_decoration_foreground = Vector4.{0.9, 0.9, 0.9, 1.0},
+
     button_background = Vector4.{0.4, 0.4, 0.4, 1.0},
     button_foreground = Vector4.{0.9, 0.9, 0.9, 1.0},
 
@@ -254,7 +279,7 @@ text_origin :: (alignment: Text_Alignment, font: *Font, r: Rect, text_width: flo
 
     // y := text_baseline(font, y, y+r.h);
     vert := default_text_baseline(font, r.h);
-    y := window_panel.calculated_rect.h - (r.y + r.h - vert);
+    y := application_panel.calculated_rect.h - (r.y + r.h - vert);
 
     // Due to atlassed texture rendering, we draw text at integer coordinates currently.
     // If we wish to change this, don't round! (Or round to whatever subpixel resolution
@@ -266,14 +291,14 @@ text_origin :: (alignment: Text_Alignment, font: *Font, r: Rect, text_width: flo
 
 
 gl_vec4 :: (rect: Rect) -> Vector4 {
-    return .{rect.x, window_panel.calculated_rect.h - rect.y - rect.h, rect.x + rect.w, window_panel.calculated_rect.h - rect.y};
+    return .{rect.x, application_panel.calculated_rect.h - rect.y - rect.h, rect.x + rect.w, application_panel.calculated_rect.h - rect.y};
 }
 
 clamp_to_window :: (v: *Vector4) {
-    Clamp(*v.x, 0, window_panel.calculated_rect.w);
-    Clamp(*v.y, 0, window_panel.calculated_rect.h);
-    Clamp(*v.z, v.x, window_panel.calculated_rect.w);
-    Clamp(*v.w, v.y, window_panel.calculated_rect.h);
+    Clamp(*v.x, 0, application_panel.calculated_rect.w);
+    Clamp(*v.y, 0, application_panel.calculated_rect.h);
+    Clamp(*v.z, v.x, application_panel.calculated_rect.w);
+    Clamp(*v.w, v.y, application_panel.calculated_rect.h);
 }
 
 
@@ -417,9 +442,9 @@ draw_tooltip :: (using widget: *Widget) {
     width := min(theme.tooltip_max_width, text_width + theme.padding * 2);
     text_rect := Rect.{mouse.x + theme.tooltip_offset.x, mouse.y + theme.tooltip_offset.y, width, xx theme.tooltip_text_size };
     tooltip_rect := expand(text_rect, (theme.tooltip_border + theme.padding) * 2);
-    if tooltip_rect.x + tooltip_rect.w > window_panel.calculated_rect.w
+    if tooltip_rect.x + tooltip_rect.w > application_panel.calculated_rect.w
         tooltip_rect.x -= (tooltip_rect.w + theme.tooltip_offset.x);
-    if tooltip_rect.y + tooltip_rect.h > window_panel.calculated_rect.h
+    if tooltip_rect.y + tooltip_rect.h > application_panel.calculated_rect.h
         tooltip_rect.y -= tooltip_rect.h;
 
     Simp.set_shader_for_color();
@@ -443,7 +468,9 @@ draw_button :: (using button: *Button) {
     with_scissor(button_rect, flags);
     Simp.set_shader_for_color();
 
-    color := warm_hot_else(button, theme.button_background_warm, theme.button_background_hot, theme.button_background);
+    color := ifx was_clicked(button)
+             then theme.button_background_clicked
+             else warm_hot_else(button, theme.button_background_hot, theme.button_background_warm, theme.button_background);
     draw_rect(button_rect, color);
 
     if icon_id {
@@ -558,8 +585,7 @@ draw_checkbox :: (using checkbox: *Checkbox) {
     box_rect = shrink(box_rect, theme.checkbox_border);
     draw_rect(box_rect, theme.background_color);
 
-    _value := ifx is_hot(checkbox) && is_warm(checkbox) then !value else value;
-    if _value {
+    if value {
         box_rect = shrink(box_rect, theme.checkbox_border);
         draw_rect(box_rect, color);
     }
@@ -676,6 +702,127 @@ draw_data_table :: (using data_table: *Data_Table) {
 draw_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) { }
 
 draw_text_box :: (using text_box: *Text_Box) { }
+
+draw_window :: (mode: enum {BACKGROUND; FOREGROUND;}) {
+    window := currently_drawing_window;
+    window.available_area = window.location;
+    theme := ifx is_locked(window.flags) then locked_theme else themes[theme_index(window.flags)];
+
+    inherited_flags := window.flags & xx window_decoration_inherit_mask;
+
+    has_header_row := false;
+    title_bar_right_offset := 0;
+
+    if mode == .BACKGROUND
+        draw_box(at(0.0,0.0, 1.0,1.0), theme.window_background_color);
+
+    if window.flags & .CLOSE {
+        has_header_row = true;
+        title_bar_right_offset -= theme.window_decoration_size;
+        if mode == .FOREGROUND
+            window_decoration(at(-theme.window_decoration_size,0, 1.0,theme.window_decoration_size), .CLOSE | inherited_flags);
+    }
+
+    if window.flags & .TITLE_BAR {
+        has_header_row = true;
+        if mode == .FOREGROUND
+            window_decoration(at(0,0, ord(title_bar_right_offset,1.0),theme.window_decoration_size), .TITLE_BAR | inherited_flags);
+    }
+
+    if window.flags & .SCROLLBARS {
+        tl, tr, bl, br := split_quadrants(*window.available_area, -theme.window_decoration_size, -theme.window_decoration_size);
+        if has_header_row
+            tr.desired_box.tl.y.abs += theme.window_decoration_size;
+        window.available_area.desired_box.br.x.abs -= theme.window_decoration_size;
+        window.available_area.desired_box.br.y.abs -= theme.window_decoration_size;
+        if mode == .FOREGROUND {
+            horizontal_scrollbar(*window._horizontal_scrollbar, bl, handle_size=window._horizontal_scrollbar.handle_size);
+            vertical_scrollbar(*window._vertical_scrollbar, tr, handle_size=window._vertical_scrollbar.handle_size);
+            //window_decoration(at(0,0, ord(title_bar_right_offset,1.0),theme.window_decoration_size), .TITLE_BAR | inherited_flags);
+        }
+    }
+
+    if window.flags & .RESIZE {
+    }
+
+    if has_header_row
+        window.available_area.desired_box.tl.y.abs += theme.window_decoration_size;
+}
+
+
+draw_window_decoration :: (using window_decoration: *Window_Decoration) {
+    assert(calculated_rect_frame_index == frame.index);
+
+    switch_theme();
+
+    if flags & .CLOSE {
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        with_scissor(window_decoration_rect, flags);
+        Simp.set_shader_for_color();
+
+        color := ifx was_clicked(window_decoration)
+                 then theme.window_decoration_background_clicked
+                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        draw_rect(window_decoration_rect, color);
+
+        texture := get_icon_texture(.CLOSE_OUTLINE);
+
+        advance := window_decoration_rect.h - theme.padding;
+        icon_rect := shrink(window_decoration_rect, theme.padding);
+        if !(flags & .ICON_ON_RIGHT)
+            window_decoration_rect.x += advance;
+        window_decoration_rect.w -= advance;
+
+        if flags & .ICON_ON_RIGHT
+            icon_rect.x += icon_rect.w - icon_rect.h;
+        else
+            icon_rect.x += (icon_rect.h - icon_rect.w) / 2;
+        icon_rect.w = icon_rect.h;
+
+        p0, p1, p2, p3 := get_quad(icon_rect);
+        Simp.set_shader_for_images(texture);
+        Simp.immediate_quad(p0, p1, p2, p3, theme.icon_color);
+        Simp.immediate_flush();
+        return;
+    }
+
+    if flags & .TITLE_BAR {
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        with_scissor(window_decoration_rect, flags);
+        Simp.set_shader_for_color();
+
+        color := warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        draw_rect(window_decoration_rect, color);
+
+        if currently_drawing_window.text {
+            text_rect := shrink(window_decoration_rect, theme.padding);
+            font, text_width := get_font(sans_font(flags), theme.window_decoration_text_size, currently_drawing_window.text, fit_width(text_rect, flags));
+
+            text_x, text_y := text_origin(center_align(flags), font, text_rect, text_width);
+            Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.window_decoration_foreground);
+        }
+
+        return;
+    }
+
+    if flags & .SCROLLBAR_HORIZONTAL {
+        return;
+    }
+
+    if flags & .SCROLLBAR_VERTICAL {
+        return;
+    }
+
+    if flags & .RESIZE {
+        return;
+    }
+
+    if flags & .MOVE {
+        return;
+    }
+
+
+}
 
 
 bite_text_line_for_width :: (text: string, default_font: Font_Style, size: s16, flags: Flags, width: int) -> line: string, remainder: string {

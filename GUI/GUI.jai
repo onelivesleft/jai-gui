@@ -1,11 +1,33 @@
 // @TODO
-// [ ] Click on down instead of up
-// [ ] Remove need for widget id
-// [x] Scrollwheel
+// [x] Simplify (click on down, checkbox live)
+// [x] Click on down instead of up
+// [ ] Windows!
+//  [ ] skin draw_window
+//  [ ] Record bounds of widgets drawn in windows, to know how to size window interior.
+//  [x] Detect widget clicked in window; raise window if so.
+//  [.] Moving / Resizing.
+//   [ ] Keep on screen?
+//   [ ] Min/Max sizes.
+//   [x] Mouse pointers
+//   [ ] Min/max size.
+//  [ ] What will be do about window gadgets?
+//  [ ] Render window to its own buffer.
+//  [ ] Content scrolling / sizing.
+// [ ] text_box input.  rename text_input and text_box?  Maybe just have one call, with a flag to specify multiline (will still be two widgets behind the scenes).
 
+// [ ] Fix scrollwheel erronously scrolling things below other things.
+// [ ] Allocate all widgets as one.
+// [ ] Remove was_clicked_time et al from Widgets; add hook to skin instead.
+// [ ] Remove need for widget id
 // [ ] radio buttons
 // [ ] dropdown
 // [ ] fx blend colors
+// [ ] text_input/_box merge? name?
+// [ ] text_input/_box take pointer to string+buffer instead of initial_text
+// [ ] Move widget timestamps to skin + widget .ANIMATING flag
+
+#load "widgets/window.jai";
+#load "widgets/window_decoration.jai";
 
 #load "widgets/button.jai";
 #load "widgets/checkbox.jai";
@@ -18,15 +40,17 @@
 #load "widgets/text_input.jai";
 
 Widget_Types :: Type.[
-    Button, Checkbox, Data_Table, Icon, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
+    Window, Window_Decoration, Button, Checkbox, Data_Table, Icon, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
 ];
+// @TODO Compile time check Widget_Types matches type enum in Widget
 
 widget_allocator_pool: Flat_Pool;
 widget_allocator: Allocator;
 
-warm_widget:  *Widget;    // use is_warm(widget) - state widget needs to be in before it can become hot, typically this means the mouse is hovering over it.
+warm_widget:  *Widget;    // use is_warm(widget) - state widget needs to be in before it can become hot, typically this means the mouse is hovering over it. *
 hot_widget:   *Widget;    // use is_hot(widget) - state widget is in when user is engaging with it with the mouse.
 focussed_widget: *Widget;    // use has_focus(widget) - widget is single focus of application, is receiving keyboard input.
+// * We can add a mouseless mode where you can select widgets with the keyboard, by cycling with tab for instance.
 
 clicked_widget:  *Widget;    // use was_clicked(widget).  Lasts a single frame, when mouse is clicked on hot_widget.
 released_widget:  *Widget;   // use was_released(widget).  Lasts a single frame, when mouse is released on hot_widget.
@@ -35,6 +59,8 @@ scrollwheel_widget: *Widget; // At end of frame use_scrollwheel is called on thi
 
 mouse : struct {
     x, y: float;
+    #place x;
+    position: Vector2;
     left_button_down, left_button_up, left_button_held: bool;
     middle_button_down, middle_button_up, middle_button_held: bool;
     right_button_down, right_button_up, right_button_held: bool;
@@ -52,9 +78,9 @@ frame : struct {
     no_sleep: bool;
 }
 
-gui_window : Window_Creation.Window_Type;
+application_window : Window_Creation.Window_Type;
 
-gui_create_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *At_Location, *Window_Creation.Window_Type {
+gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *At_Location, *Window_Creation.Window_Type {
     assert(widget_allocator.proc == null, "You should only call gui_create_window once!");
 
     #if OS == .WINDOWS {
@@ -69,27 +95,12 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
 
     widget_allocator.proc = flat_pool_allocator_proc;
     widget_allocator.data = *widget_allocator_pool;
-    widget_table: Table(Widget_Id, *Widget, given_compare_function=Widget_Id.equals);
-
-    #insert -> string {
-        builder : String_Builder;
-        for Widget_Types {
-            info := cast(*Type_Info) it;
-            // Polymporphic types (like Data_Table($T) need to be postfixed; we can check for them via their 0 runtime_size.
-            type_name := tprint(ifx info.runtime_size >= 0 then "%" else "%(void)", it);
-            name := lower(tprint("%", it));
-            print_to_builder(*builder, #string jai
-                %1_data = NewArray(%1_count, %2,, widget_allocator);
-            jai, name, type_name);
-        }
-        return builder_to_string(*builder);
-    }
 
     init_skin();
 
     allocate_text_edit(1024);
 
-    set_window_size(window_width, window_height);
+    set_application_window_size(window_width, window_height);
 
     #if OS == .WINDOWS {
         if window_x == -1 {
@@ -107,21 +118,62 @@ gui_create_window :: (window_title: string, window_width: int, window_height: in
         }
     }
 
-    gui_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y);
+    application_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y);
 
-    Simp.set_render_target(gui_window);
+    Simp.set_render_target(application_window);
 
     array_reset(*placement_spacing);
     array_add(*placement_spacing, .{0, 0});
 
     array_reset(*placement_panel);
 
-    return *window_panel, *gui_window;
+    return *application_panel, *application_window;
 }
 
-gui_begin_frame :: () -> continue_running: bool {
-    #if !MANUAL_END_FRAME
-        gui_end_frame();
+gui_begin_frame :: () -> should_quit: bool {
+
+    // First, clean up the previous frame.
+
+    pointer_end_frame();
+
+    if mouse.left_button_held {
+        if mouse.left_button_down && !hot_widget && focussed_widget
+            remove_focus(focussed_widget);
+    }
+    else if hot_widget {
+        hot_widget.lost_hot_time = frame.time;
+        hot_widget = null;
+    }
+
+    if next_warm_widget {
+        if warm_widget != next_warm_widget
+            set_warm(next_warm_widget, true);
+    }
+    else if warm_widget {
+        set_warm(warm_widget, false);
+    }
+
+    if scrollwheel_widget  use_scrollwheel(scrollwheel_widget);
+    scrollwheel_widget = next_scrollwheel_widget;
+
+    if tooltip_widget && tooltip_widget != prev_tooltip_widget
+        became_tooltip_widget_at = frame.time;
+    prev_tooltip_widget = tooltip_widget;
+    if tooltip_widget && tooltip_widget.tooltip && frame.time - became_tooltip_widget_at > theme.tooltip_delay
+        draw_tooltip(tooltip_widget);
+
+    Simp.swap_buffers(application_window);
+
+    if !frame.no_sleep && hot_widget_frame_index != frame.index && warm_widget_frame_index != frame.index && !clicked_widget && !released_widget && !changed_widget {
+        // Nothing immediate happened so sleep a little
+        dt := seconds_since_init() - frame.time;
+        ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
+        sleep_milliseconds(ms);
+    }
+
+    reset_temporary_storage();
+
+    // Now that previous frame is cleaned up, start this one!
 
     frame.index += 1;
     prev_frame_time = frame.time;
@@ -131,6 +183,7 @@ gui_begin_frame :: () -> continue_running: bool {
 
     tooltip_widget = null;
     clicked_widget = null;
+    released_widget = null;
     changed_widget = null;
     next_warm_widget = null;
     next_scrollwheel_widget = null;
@@ -140,12 +193,12 @@ gui_begin_frame :: () -> continue_running: bool {
     for Input.get_window_resizes() {
         Simp.update_window(it.window);
 
-        if it.window == gui_window
-            set_window_size(it.width, it.height);
+        if it.window == application_window
+            set_application_window_size(it.width, it.height);
     }
 
     for event: Input.events_this_frame {
-        if event.type == .QUIT  continue_running = false;
+        if event.type == .QUIT  should_quit = true;
 
         if event.type == {
             case .TEXT_INPUT;
@@ -157,7 +210,7 @@ gui_begin_frame :: () -> continue_running: bool {
                 dispatch_event_to_focussed_widget(event);
             }
             else if event.key_pressed && event.key_code == .ESCAPE {
-                continue_running = false; // @TODO  Don't leave this in
+                should_quit = true; // @TODO  Don't leave this in
                 //hot_widget_deactivate_all();
             }
 
@@ -168,10 +221,10 @@ gui_begin_frame :: () -> continue_running: bool {
         }
     }
 
-    Simp.update_window(gui_window);
+    Simp.update_window(application_window);
     clear_window();
 
-    mouse_x, mouse_y := Window_Creation.get_mouse_pointer_position(gui_window, false);
+    mouse_x, mouse_y := Window_Creation.get_mouse_pointer_position(application_window, false);
     mouse.x = xx mouse_x;
     mouse.y = xx mouse_y;
 
@@ -199,46 +252,51 @@ gui_begin_frame :: () -> continue_running: bool {
         mouse.scrollwheel_fraction -= 1.0;
     }
 
-    return continue_running;
+    return should_quit;
 }
 
-gui_end_frame :: inline () {
-    if mouse.left_button_held {
-        if mouse.left_button_down && !hot_widget && focussed_widget
-            remove_focus(focussed_widget);
-    }
-    else if hot_widget {
-        hot_widget.lost_hot_time = frame.time;
-        hot_widget = null;
-    }
+gui_draw_windows :: () {
+    bring_to_front_window: *Window;
 
-    if next_warm_widget {
-        if warm_widget != next_warm_widget
-            set_warm(next_warm_widget, true);
-    }
-    else if warm_widget {
-        set_warm(warm_widget, false);
-    }
+    for key: window_order {
+        window, was_added := find_or_add(*window_data, key);
+        assert(!was_added, "Didn't find the window in the window_data table, but it should be there!");
 
-    if scrollwheel_widget  use_scrollwheel(scrollwheel_widget);
-    scrollwheel_widget = next_scrollwheel_widget;
+        if window.flags & .SHOW && window.is_open {
+            currently_drawing_window = window;
+            update_widget(window);
 
-    if tooltip_widget && tooltip_widget != prev_tooltip_widget
-        became_tooltip_widget_at = frame.time;
-    prev_tooltip_widget = tooltip_widget;
-    if tooltip_widget && frame.time - became_tooltip_widget_at > theme.tooltip_delay
-        draw_tooltip(tooltip_widget);
+            with_panel(window);
+            with_scissor(window.calculated_rect, window.flags);
+            draw_window(.BACKGROUND);
 
-    Simp.swap_buffers(gui_window);
+            {
+                calculate_usable_area(window);
+                with_panel(*window.usable_area);
+                with_scissor(window.available_area.calculated_rect, window.flags);
 
-    if !frame.no_sleep && hot_widget_frame_index != frame.index && warm_widget_frame_index != frame.index && !clicked_widget && !changed_widget {
-        // Nothing immediate happened so sleep a little
-        dt := seconds_since_init() - frame.time;
-        ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
-        sleep_milliseconds(ms);
+                reset_drawn_widget_bounds();
+                window.draw_proc(window);
+                window.drawn_bounds = drawn_widget_bounds;
+            }
+
+            update_window(window);
+            draw_window(.FOREGROUND);
+
+            if clicked_window == window  bring_to_front_window = clicked_window;
+        }
+        window.flags |= ~.SHOW;
     }
 
-    reset_temporary_storage();
+    if bring_to_front_window  bring_to_front(bring_to_front_window);
+
+    if currently_dragging_window && released_widget
+        currently_dragging_window = null;
+
+    if currently_dragging_window
+        drag_window(currently_dragging_window);
+
+    currently_drawing_window = null;
 }
 
 gui_no_sleep_this_frame :: () {
@@ -248,13 +306,13 @@ gui_no_sleep_this_frame :: () {
 Flags :: enum_flags u64 {
     NONE    :: 0;
 
-    // masked out to get text align
-    LEFT   :: 1;
+    // Masked out to get text align.
+    LEFT   :: 1; // @Window title bar
     RIGHT  :: 2;
     CENTER :: 3;
 
-    // masked out to get font style
-    SANS            :: 4;
+    // Masked out to get font style.
+    SANS            :: 4; // @Window
     SERIF           :: 8;
     FIXED           :: 12;
     SANS_ALTERNATE  :: 16;
@@ -262,8 +320,8 @@ Flags :: enum_flags u64 {
     FIXED_ALTERNATE :: 24;
     ICON            :: 28;
 
-    // masked out to get theme index (set none of these for default theme)
-    THEME_A :: 32;
+    // Masked out to get theme index (set none of these for default theme).
+    THEME_A :: 32; // @Window
     THEME_B :: 64;
     THEME_C :: 96;
 
@@ -271,19 +329,36 @@ Flags :: enum_flags u64 {
     ICON_ON_RIGHT :: 128;  // For button
     NO_WRAP :: 128;        // Text box
 
-    // scrollbar
+    // Scrollbar
     SMOOTH;
-    REVERSE_SCROLLWHEEL;  // inverts scrollwheel direction
+    REVERSE_SCROLLWHEEL;  // Inverts scrollwheel direction
 
-    // flags
-    LOCKED;
-    INTERACTS;  // overrides LOCKED (a widget is only locked if LOCKED & !INTERACTS)
+    // Flags
+    LOCKED;   // @Window
+    INTERACTS;  // Overrides LOCKED (a widget is only locked if LOCKED & !INTERACTS)
     READ_ONLY;
-    OVERFLOW;   // don't scissor
-    CROP;       // do scissor even if OVERFLOW is set
+    OVERFLOW;   // Don't scissor // @Window
+    CROP;       // Do scissor even if OVERFLOW is set
     FIT;
-    IMMEDIATE;  // update value immediately, rather than when user completes action
-    USE_SCROLLWHEEL;
+    IMMEDIATE;  // Update value immediately, rather than when user completes action
+    USE_SCROLLWHEEL; // @Window
+
+    // Window
+    SHOW;                  // Reset every frame, set when user calls show_window.
+    HAS_BEEN_SHOWN;
+    INITIALLY_CLOSED;
+    BORDER;
+    CAN_MOVE;
+    CAN_RESIZE;
+    SCROLLBARS;
+
+    // Window_Decoration
+    MOVE;
+    RESIZE;
+    TITLE_BAR;
+    CLOSE;
+    SCROLLBAR_HORIZONTAL;
+    SCROLLBAR_VERTICAL;
 }
 
 is_locked :: inline (flags: Flags) -> bool { return (flags & .LOCKED) && !(flags & .INTERACTS); }
@@ -355,38 +430,15 @@ theme_index :: (flags: Flags) -> int {
     return xx (theme_index_mask & xx flags) >> 5;
 }
 
-
-Widget_Indirect :: struct {
-    // Widget_Indirect is used when one callsite generates more than one widget;
-    // instead of the widget_data holding the widget itself, it holds one of these,
-    // which tracks the widget over the frame, allowing the program to pull out the
-    // correct widget data from the widget_table.
-
-    // Top of struct mirrors Widget's layout
-    location: At_Location;
-    type : type_of(Widget.type);
-    updated_on_frame_index: int;
-
-    // Then indirect only data follows. This cannot be allowed to go beyond the size of the
-    // smallest widget... but it won't because it's much smaller.
-    last_used_widget_index: int;
-}
-
-// Widget and Widget_Indirect must start the same:
-#assert type_info(Widget).members[0].name == type_info(Widget_Indirect).members[0].name;
-#assert type_info(Widget).members[1].name == type_info(Widget_Indirect).members[1].name;
-#assert type_info(Widget).members[2].name == "timestamps";
-#assert type_info(Widget_Indirect).members[2].name == "updated_on_frame_index";
-#assert type_info(Widget).members[0].offset_in_bytes == type_info(Widget_Indirect).members[0].offset_in_bytes;
-#assert type_info(Widget).members[1].offset_in_bytes == type_info(Widget_Indirect).members[1].offset_in_bytes;
-#assert type_info(Widget).members[2].offset_in_bytes == type_info(Widget_Indirect).members[2].offset_in_bytes;
+window_decoration_inherit_mask :: text_align_mask | font_style_mask | theme_index_mask;
 
 
 Widget :: struct {
     #as using location: At_Location;
 
     type : enum { // Need to use an enum because the Type itself can be polymorphic, e.g. Data_Table($T)
-        INDIRECT;
+        WINDOW;
+        WINDOW_DECORATION;
 
         BUTTON;
         CHECKBOX;
@@ -400,19 +452,20 @@ Widget :: struct {
     }
 
     using timestamps: struct {
-        updated_on_frame_index: int; // Must be first here so that it matches with Widget_Indirect
-
         // @Performance These could be moved to a set of arrays or hashmaps
         //              only while pertinent, instead of having them all on
         //              all widgets.  However, this is a lot simpler...
-        became_warm_time: float64;
-        lost_warm_time: float64;
-        became_hot_time: float64;
-        lost_hot_time: float64;
-        became_focussed_time: float64;
-        lost_focussed_time: float64;
-        was_clicked_time: float64;
-        was_changed_time: float64;
+        // @Urgent THESE DON'T EVEN WORK as they are cleared whenever widget() is called :/
+
+        became_warm_time : float64 = -99999.0;
+        lost_warm_time : float64 = -99999.0;
+        became_hot_time : float64 = -99999.0;
+        lost_hot_time : float64 = -99999.0;
+        became_focussed_time : float64 = -99999.0;
+        lost_focussed_time : float64 = -99999.0;
+        was_clicked_time : float64 = -99999.0;
+        was_released_time : float64 = -99999.0;
+        was_changed_time : float64 = -99999.0;
     }
 
     tooltip : string;
@@ -424,12 +477,19 @@ widget :: inline (type: type_of(Widget.type), location: *At_Location, tooltip: s
     return .{ location, type, .{}, tooltip, flags };
 }
 
-Widget_Id :: struct {
-    callsite_index: int;
-    widget_index: int;
-
-    equals :: (a: Widget_Id, b: Widget_Id) -> bool { return a.callsite_index == b.callsite_index && a.widget_index == b.widget_index; }
+widget_key :: (id: int, window: *Window, callsite_key: u64) -> u64 {
+    data : struct {
+        _id: int;
+        _window_key: u64;
+        _callsite_key: u64;
+    } = .{id, ifx window then window.key, callsite_key};
+    return fnv1a_hash(*data, size_of(type_of(data)));
 }
+
+callsite_key :: ($callsite: Source_Code_Location) -> u64 #expand {
+    return #run fnv1a_hash(*callsite, size_of(Source_Code_Location));
+}
+
 
 widget_type :: (widget: *Widget) -> Type {
     #insert -> string {
@@ -442,6 +502,9 @@ widget_type :: (widget: *Widget) -> Type {
                 if widget.type == .%1  return %2%3;
             jai, enum_name, type_name, ifx info.runtime_size >= 0 then "" else "(void)");
         }
+        append(*builder, #string jai
+                assert(false, "Tried to look up a widget type for a non-existent index: %", widget.type);
+            jai);
         return builder_to_string(*builder);
     }
     return Widget;
@@ -449,13 +512,14 @@ widget_type :: (widget: *Widget) -> Type {
 
 update_widget :: (using widget: *Widget) {
     maybe_calculate_rect(widget);
+    calculate_drawn_widget_bounds(calculated_rect);
 
     scissor := peek_scissor();
     if scissor && !contains(scissor.*, mouse.x, mouse.y)
         return;
 
     is_mouse_over := contains(calculated_rect, mouse.x, mouse.y);
-    if is_mouse_over && tooltip
+    if is_mouse_over
         tooltip_widget = widget;
 
     if is_locked(widget)
@@ -474,15 +538,18 @@ update_widget :: (using widget: *Widget) {
         if mouse.left_button_up {
             set_hot(widget, false);
             if is_mouse_over
-                set_clicked(widget);
+                set_released(widget);
         }
     }
 
     if is_warm(widget) {
-        if !is_mouse_over
+        if !is_mouse_over {
             set_warm(widget, false);
-        else if mouse.left_button_down
+        }
+        else if mouse.left_button_down {
             set_hot(widget, true);
+            set_clicked(widget);
+        }
     }
 }
 
@@ -495,7 +562,7 @@ use_scrollwheel :: (using widget: *Widget) {
     }
 }
 
-block_scrollwheel :: () {
+deplete_scrollwheel :: () {
     scrollwheel_widget = null;
 }
 
@@ -522,6 +589,10 @@ has_focus :: inline (widget: *Widget) -> bool {
 
 was_clicked :: inline (widget: *Widget) -> bool {
     return widget == clicked_widget;
+}
+
+was_released :: inline (widget: *Widget) -> bool {
+    return widget == released_widget;
 }
 
 was_changed :: inline (widget: *Widget) -> bool {
@@ -598,7 +669,14 @@ dispatch_event_to_focussed_widget :: (event: Input.Event) {
 
 set_clicked :: (widget: *Widget) {
     clicked_widget = widget;
+    clicked_window = currently_drawing_window;
+    focussed_window = currently_drawing_window;
     widget.was_clicked_time = frame.time;
+}
+
+set_released :: (widget: *Widget) {
+    released_widget = widget;
+    widget.was_released_time = frame.time;
 }
 
 set_changed :: (widget: *Widget) {
@@ -635,17 +713,46 @@ calculate_rect :: (panel: *Panel) -> Rect {
     return panel.calculated_rect;
 }
 
+drawn_widget_bounds: Rect;
+
+reset_drawn_widget_bounds :: () {
+    drawn_widget_bounds = .{0, 0, 0, 0};
+}
+
+calculate_drawn_widget_bounds :: (r: Rect) {
+    if drawn_widget_bounds.w == 0
+        drawn_widget_bounds = r;
+    else
+        drawn_widget_bounds = bound(drawn_widget_bounds, r);
+}
+
+add_bottom_right_margin_to_drawn_widget_bounds :: (spacing: Placement_Spacing) {
+    drawn_widget_bounds.w += spacing.horizontal;
+    drawn_widget_bounds.h += spacing.vertical;
+}
+
+add_bottom_right_margin_to_drawn_widget_bounds :: (horizontal: int, vertical: int) {
+    drawn_widget_bounds.w += horizontal;
+    drawn_widget_bounds.h += vertical;
+}
+
+add_margin_to_drawn_widget_bounds :: (spacing: int) {
+    drawn_widget_bounds.x -= 1 * spacing;
+    drawn_widget_bounds.y -= 1 * spacing;
+    drawn_widget_bounds.w += 2 * spacing;
+    drawn_widget_bounds.h += 2 * spacing;
+}
+
 #scope_module
 
 
-continue_running := true;
-window_panel : Panel;
-window_rect : Rect;
+should_quit := false;
+application_panel: Panel;
 
-set_window_size :: (window_width: int, window_height: int) {
-    window_panel.parent = null;
-    window_panel.desired_box = box(0, 0, window_width, window_height);
-    window_panel.calculated_rect = .{ 0, 0, xx window_width, xx window_height };
+set_application_window_size :: (window_width: int, window_height: int) {
+    application_panel.parent = null;
+    application_panel.desired_box = box(0, 0, window_width, window_height);
+    application_panel.calculated_rect = .{ 0, 0, xx window_width, xx window_height };
 }
 
 next :: (index: *int, $reserve := 1) -> Code #expand {
@@ -669,12 +776,12 @@ resolve_rect :: (rect: Rect, _box: Box) -> Rect {
 
 calculate_rect :: (parent: *Panel, _box: Box) -> Rect {
     calculate_rect(parent);
-    return resolve_rect(parent.rect, _box);
+    return resolve_rect(parent.calculated_rect, _box);
 }
 
 get_rect :: (panel: *Panel) -> Rect {
-    if panel.rect_frame_count  == frame.count
-        return panel.rect;
+    if panel.calculated_rect_frame_index == frame.index
+        return panel.calculated_rect;
     else
         return calculate_rect(panel);
 }
@@ -682,6 +789,10 @@ get_rect :: (panel: *Panel) -> Rect {
 maybe_calculate_rect :: (panel: *Panel) {
     if panel.calculated_rect_frame_index != frame.index
         panel.calculated_rect = calculate_rect(panel);
+}
+
+recalculate_rect :: (panel: *Panel) {
+    panel.calculated_rect = calculate_rect(panel);
 }
 
 button_state :: inline (key: Input.Key_Code) -> Input.Key_Current_State {

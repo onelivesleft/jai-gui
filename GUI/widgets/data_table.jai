@@ -44,10 +44,11 @@ Data_Table :: struct(T: Type)
             default_sort_index := -1;
             default_sort_parity := false;
             for member: info.members {
-                o := ifx get_note(member.notes, "Hidden")
+                hidden := get_note(member.notes, "Hidden");
+                o := ifx hidden
                      then ord(0)
                      else get_note_value(member.notes, "Width", ord(0));
-                if o != ord(0) {
+                if !hidden {
                     array_add(*column_visible, true);
                     visible_column_count += 1;
                 }
@@ -147,35 +148,33 @@ Data_Table :: struct(T: Type)
 
 keep_selection : int = 0xffff_ffff;
 
-data_table :: (location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
-    clicked, widget := _data_table(0, location, flags, data, keep_selection, #insert #run next(*data_table_count));
+data_table :: (location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(0, location, flags, data, keep_selection, callsite_key(callsite));
     return clicked, widget;
 }
 
-data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of data_tables being created)");
-    clicked, widget := _data_table(id, location, flags, data, keep_selection, #insert #run next(*data_table_count, reserve));
+data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(id, location, flags, data, keep_selection, callsite_key(callsite));
     return clicked, widget;
 }
 
-data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
+data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
     clicked, widget := _data_table(data_table, location, flags, data, keep_selection);
     return clicked, widget;
 }
 
 
-data_table :: (location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
-    clicked, widget := _data_table(0, location, flags, data, selected_row_index, #insert #run next(*data_table_count));
+data_table :: (location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(0, location, flags, data, selected_row_index, callsite_key(callsite));
     return clicked, widget;
 }
 
-data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of data_tables being created)");
-    clicked, widget := _data_table(id, location, flags, data, selected_row_index, #insert #run next(*data_table_count, reserve));
+data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(id, location, flags, data, selected_row_index, callsite_key(callsite));
     return clicked, widget;
 }
 
-data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) #expand #no_debug {
+data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
     clicked, widget := _data_table(data_table, location, flags, data, selected_row_index);
     return clicked, widget;
 }
@@ -286,15 +285,17 @@ compare :: inline (a: $T, b: T) -> int
 #scope_module
 
 
-data_table_data : [] Data_Table(void);
-#no_reset data_table_count := 0;
+data_table_data : Table(u64, Data_Table(void));
 
-_data_table :: inline (id: int, location: *At_Location, flags: Flags, data: [] $T, selected_row_index: int, $gui_index: int) -> clicked: bool, *Data_Table(T)
+
+_data_table :: inline (id: int, location: *At_Location, flags: Flags, data: [] $T, selected_row_index: int, callsite_key: u64) -> clicked: bool, *Data_Table(T)
 #modify {
     return T == void || is_struct_or_pointer_to_struct(T) , "data must be an array of struct or pointer-to-struct";
 } {
-    #assert(size_of(Data_Table(T)) == size_of(type_of(data_table_data[0])));
-    clicked, data_table := _data_table(cast(*Data_Table(T))*data_table_data[gui_index + id], location, flags, data, selected_row_index);
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    data_table := cast(*Data_Table(T)) find_or_add(*data_table_data, key);
+    #assert(size_of(Data_Table(T)) == size_of(type_of(data_table.*)));
+    clicked := _data_table(cast(*Data_Table(T))data_table, location, flags, data, selected_row_index);
     return clicked, data_table;
 }
 

@@ -2,7 +2,7 @@ Scrollable_Panel :: struct {
     #as using widget: Widget;
 
     width, height: int;
-    panel: *Panel;
+    available_area: Panel;
 
     _vertical_scrollbar: Scrollbar;
     _horizontal_scrollbar: Scrollbar;
@@ -11,26 +11,22 @@ Scrollable_Panel :: struct {
 }
 
 
-push_scrollable_panel :: (location: *At_Location, width: int, height: int, flags := Flags.NONE) -> panel: *Panel, *Scrollable_Panel #expand #no_debug {
-    interior_panel : Panel = ---;
-    widget := _scrollable_panel(0, location, flags, width, height, *interior_panel, #insert #run next(*scrollable_panel_count));
-    assert(interior_panel.calculated_rect_frame_index == frame.index);
-    return *interior_panel, widget;
+push_scrollable_panel :: (location: *At_Location, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel {
+    scrollable_panel := _scrollable_panel(0, location, flags, width, height, callsite_key(callsite));
+    assert(scrollable_panel.available_area.calculated_rect_frame_index == frame.index);
+    return *scrollable_panel.available_area, scrollable_panel;
 }
 
-push_scrollable_panel :: (id: int, $reserve: int, location: *At_Location, width: int, height: int, flags := Flags.NONE) -> panel: *Panel, *Scrollable_Panel #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollable_panels being created)");
-    interior_panel : Panel = ---;
-    widget := _scrollable_panel(id, location, flags, width, height, *interior_panel, #insert #run next(*scrollable_panel_count, reserve));
-    assert(interior_panel.rect_frame_count == frame.count);
-    return *interior_panel, widget;
+push_scrollable_panel :: (id: int, location: *At_Location, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel {
+    scrollable_panel := _scrollable_panel(id, location, flags, width, height, callsite_key(callsite));
+    assert(scrollable_panel.available_area.calculated_rect_frame_index == frame.index);
+    return *scrollable_panel.available_area, scrollable_panel;
 }
 
-push_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, width: int, height: int, flags := Flags.NONE) -> panel: bool, *Scrollable_Panel #expand #no_debug {
-    interior_panel : Panel = ---;
-    widget := _scrollable_panel(scrollable_panel, location, flags, width, height, *interior_panel);
-    assert(interior_panel.rect_frame_count == frame.count);
-    return *interior_panel, widget;
+push_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, width: int, height: int, flags := Flags.NONE) -> available_area: *Panel, *Scrollable_Panel {
+    _scrollable_panel(scrollable_panel, location, flags, width, height);
+    assert(scrollable_panel.available_area.calculated_rect_frame_index == frame.index);
+    return *scrollable_panel.available_area, scrollable_panel;
 }
 
 pop_scrollable_panel :: () {
@@ -38,36 +34,25 @@ pop_scrollable_panel :: () {
     pop_panel();
 }
 
-with_scrollable_panel :: (location: *At_Location, width: int, height: int, flags := Flags.NONE) -> panel: *Panel, *Scrollable_Panel #expand #no_debug {
-    interior_panel : Panel = ---;
-    widget := _scrollable_panel(0, location, flags, width, height, *interior_panel, #insert #run next(*scrollable_panel_count));
-    assert(interior_panel.rect_frame_count == frame.count);
+with_scrollable_panel :: (location: *At_Location, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel #expand {
+    widget := _scrollable_panel(0, location, flags, width, height, callsite_key(callsite));
+    assert(widget.available_area.calculated_rect_frame_index == frame.index);
     `defer pop_scrollable_panel();
-    return *interior_panel, widget;
+    return *widget.available_area, widget;
 }
 
-with_scrollable_panel :: (id: int, $reserve: int, location: *At_Location, width: int, height: int, flags := Flags.NONE) -> panel: *Panel, *Scrollable_Panel #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of scrollable_panels being created)");
-    interior_panel : Panel = ---;
-    widget := _scrollable_panel(id, location, flags, width, height, *interior_panel, #insert #run next(*scrollable_panel_count, reserve));
+with_scrollable_panel :: (id: int, location: *At_Location, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel #expand {
+    widget := _scrollable_panel(id, location, flags, width, height, callsite_key(callsite));
     `defer pop_scrollable_panel();
-    assert(interior_panel.rect_frame_count == frame.count);
-    return *interior_panel, widget;
+    assert(widget.available_area.calculated_rect_frame_index == frame.index);
+    return *widget.available_area, widget;
 }
 
-with_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, width: int, height: int, flags := Flags.NONE) -> panel: bool, *Scrollable_Panel #expand #no_debug {
-    interior_panel : Panel = ---;
-    widget := _scrollable_panel(scrollable_panel, location, flags, width, height, *interior_panel);
-    assert(interior_panel.rect_frame_count == frame.count);
+with_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, width: int, height: int, flags := Flags.NONE) -> available_area: *Panel, *Scrollable_Panel #expand {
+    _scrollable_panel(scrollable_panel, location, flags, width, height);
+    assert(scrollable_panel.available_area.calculated_rect_frame_index == frame.index);
     `defer pop_scrollable_panel();
-    return *interior_panel, widget;
-}
-
-
-get_index :: (scrollable_panel: *Scrollable_Panel) -> int {
-    index := scrollable_panel - scrollable_panel_data.data;
-    assert(0 <= index && index < scrollable_panel_data.count, "Called get_index with a user-allocated scrollable_panel");
-    return index;
+    return *scrollable_panel.available_area, scrollable_panel;
 }
 
 
@@ -90,18 +75,19 @@ use_scrollwheel :: (using scrollable_panel: *Scrollable_Panel) {
 #scope_module
 
 
-scrollable_panel_data : [] Scrollable_Panel;
-#no_reset scrollable_panel_count := 0;
+scrollable_panel_data : Table(u64, Scrollable_Panel);
 
-_scrollable_panel :: inline (id: int, location: *At_Location, flags: Flags, width: int, height: int, interior_panel: *Panel, $gui_index: int) -> *Scrollable_Panel {
-    return _scrollable_panel(*scrollable_panel_data[gui_index + id], location, flags, width, height, interior_panel);
+
+_scrollable_panel :: inline (id: int, location: *At_Location, flags: Flags, width: int, height: int, callsite_key: u64) -> *Scrollable_Panel {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    scrollable_panel := find_or_add(*scrollable_panel_data, key);
+    return _scrollable_panel(scrollable_panel, location, flags, width, height);
 }
 
-_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, flags: Flags, width: int, height: int, interior_panel: *Panel) -> *Scrollable_Panel {
+_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, flags: Flags, width: int, height: int) -> *Scrollable_Panel {
     scrollable_panel.widget = widget(.SCROLLABLE_PANEL, location, "", flags | .USE_SCROLLWHEEL);
     scrollable_panel.width = width;
     scrollable_panel.height = height;
-    scrollable_panel.panel = interior_panel;
 
     update_scrollable_panel(scrollable_panel);
     draw_scrollable_panel(scrollable_panel);
@@ -166,9 +152,9 @@ update_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) {
         horizontal_position.abs = -lerp(0, width, t);
     }
 
-    panel.parent = main_panel;
-    panel.desired_box = box(horizontal_position,vertical_position, horizontal_position+width, vertical_position+height);
-    calculate_rect(panel); // finalize panel for this frame, as its parent main_panel is about to disappear off the stack
+    available_area.parent = main_panel;
+    available_area.desired_box = box(horizontal_position,vertical_position, horizontal_position+width, vertical_position+height);
+    calculate_rect(*available_area); // finalize panel for this frame, as its parent main_panel is about to disappear off the stack
     push_scissor(main_panel.calculated_rect, flags);
-    push_panel(panel);
+    push_panel(*available_area);
 }

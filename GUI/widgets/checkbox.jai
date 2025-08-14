@@ -11,63 +11,56 @@ Checkbox :: struct {
 
 // @TODO Make a checkbox which takes [value_flags_pointer: *$T(enum_flags), flag: T] and returns [changed, checkbox]
 
-checkbox :: (location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox #expand #no_debug {
-    value, widget := _checkbox(0, location, flags, tooltip, text, initial_value, null, #insert #run next(*checkbox_count));
+checkbox :: (location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: bool, *Checkbox {
+    value, widget := _checkbox(0, location, flags, tooltip, text, initial_value, null, callsite_key(callsite));
     return value, widget;
 }
 
-checkbox :: (location: *At_Location, text: string, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox #expand #no_debug {
-    _, widget := _checkbox(0, location, flags, tooltip, text, false, value_pointer, #insert #run next(*checkbox_count));
+checkbox :: (location: *At_Location, text: string, value_pointer: *bool, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> changed: bool, *Checkbox {
+    _, widget := _checkbox(0, location, flags, tooltip, text, false, value_pointer, callsite_key(callsite));
     return was_changed(widget), widget;
 }
 
 
-checkbox :: (id: int, $reserve: int, location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of checkbox_data being created)");
-    value, widget := _checkbox(id, location, flags, tooltip, text, initial_value, null, #insert #run next(*checkbox_count, reserve));
+checkbox :: (id: int, location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: bool, *Checkbox {
+    value, widget := _checkbox(id, location, flags, tooltip, text, initial_value, null, callsite_key(callsite));
     return value, widget;
 }
 
-checkbox :: (id: int, $reserve: int, location: *At_Location, text: string, value_pointer: *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of checkbox_data being created)");
-    _, widget := _checkbox(id, location, flags, tooltip, text, false, value_pointer, #insert #run next(*checkbox_count, reserve));
+checkbox :: (id: int, location: *At_Location, text: string, value_pointer: *bool, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> changed: bool, *Checkbox {
+    _, widget := _checkbox(id, location, flags, tooltip, text, false, value_pointer, callsite_key(callsite));
     return was_changed(widget), widget;
 }
 
 
-checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox #expand #no_debug {
+checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox {
     value, widget := _checkbox(checkbox, location, flags, tooltip, text, initial_value, null);
     return value, widget;
 }
 
-checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox #expand #no_debug {
+checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox {
     _, widget := _checkbox(checkbox, location, flags, tooltip, text, false, value_pointer);
     return was_changed(widget), widget;
 }
 
 
-get_index :: (checkbox: *Checkbox) -> int {
-    index := checkbox - checkbox_data.data;
-    assert(0 <= index && index < checkbox_data.count, "Called get_index with a user-allocated checkbox");
-    return index;
-}
-
 
 #scope_module
 
 
-checkbox_data : [] Checkbox;
-#no_reset checkbox_count := 0;
+checkbox_data: Table(u64, Checkbox);
 
 
-_checkbox :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, text: string, initial_value: bool, value_pointer: *bool, $gui_index: int) -> value: bool, *Checkbox {
-    value, checkbox := _checkbox(*checkbox_data[gui_index + id], location, flags, tooltip, text, initial_value, value_pointer);
+_checkbox :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, text: string, initial_value: bool, value_pointer: *bool, callsite_key: u64) -> value: bool, *Checkbox {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    checkbox := find_or_add(*checkbox_data, key);
+    value := _checkbox(checkbox, location, flags, tooltip, text, initial_value, value_pointer);
     return value, checkbox;
 }
 
 _checkbox :: (checkbox: *Checkbox, location: *At_Location, flags: Flags, tooltip: string, text: string, initial_value: bool, value_pointer: *bool) -> value: bool, *Checkbox {
     _value : bool = ---;
-    if value_pointer && !(flags & .IMMEDIATE && is_hot(checkbox))
+    if value_pointer
         _value = value_pointer.*;
     else if !checkbox.initialized
         _value = initial_value;
@@ -82,15 +75,10 @@ _checkbox :: (checkbox: *Checkbox, location: *At_Location, flags: Flags, tooltip
         checkbox.value = !checkbox.value;
         set_changed(checkbox);
     }
+
     draw_checkbox(checkbox);
 
-    immediate_value := checkbox.value;
-    if checkbox.flags & .IMMEDIATE && is_hot(checkbox) && is_warm(checkbox) {
-        immediate_value = !immediate_value;
-        set_changed(checkbox);
-    }
+    if value_pointer  value_pointer.* = checkbox.value;
 
-    if value_pointer  value_pointer.* = immediate_value;
-
-    return immediate_value, checkbox;
+    return checkbox.value, checkbox;
 }

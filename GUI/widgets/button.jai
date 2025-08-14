@@ -7,72 +7,64 @@ Button :: struct {
 }
 
 
-button :: (location: *At_Location, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
-    clicked, widget := _button(0, location, flags, text, Icon_Id.NONE, tooltip,  #insert #run next(*button_count));
+button :: (location: *At_Location, text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(0, location, flags, text, Icon_Id.NONE, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (id: int, $reserve: int, location: *At_Location, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of buttons being created)");
-    clicked, widget := _button(id, location, flags, text, Icon_Id.NONE, tooltip, #insert #run next(*button_count, reserve));
+button :: (id: int, location: *At_Location, text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(id, location, flags, text, Icon_Id.NONE, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (button: *Button, location: *At_Location, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
+button :: (button: *Button, location: *At_Location, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
     clicked, widget := _button(button, location, flags, text, Icon_Id.NONE, tooltip);
     return clicked, widget;
 }
 
 
-button :: (location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
-    clicked, widget := _button(0, location, flags, "", icon_id, tooltip,  #insert #run next(*button_count));
+button :: (location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(0, location, flags, "", icon_id, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (id: int, $reserve: int, location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of buttons being created)");
-    clicked, widget := _button(id, location, flags, "", icon_id, tooltip, #insert #run next(*button_count, reserve));
+button :: (id: int, location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(id, location, flags, "", icon_id, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (button: *Button, location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
+button :: (button: *Button, location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
     clicked, widget := _button(button, location, flags, "", icon_id, tooltip);
     return clicked, widget;
 }
 
 
-button :: (location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
-    clicked, widget := _button(0, location, flags, text, icon_id, tooltip,  #insert #run next(*button_count));
+button :: (location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(0, location, flags, text, icon_id, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (id: int, $reserve: int, location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of buttons being created)");
-    clicked, widget := _button(id, location, flags, text, icon_id, tooltip, #insert #run next(*button_count, reserve));
+button :: (id: int, location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(id, location, flags, text, icon_id, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (button: *Button, location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button #expand #no_debug {
+button :: (button: *Button, location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
     clicked, widget := _button(button, location, flags, text, icon_id, tooltip);
     return clicked, widget;
-}
-
-
-get_index :: (button: *Button) -> int {
-    index := button - button_data.data;
-    assert(0 <= index && index < button_data.count, "Called get_index with a user-allocated button");
-    return index;
 }
 
 
 #scope_module
 
 
-button_data : [] Button;
-#no_reset button_count := 0;
+button_data: Table(u64, Button);
 
-_button :: inline (id: int, location: *At_Location, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string, $gui_index: int) -> clicked: bool, *Button {
-    clicked, button := _button(*button_data[gui_index + id], location, flags, text, icon_id, tooltip);
+
+_button :: inline (id: int, location: *At_Location, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string, callsite_key: u64) -> clicked: bool, *Button {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    button := find_or_add(*button_data, key);
+    clicked := _button(button, location, flags, text, icon_id, tooltip);
     return clicked, button;
 }
 

@@ -2,7 +2,6 @@
 #import "Basic";
 #import "Clipboard";
 #import "Math";
-//#import "DPI";
 
 
 Word_Count :: struct {
@@ -18,8 +17,6 @@ icon_names : [..] string;
 max_found_buttons :: 256;
 buttons : [max_found_buttons] Button;
 
-// B2EC12B8
-
 toast_text: string;
 toast_pos: Vector2;
 toast_speed: Vector2;
@@ -31,15 +28,7 @@ toast_up_speed :: 200.0;
 
 main_pointer: *u64;
 
-get_rbp :: () -> *u64 #expand {
-    base_pointer: u64;
-    #asm {
-        rbp: gpr === bp;
-        mov base_pointer, rbp;
-    }
-    return xx base_pointer;
-}
-
+// @TODO remove these
 print_call_stack :: () #expand {
     base_pointer: *u64;
     print("---\n");
@@ -55,15 +44,26 @@ print_call_stack :: () #expand {
     }
 }
 
+get_rbp :: inline () -> *u64 {
+    rbp: *u64;
+    #asm {
+        mov di: gpr === di, *rbp;
+    }
+    #bytes .[72, 137, 47]; // mov [rdi], rbp
+    return rbp;
+}
+
+
 main :: () {
-    window, window_handle := gui_create_window("GUI Test", 1280, 896, 3100, 40);
+    //print("main rbp = 0x%\n", get_rbp());
+    window, window_handle := gui_create_application_window("GUI Test", 1280, 896, 3100, 40);
 
     show_wheel := true;
     maybe_lock : Flags;
 
     prev_warm_widget : *Widget;
 
-    generate_word_count();
+        generate_word_count();
     for * word_count  array_add(*word_count_ptr, it);
 
     icon_id := Icon_Id.ABACUS;
@@ -83,7 +83,14 @@ main :: () {
     }
     */
 
-    while gui_begin_frame() {
+    while true {
+        should_quit := gui_begin_frame();
+        if should_quit  break;
+
+        label_window_handle :=  show_window(label_window,  "Label",  at(0.55, 0.05,  0.95, 0.45), initially_closed=true);
+        icon_window_handle :=   show_window(icon_window,   "Icon",   at(0.02, 0.65,  0.12, 0.8), DEFAULT_WINDOW_FLAGS | .SCROLLBARS | .THEME_A);
+        button_window_handle := show_window(button_window, "Button", at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
+
         top, middle, bottom := split_top_middle_bottom(window, 100, -100);
         left, right := split_left_right(middle, 0.5);
 
@@ -94,7 +101,7 @@ main :: () {
             icon_id += 1;
         }
         if mouse.scrollwheel && is_warm(icon_button) && !scrollwheel_widget {
-            block_scrollwheel();
+            deplete_scrollwheel();
             new_id := cast(int)icon_id + mouse.scrollwheel;
             if new_id < 0  new_id += xx Icon_Id.Z_WAVE;
             if new_id > xx Icon_Id.Z_WAVE  new_id -= xx Icon_Id.Z_WAVE;
@@ -105,7 +112,13 @@ main :: () {
             label(at(.COPY_RIGHT), tprint("% %", w, h));
         }
 
-        show_table := checkbox(at(top, 0.5,20, ord(0.5,200),20+height), "Show Wordcount");
+        show_table := checkbox(at(top, 0.5,30+height, ord(0.5,200),30+height*2), "Show Wordcount");
+        {
+            with_spacing(10);
+            checkbox(at(.COPY_UP), "Label Window", *label_window_handle.is_open);
+            checkbox(at(.COPY_RIGHT), "Icon Window", *icon_window_handle.is_open);
+            checkbox(at(.COPY_RIGHT), "Button Window", *button_window_handle.is_open);
+        }
 
         if show_table {
             table_panel, _ := split_left_right(right, 0.7);
@@ -118,7 +131,7 @@ main :: () {
             button_panel, _ := split_left_right(right, 0.7);
             begin_placing(at_top(button_panel, height));
             for 0 .. button_count - 1
-                button(it, button_count, at(button_panel,  box(.COPY_DOWN)),  lorem[it % lorem.count], .LEFT | .SERIF);
+                button(it, at(button_panel,  box(.COPY_DOWN)),  lorem[it % lorem.count], .LEFT | .SERIF);
         }
 
         clicked=, _text_box := text_box(at(bottom, 0.5,0.0, 0.8,ord(1.0,-20)), lorem_text, .SMOOTH);
@@ -158,9 +171,9 @@ main :: () {
                 quadrant_button_flags = .THEME_A;
             }
 
-            checkbox(at(.COPY_DOWN), "Show Scroll Wheel", *show_wheel, .IMMEDIATE | maybe_lock, tooltip = "It might be hidden!");
+            checkbox(at(.COPY_DOWN), "Show Scroll Wheel", *show_wheel, maybe_lock, tooltip = "It might be hidden!");
 
-            maybe_lock = ifx checkbox(at(.COPY_DOWN), "Lock it down", maybe_lock != 0, .RIGHT | .IMMEDIATE, "Not allowed")
+            maybe_lock = ifx checkbox(at(.COPY_DOWN), "Lock it down", maybe_lock != 0, .RIGHT, "Not allowed")
                          then .LOCKED;
 
             search_instead_of_filter=, search_instead_of_filter_checkbox := checkbox(at(.COPY_DOWN), "Search instead of filter", flags=.OVERFLOW);
@@ -233,6 +246,7 @@ main :: () {
         upper, lower := split_top_bottom(left, 0.66);
 
         quadrant_button_panel := push_scrollable_panel(shrink(lower, 0.1, 0), 1000, 100, maybe_lock | .FIT);
+            draw_box(peek_panel(), .{0.5, 0.3, 0.2, 1.0});
             tl, tr, bl, br := split_quadrants(quadrant_button_panel, 0.5, 0.5);
             quadrant_button_flags |= maybe_lock;
             button(shrink(tl, 0.1), "Uno", .DICE_1, quadrant_button_flags | .LEFT, "One");
@@ -275,13 +289,35 @@ main :: () {
             print("% : % = %\n", text, clicked_widget.desired_box, clicked_widget.calculated_rect);
         }
 
-        label(at(0,1.0, 50,-20), tprint("%", scrollwheel_widget));
-
         update_toast();
+
+        gui_draw_windows();
+
+        label(at(0,1.0, 50,-80), tprint("Usable Area: %", icon_window_handle.desired_box), flags=.FIXED);
+        label(at(0,1.0, 50,-50), tprint("Warm: %", warm_widget), flags=.FIXED);
+        label(at(0,1.0, 50,-20), tprint("Hot:  %", hot_widget), flags=.FIXED);
     }
 }
 
+label_window :: (window: *Window) {
+    label(at(0.4,0.4, 0.6,0.6), "Hello");
+}
 
+icon_window :: (window: *Window) {
+    with_spacing(10);
+
+    draw_box(at(20,20, 190,190), Vector4.{0.55, 0.35, 0.55, 1.0});
+    icon(at(20,20, 100,100), .WATER_BOILER_OFF, flags=.FIT);
+    icon(at(.COPY_RIGHT),    .AIRPLANE_MARKER,  flags=.FIT);
+    icon(at(.COPY_DOWN),     .BANK,             flags=.FIT);
+    icon(at(.COPY_LEFT),     .BLUR_RADIAL,      flags=.FIT);
+
+    add_margin_to_drawn_widget_bounds(20);
+}
+
+button_window :: (window: *Window) {
+    button(at(0.3,0.3, 0.7,0.7), "World", tooltip="Mundis");
+}
 
 start_toast :: (text: string) {
     if toast_text  free(toast_text);

@@ -22,18 +22,17 @@ Text_Box :: struct {
 }
 
 
-text_box :: (location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Text_Box #expand #no_debug {
-    clicked, widget := _text_box(0, location, flags, tooltip, initial_text, #insert #run next(*text_box_count));
+text_box :: (location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Text_Box {
+    clicked, widget := _text_box(0, location, flags, tooltip, initial_text, callsite_key(callsite));
     return clicked, widget;
 }
 
-text_box :: (id: int, $reserve: int, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Text_Box #expand #no_debug {
-    assert(0 <= id && id < reserve, "id = %, but must be in the range 0 <= id < reserve (which should be set to the amount of text_boxs being created)");
-    clicked, widget := _text_box(id, location, flags, tooltip, initial_text, #insert #run next(*text_box_count, reserve));
+text_box :: (id: int, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Text_Box {
+    clicked, widget := _text_box(id, location, flags, tooltip, initial_text, callsite_key(callsite));
     return clicked, widget;
 }
 
-text_box :: (text_box: *Text_Box, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Text_Box #expand #no_debug {
+text_box :: (text_box: *Text_Box, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Text_Box {
     clicked, widget := _text_box(text_box, location, flags, tooltip, initial_text);
     return clicked, widget;
 }
@@ -44,12 +43,6 @@ set_text :: (text_box: *Text_Box, text: string) {
     text_box.dirty = true;
 }
 
-
-get_index :: (text_box: *Text_Box) -> int {
-    index := text_box - text_box_data.data;
-    assert(0 <= index && index < text_box_data.count, "Called get_index with a user-allocated text_box");
-    return index;
-}
 
 move_by_steps :: (using text_box: *Text_Box, steps: int) {
     move_by_steps(*scrollbar, steps);
@@ -71,11 +64,13 @@ label_for_text_row :: (using text_box: *Text_Box, row: int) -> *Label {
 #scope_module
 
 
-text_box_data : [] Text_Box;
-#no_reset text_box_count := 0;
+text_box_data: Table(u64, Text_Box);
 
-_text_box :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, initial_text: string, $gui_index: int) -> clicked: bool, *Text_Box {
-    clicked, text_box := _text_box(*text_box_data[gui_index + id], location, flags, tooltip, initial_text);
+
+_text_box :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, initial_text: string, callsite_key: u64) -> clicked: bool, *Text_Box {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    text_box := find_or_add(*text_box_data, key);
+    clicked := _text_box(text_box, location, flags, tooltip, initial_text);
     return clicked, text_box;
 }
 
