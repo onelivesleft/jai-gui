@@ -83,13 +83,18 @@ main :: () {
     }
     */
 
+    last_pressed_key_code: Key_Code;
+
     while true {
         should_quit := gui_begin_frame();
         if should_quit  break;
 
-        label_window_handle :=  show_window(label_window,  "Label",  at(0.55, 0.05,  0.95, 0.45), initially_closed=true);
-        icon_window_handle :=   show_window(icon_window,   "Icon",   at(0.02, 0.65,  0.12, 0.8), DEFAULT_WINDOW_FLAGS | .SCROLLBARS | .THEME_A);
-        button_window_handle := show_window(button_window, "Button", at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
+        label_window :=  show_window(draw_label_window,  "Label",  at(0.55, 0.05,  0.95, 0.45), initially_closed=true);
+        icon_window :=   show_window(draw_icon_window,   "Icon",   at(0.05, 0.05,  0.25, 0.25), DEFAULT_WINDOW_FLAGS | .SCROLLBARS | .THEME_A, initially_closed=true);
+        button_window := show_window(draw_button_window, "Button", at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
+        keyboard_window := show_window(draw_keyboard_window, "Keyboard", at(0.25, 0.25,  0.75, 0.75), initially_closed=false);
+
+        for keyboard.keys  if it & .DOWN  last_pressed_key_code = cast(Key_Code) it_index;
 
         top, middle, bottom := split_top_middle_bottom(window, 100, -100);
         left, right := split_left_right(middle, 0.5);
@@ -112,12 +117,13 @@ main :: () {
             label(at(.COPY_RIGHT), tprint("% %", w, h));
         }
 
-        show_table := checkbox(at(top, 0.5,30+height, ord(0.5,200),30+height*2), "Show Wordcount");
+        show_table := checkbox(at(top, 0.5,height, ord(0.5,200),height*2), "Show Wordcount");
         {
-            with_spacing(10);
-            checkbox(at(.COPY_UP), "Label Window", *label_window_handle.is_open);
-            checkbox(at(.COPY_RIGHT), "Icon Window", *icon_window_handle.is_open);
-            checkbox(at(.COPY_RIGHT), "Button Window", *button_window_handle.is_open);
+            with_spacing(1);
+            checkbox(at(top, 0.7,height, ord(0.7,height),height*2), .TAG, *label_window.is_open);
+            checkbox(at(.COPY_RIGHT),                               .EMOTICON_POOP, *icon_window.is_open);
+            checkbox(at(.COPY_RIGHT),                               .BUTTON_POINTER, *button_window.is_open);
+            checkbox(at(.COPY_RIGHT),                               .KEYBOARD, *keyboard_window.is_open);
         }
 
         if show_table {
@@ -246,7 +252,7 @@ main :: () {
         upper, lower := split_top_bottom(left, 0.66);
 
         quadrant_button_panel := push_scrollable_panel(shrink(lower, 0.1, 0), 1000, 100, maybe_lock | .FIT);
-            draw_box(peek_panel(), .{0.5, 0.3, 0.2, 1.0});
+            draw_box(peek_panel(), .{0.5, 0.3, 0.2, 0.1});
             tl, tr, bl, br := split_quadrants(quadrant_button_panel, 0.5, 0.5);
             quadrant_button_flags |= maybe_lock;
             button(shrink(tl, 0.1), "Uno", .DICE_1, quadrant_button_flags | .LEFT, "One");
@@ -293,20 +299,20 @@ main :: () {
 
         gui_draw_windows();
 
-        label(at(0,1.0, 50,-80), tprint("Usable Area: %", icon_window_handle.desired_box), flags=.FIXED);
-        label(at(0,1.0, 50,-50), tprint("Warm: %", warm_widget), flags=.FIXED);
-        label(at(0,1.0, 50,-20), tprint("Hot:  %", hot_widget), flags=.FIXED);
+        label(at(60,1.0, 50,-110), tprint("Last pressed key: % 0x%", last_pressed_key_code, cast(*void) last_pressed_key_code), flags=.FIXED);
+        label(at(60,1.0, 50,-80),  tprint("Usable Area: %", icon_window.desired_box), flags=.FIXED);
+        label(at(60,1.0, 50,-50),  tprint("Warm: %", warm_widget), flags=.FIXED);
+        label(at(60,1.0, 50,-20),  tprint("Hot:  %", hot_widget), flags=.FIXED);
     }
 }
 
-label_window :: (window: *Window) {
+draw_label_window :: (window: *Window) {
     label(at(0.4,0.4, 0.6,0.6), "Hello");
 }
 
-icon_window :: (window: *Window) {
+draw_icon_window :: (window: *Window) {
     with_spacing(10);
 
-    draw_box(at(20,20, 190,190), Vector4.{0.55, 0.35, 0.55, 1.0});
     icon(at(20,20, 100,100), .WATER_BOILER_OFF, flags=.FIT);
     icon(at(.COPY_RIGHT),    .AIRPLANE_MARKER,  flags=.FIT);
     icon(at(.COPY_DOWN),     .BANK,             flags=.FIT);
@@ -315,8 +321,115 @@ icon_window :: (window: *Window) {
     add_margin_to_drawn_widget_bounds(20);
 }
 
-button_window :: (window: *Window) {
+draw_button_window :: (window: *Window) {
     button(at(0.3,0.3, 0.7,0.7), "World", tooltip="Mundis");
+}
+
+draw_keyboard_window :: (window: *Window) {
+    key_widget(.backquote, "`", at(10,10, 42,42));
+    key_widget(._1, .NUMERIC_1);
+    key_widget(._2, .NUMERIC_2);
+    key_widget(._3, .NUMERIC_3);
+    key_widget(._4, .NUMERIC_4);
+    key_widget(._5, .NUMERIC_5);
+    key_widget(._6, .NUMERIC_6);
+    key_widget(._7, .NUMERIC_7);
+    key_widget(._8, .NUMERIC_8);
+    key_widget(._9, .NUMERIC_9);
+    key_widget(._0, .NUMERIC_0);
+    key_widget(.minus, .MINUS);
+    key_widget(.equals, .EQUAL);
+    key_widget(.backspace, .BACKSPACE);
+
+    key_widget(.tab, .KEYBOARD_TAB, at(10,44, 58,74));
+    key_widget(.q, .ALPHA_Q, at(58,44, 90,74));
+    key_widget(.w, .ALPHA_W);
+    key_widget(.e, .ALPHA_E);
+    key_widget(.r, .ALPHA_R);
+    key_widget(.t, .ALPHA_T);
+    key_widget(.y, .ALPHA_Y);
+    key_widget(.u, .ALPHA_U);
+    key_widget(.i, .ALPHA_I);
+    key_widget(.o, .ALPHA_O);
+    key_widget(.p, .ALPHA_P);
+    key_widget(.left_bracket, "[");
+    key_widget(.right_bracket, "]");
+
+    key_widget(.enter, .KEYBOARD_RETURN);
+
+    //key_widget(.capslock, .KEYBOARD_CAPS, at(10,44, 58,74)); //@TODO
+    key_widget(.a, .ALPHA_A, at(58,76, 90,106));
+    key_widget(.s, .ALPHA_S);
+    key_widget(.d, .ALPHA_D);
+    key_widget(.f, .ALPHA_F);
+    key_widget(.g, .ALPHA_G);
+    key_widget(.h, .ALPHA_H);
+    key_widget(.j, .ALPHA_J);
+    key_widget(.k, .ALPHA_K);
+    key_widget(.l, .ALPHA_L);
+    key_widget(.semicolon, ";");
+
+    key_widget(.quote, "'");
+    key_widget(.hash, "#");
+
+    key_widget(.left_shift, .APPLE_KEYBOARD_SHIFT, at(10,108, 58,138));
+    key_widget(.backslash, "\\", at(58,108, 90,138));
+    key_widget(.z, .ALPHA_Z);
+    key_widget(.x, .ALPHA_X);
+    key_widget(.c, .ALPHA_C);
+    key_widget(.v, .ALPHA_V);
+    key_widget(.b, .ALPHA_B);
+    key_widget(.n, .ALPHA_N);
+    key_widget(.m, .ALPHA_M);
+    key_widget(.comma, ",");
+    key_widget(.period, ".");
+    key_widget(.slash, "/");
+    key_widget(.right_shift, .APPLE_KEYBOARD_SHIFT);
+
+    key_widget(.left_control, "CTRL", at(10,140, 58,170));
+    key_widget(.left_alt, "ALT");
+    key_widget(.space, " ");
+    key_widget(.right_alt, "ALT");
+    key_widget(.right_control, "CTRL");
+
+    key_widget(.shift, "Shift", at(100,192, 200,224));
+    key_widget(.control, "Ctrl");
+    key_widget(.alt, "Alt");
+}
+
+// Custom key widget
+
+key_widget :: (key_code: Key_Code, text: string, icon_id: Icon_Id, location: *At_Location, $callsite := #caller_location) {
+    key_widget := widget(location, callsite=callsite);
+
+    key_state := keyboard.keys[key_code];
+    color := ifx was_clicked(key_state, ignore_repeat=true) then Vector4.{1.0, 0.0, 0.0, 1.0}
+        else ifx was_released(key_state) then                    Vector4.{0.0, 1.0, 0.0, 1.0}
+        else ifx key_state then                                  Vector4.{0.0, 0.0, 1.0, 1.0}
+        else ifx is_hot(key_widget) then                     Vector4.{1.0, 0.0, 1.0, 1.0}
+        else ifx is_warm(key_widget) then                    Vector4.{1.0, 0.0, 1.0, 0.75}
+        else                                                 Vector4.{0.0, 0.0, 0.0, 1.0};
+
+    Simp.set_shader_for_color();
+    draw_box(location, color);
+    if icon_id  draw_icon(location, icon_id, .{1.0, 1.0, 1.0, 1.0});
+    if text     draw_text(location, text, .{1.0, 1.0, 1.0, 1.0}, font_style=.FIXED);
+}
+
+key_widget :: inline  (key_code: Key_Code, icon_id: Icon_Id, location: *At_Location, $callsite := #caller_location) {
+    key_widget(key_code, "", icon_id, location, callsite);
+}
+
+key_widget :: inline  (key_code: Key_Code, text: string, location: *At_Location, $callsite := #caller_location) {
+    key_widget(key_code, text, .NONE, location, callsite);
+}
+
+key_widget :: inline  (key_code: Key_Code, icon_id: Icon_Id, $callsite := #caller_location) {
+    key_widget(key_code, "", icon_id, at(.COPY_RIGHT), callsite);
+}
+
+key_widget :: inline  (key_code: Key_Code, text: string, $callsite := #caller_location) {
+    key_widget(key_code, text, .NONE, at(.COPY_RIGHT), callsite);
 }
 
 start_toast :: (text: string) {

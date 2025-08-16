@@ -85,7 +85,7 @@ _scrollable_panel :: inline (id: int, location: *At_Location, flags: Flags, widt
 }
 
 _scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, flags: Flags, width: int, height: int) -> *Scrollable_Panel {
-    scrollable_panel.widget = widget(.SCROLLABLE_PANEL, location, "", flags | .USE_SCROLLWHEEL);
+    scrollable_panel.widget = .{location, .SCROLLABLE_PANEL, "", flags | .USE_SCROLLWHEEL};
     scrollable_panel.width = width;
     scrollable_panel.height = height;
 

@@ -6,43 +6,113 @@ Checkbox :: struct {
 
     value: bool;
     text: string;
+    icon_id: Icon_Id;
 }
 
 
 // @TODO Make a checkbox which takes [value_flags_pointer: *$T(enum_flags), flag: T] and returns [changed, checkbox]
 
+// Text
+
 checkbox :: (location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: bool, *Checkbox {
-    value, widget := _checkbox(0, location, flags, tooltip, text, initial_value, null, callsite_key(callsite));
+    value, widget := _checkbox(0, location, flags, tooltip, text, .NONE, initial_value, null, callsite_key(callsite));
     return value, widget;
 }
 
 checkbox :: (location: *At_Location, text: string, value_pointer: *bool, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> changed: bool, *Checkbox {
-    _, widget := _checkbox(0, location, flags, tooltip, text, false, value_pointer, callsite_key(callsite));
+    _, widget := _checkbox(0, location, flags, tooltip, text, .NONE, false, value_pointer, callsite_key(callsite));
     return was_changed(widget), widget;
 }
 
 
 checkbox :: (id: int, location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: bool, *Checkbox {
-    value, widget := _checkbox(id, location, flags, tooltip, text, initial_value, null, callsite_key(callsite));
+    value, widget := _checkbox(id, location, flags, tooltip, text, .NONE, initial_value, null, callsite_key(callsite));
     return value, widget;
 }
 
 checkbox :: (id: int, location: *At_Location, text: string, value_pointer: *bool, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> changed: bool, *Checkbox {
-    _, widget := _checkbox(id, location, flags, tooltip, text, false, value_pointer, callsite_key(callsite));
+    _, widget := _checkbox(id, location, flags, tooltip, text, .NONE, false, value_pointer, callsite_key(callsite));
     return was_changed(widget), widget;
 }
 
 
 checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, initial_value := false, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox {
-    value, widget := _checkbox(checkbox, location, flags, tooltip, text, initial_value, null);
+    value, widget := _checkbox(checkbox, location, flags, tooltip, text, .NONE, initial_value, null);
     return value, widget;
 }
 
 checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox {
-    _, widget := _checkbox(checkbox, location, flags, tooltip, text, false, value_pointer);
+    _, widget := _checkbox(checkbox, location, flags, tooltip, text, .NONE, false, value_pointer);
     return was_changed(widget), widget;
 }
 
+// Icon
+
+checkbox :: (location: *At_Location, icon_id: Icon_Id, initial_value := false, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: bool, *Checkbox {
+    value, widget := _checkbox(0, location, flags, tooltip, "", icon_id, initial_value, null, callsite_key(callsite));
+    return value, widget;
+}
+
+checkbox :: (location: *At_Location, icon_id: Icon_Id, value_pointer: *bool, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> changed: bool, *Checkbox {
+    _, widget := _checkbox(0, location, flags, tooltip, "", icon_id, false, value_pointer, callsite_key(callsite));
+    return was_changed(widget), widget;
+}
+
+
+checkbox :: (id: int, location: *At_Location, icon_id: Icon_Id, initial_value := false, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: bool, *Checkbox {
+    value, widget := _checkbox(id, location, flags, tooltip, "", icon_id, initial_value, null, callsite_key(callsite));
+    return value, widget;
+}
+
+checkbox :: (id: int, location: *At_Location, icon_id: Icon_Id, value_pointer: *bool, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> changed: bool, *Checkbox {
+    _, widget := _checkbox(id, location, flags, tooltip, "", icon_id, false, value_pointer, callsite_key(callsite));
+    return was_changed(widget), widget;
+}
+
+
+checkbox :: (checkbox: *Checkbox, location: *At_Location, icon_id: Icon_Id, initial_value := false, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox {
+    value, widget := _checkbox(checkbox, location, flags, tooltip, "", icon_id, initial_value, null);
+    return value, widget;
+}
+
+checkbox :: (checkbox: *Checkbox, location: *At_Location, icon_id: Icon_Id, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox {
+    _, widget := _checkbox(checkbox, location, flags, tooltip, "", icon_id, false, value_pointer);
+    return was_changed(widget), widget;
+}
+
+// Text & Icon
+
+checkbox :: (location: *At_Location, text: string, icon_id: Icon_Id, initial_value := false, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: bool, *Checkbox {
+    value, widget := _checkbox(0, location, flags, tooltip, text, icon_id, initial_value, null, callsite_key(callsite));
+    return value, widget;
+}
+
+checkbox :: (location: *At_Location, text: string, icon_id: Icon_Id, value_pointer: *bool, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> changed: bool, *Checkbox {
+    _, widget := _checkbox(0, location, flags, tooltip, text, icon_id, false, value_pointer, callsite_key(callsite));
+    return was_changed(widget), widget;
+}
+
+
+checkbox :: (id: int, location: *At_Location, text: string, icon_id: Icon_Id, initial_value := false, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: bool, *Checkbox {
+    value, widget := _checkbox(id, location, flags, tooltip, text, icon_id, initial_value, null, callsite_key(callsite));
+    return value, widget;
+}
+
+checkbox :: (id: int, location: *At_Location, text: string, icon_id: Icon_Id, value_pointer: *bool, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> changed: bool, *Checkbox {
+    _, widget := _checkbox(id, location, flags, tooltip, text, icon_id, false, value_pointer, callsite_key(callsite));
+    return was_changed(widget), widget;
+}
+
+
+checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, icon_id: Icon_Id, initial_value := false, flags := Flags.NONE, tooltip := "") -> value: bool, *Checkbox {
+    value, widget := _checkbox(checkbox, location, flags, tooltip, text, icon_id, initial_value, null);
+    return value, widget;
+}
+
+checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, icon_id: Icon_Id, value_pointer : *bool, flags := Flags.NONE, tooltip := "") -> changed: bool, *Checkbox {
+    _, widget := _checkbox(checkbox, location, flags, tooltip, text, icon_id, false, value_pointer);
+    return was_changed(widget), widget;
+}
 
 
 #scope_module
@@ -51,14 +121,14 @@ checkbox :: (checkbox: *Checkbox, location: *At_Location, text: string, value_po
 checkbox_data: Table(u64, Checkbox);
 
 
-_checkbox :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, text: string, initial_value: bool, value_pointer: *bool, callsite_key: u64) -> value: bool, *Checkbox {
+_checkbox :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, text: string, icon_id: Icon_Id, initial_value: bool, value_pointer: *bool, callsite_key: u64) -> value: bool, *Checkbox {
     key := widget_key(id, currently_drawing_window, callsite_key);
     checkbox := find_or_add(*checkbox_data, key);
-    value := _checkbox(checkbox, location, flags, tooltip, text, initial_value, value_pointer);
+    value := _checkbox(checkbox, location, flags, tooltip, text, icon_id, initial_value, value_pointer);
     return value, checkbox;
 }
 
-_checkbox :: (checkbox: *Checkbox, location: *At_Location, flags: Flags, tooltip: string, text: string, initial_value: bool, value_pointer: *bool) -> value: bool, *Checkbox {
+_checkbox :: (checkbox: *Checkbox, location: *At_Location, flags: Flags, tooltip: string, text: string, icon_id: Icon_Id, initial_value: bool, value_pointer: *bool) -> value: bool, *Checkbox {
     _value : bool = ---;
     if value_pointer
         _value = value_pointer.*;
@@ -67,18 +137,17 @@ _checkbox :: (checkbox: *Checkbox, location: *At_Location, flags: Flags, tooltip
     else
         _value = checkbox.value;
 
-    checkbox.* = .{ widget(.CHECKBOX, location, tooltip, flags), true, _value, text };
+    checkbox.* = .{ .{location, .CHECKBOX, tooltip, flags}, true, _value, text, icon_id };
     last_widget_location = location.*;
 
     update_widget(checkbox);
     if was_clicked(checkbox) {
         checkbox.value = !checkbox.value;
         set_changed(checkbox);
+        if value_pointer  value_pointer.* = checkbox.value;
     }
 
     draw_checkbox(checkbox);
-
-    if value_pointer  value_pointer.* = checkbox.value;
 
     return checkbox.value, checkbox;
 }

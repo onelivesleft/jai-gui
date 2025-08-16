@@ -9,14 +9,14 @@ Window :: struct {
     usable_area: Panel;
     drawn_bounds: Rect;
 
-    _vertical_scrollbar: Scrollbar;
-    _horizontal_scrollbar: Scrollbar;
+    _vertical_scrollbar := Scrollbar.{orientation=.VERTICAL};
+    _horizontal_scrollbar := Scrollbar.{orientation=.HORIZONTAL};
 
     text: string;
     icon_id: Icon_Id;
 }
 
-DEFAULT_WINDOW_FLAGS :: Flags.CAN_MOVE | .CAN_RESIZE | .CLOSE | .TITLE_BAR | .LEFT;
+DEFAULT_WINDOW_FLAGS :: Flags.CAN_MOVE | .CAN_RESIZE | .USE_SCROLLWHEEL | .CLOSE | .TITLE_BAR | .LEFT;
 
 Window_Draw_Proc :: #type (window: *Window);
 
@@ -74,6 +74,16 @@ open_window :: (window: *Window) {
 
 close_window :: (window: *Window) {
     window.is_open = false;
+}
+
+use_scrollwheel :: (using window: *Window) {
+//    if mouse.scrollwheel {
+//        steps := ifx (flags & .REVERSE_SCROLLWHEEL) then mouse.scrollwheel else -mouse.scrollwheel;
+//        scrollbar_to_use : enum { HORIZONTAL; VERTICAL; } = .VERTICAL;
+//        if window.flags & .SCROLLBAR_VERTICAL && window._vertical_scrollbar.handle_size < 1.0
+//        move_by_steps(scrollbar, steps);
+//        deplete_scrollwheel();
+//    }
 }
 
 

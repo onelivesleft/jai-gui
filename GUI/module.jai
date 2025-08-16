@@ -27,4 +27,4 @@
 
 Window_Creation :: #import "Window_Creation";
 Simp :: #import "Simp";
-Input :: #import "Input";
+Input :: #import,dir "modules/Input";

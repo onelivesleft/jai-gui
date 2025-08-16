@@ -83,7 +83,7 @@ _text_input :: inline (id: int, location: *At_Location, flags: Flags, initial_te
 
 _text_input :: (text_input: *Text_Input, location: *At_Location, flags: Flags, initial_text: string, tooltip: string) -> text: string, *Text_Input {
     text := ifx text_input.initialized then text_input.text else copy_string(initial_text);
-    text_input.* = .{ widget(.TEXT_INPUT, location, tooltip, flags), true, text };
+    text_input.* = .{ .{location, .TEXT_INPUT, tooltip, flags}, true, text };
     last_widget_location = location.*;
 
     update_text_input(text_input);

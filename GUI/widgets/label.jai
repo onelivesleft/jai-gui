@@ -54,7 +54,7 @@ _label :: inline (id: int, location: *At_Location, flags: Flags, text: string, t
 }
 
 _label :: (label: *Label, location: *At_Location, flags: Flags, text: string, tooltip: string) -> clicked: bool, *Label {
-    label.* = .{ widget(.LABEL, location, tooltip, flags | .LOCKED | .OVERFLOW), text };
+    label.* = .{ .{location, .LABEL, tooltip, flags | .LOCKED | .OVERFLOW}, text };
     last_widget_location = location.*;
 
     update_widget(label);

@@ -75,7 +75,7 @@ _text_box :: inline (id: int, location: *At_Location, flags: Flags, tooltip: str
 }
 
 _text_box :: (text_box: *Text_Box, location: *At_Location, flags: Flags, tooltip: string, initial_text: string) -> clicked: bool, *Text_Box {
-    text_box.widget = widget(.TEXT_BOX, location, "", flags | .USE_SCROLLWHEEL);
+    text_box.widget = .{location, .TEXT_BOX, "", flags | .USE_SCROLLWHEEL};
     if !text_box.initialized {
         text_box.text = copy_string(initial_text);
         text_box.initialized = true;

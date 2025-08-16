@@ -37,7 +37,7 @@ _window_decoration :: inline (id: int, location: *At_Location, flags: Flags, too
 }
 
 _window_decoration :: (window_decoration: *Window_Decoration, location: *At_Location, flags: Flags, tooltip: string) -> *Window_Decoration {
-    window_decoration.* = .{ widget(.WINDOW_DECORATION, location, tooltip, flags) };
+    window_decoration.* = .{ .{location, .WINDOW_DECORATION, tooltip, flags} };
     last_widget_location = location.*;
 
     update_window_decoration(window_decoration);
@@ -67,11 +67,11 @@ update_window_decoration :: (window_decoration: *Window_Decoration) {
         return;
     }
 
-    if window_decoration.flags & .SCROLLBAR_HORIZONTAL {
-        return;
-    }
-
-    if window_decoration.flags & .SCROLLBAR_VERTICAL {
+    if window_decoration.flags & (.SCROLLBAR_HORIZONTAL | .SCROLLBAR_VERTICAL) {
+        scrollbar := ifx window_decoration.flags & .SCROLLBAR_HORIZONTAL
+             then *currently_drawing_window._horizontal_scrollbar
+             else *currently_drawing_window._vertical_scrollbar;
+        float_scrollbar(scrollbar, scrollbar.orientation, *window_decoration.location, window_decoration.flags, window_decoration.tooltip, 0, .{}, scrollbar.handle_size);
         return;
     }
 

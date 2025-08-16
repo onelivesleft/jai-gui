@@ -310,7 +310,7 @@ _data_table :: (data_table: *Data_Table(T), location: *At_Location, flags: Flags
         data_table.last_clicked_header_parity = data_table.default_last_clicked_header_parity;
     }
 
-    data_table.widget = widget(.DATA_TABLE, location, "", flags | .USE_SCROLLWHEEL);
+    data_table.widget = .{location, .DATA_TABLE, "", flags | .USE_SCROLLWHEEL};
     data_table.data = data;
     data_table.clicked_item = null;
     data_table.clicked_header = false;

@@ -23,6 +23,11 @@ Theme :: struct {
     window_decoration_background_hot     := Vector4.{0.55, 0.55, 0.75, 1.0};
     window_decoration_background_warm    := Vector4.{0.45, 0.45, 0.65, 1.0};
     window_decoration_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
+    window_decoration_scrollbar_groove_background      := Vector4.{0.35, 0.25, 0.25, 1.0};
+    window_decoration_scrollbar_handle_background      := Vector4.{0.55, 0.35, 0.35, 1.0};
+    window_decoration_scrollbar_handle_background_hot  := Vector4.{0.75, 0.55, 0.55, 1.0};
+    window_decoration_scrollbar_handle_background_warm := Vector4.{0.65, 0.45, 0.45, 1.0};
+    window_decoration_scrollbar_size : s16 = 16;
     window_decoration_size : s16 = 32;
     window_decoration_text_size : s16 = 16;
 
@@ -89,6 +94,11 @@ alternate_theme := Theme.{
     window_decoration_background_hot     = Vector4.{0.55, 0.75, 0.75, 1.0},
     window_decoration_background_warm    = Vector4.{0.45, 0.65, 0.65, 1.0},
     window_decoration_foreground         = Vector4.{1.0, 1.0, 1.0, 1.0},
+    window_decoration_scrollbar_groove_background =      Vector4.{0.25, 0.35, 0.25, 1.0},
+    window_decoration_scrollbar_handle_background =      Vector4.{0.35, 0.55, 0.35, 1.0},
+    window_decoration_scrollbar_handle_background_hot =  Vector4.{0.55, 0.75, 0.55, 1.0},
+    window_decoration_scrollbar_handle_background_warm = Vector4.{0.45, 0.65, 0.45, 1.0},
+    window_decoration_scrollbar_size = 16,
     window_decoration_size = 32,
     window_decoration_text_size = 16,
 
@@ -585,10 +595,9 @@ draw_checkbox :: (using checkbox: *Checkbox) {
     box_rect = shrink(box_rect, theme.checkbox_border);
     draw_rect(box_rect, theme.background_color);
 
-    if value {
-        box_rect = shrink(box_rect, theme.checkbox_border);
-        draw_rect(box_rect, color);
-    }
+    icon_rect := shrink(box_rect, theme.checkbox_border);
+    if value  draw_rect(icon_rect, color);
+    if icon_id  draw_icon(icon_rect, icon_id, theme.icon_color);
 
     if text {
         text_rect = shrink(text_rect, theme.padding);
@@ -730,15 +739,14 @@ draw_window :: (mode: enum {BACKGROUND; FOREGROUND;}) {
     }
 
     if window.flags & .SCROLLBARS {
-        tl, tr, bl, br := split_quadrants(*window.available_area, -theme.window_decoration_size, -theme.window_decoration_size);
+        tl, tr, bl, br := split_quadrants(*window.available_area, -theme.window_decoration_scrollbar_size, -theme.window_decoration_scrollbar_size);
         if has_header_row
             tr.desired_box.tl.y.abs += theme.window_decoration_size;
-        window.available_area.desired_box.br.x.abs -= theme.window_decoration_size;
-        window.available_area.desired_box.br.y.abs -= theme.window_decoration_size;
+        window.available_area.desired_box.br.x.abs -= theme.window_decoration_scrollbar_size;
+        window.available_area.desired_box.br.y.abs -= theme.window_decoration_scrollbar_size;
         if mode == .FOREGROUND {
-            horizontal_scrollbar(*window._horizontal_scrollbar, bl, handle_size=window._horizontal_scrollbar.handle_size);
-            vertical_scrollbar(*window._vertical_scrollbar, tr, handle_size=window._vertical_scrollbar.handle_size);
-            //window_decoration(at(0,0, ord(title_bar_right_offset,1.0),theme.window_decoration_size), .TITLE_BAR | inherited_flags);
+            window_decoration(bl, .SCROLLBAR_HORIZONTAL | inherited_flags);
+            window_decoration(tr, .SCROLLBAR_VERTICAL | inherited_flags);
         }
     }
 
@@ -805,11 +813,22 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
         return;
     }
 
-    if flags & .SCROLLBAR_HORIZONTAL {
-        return;
-    }
+    if flags & (.SCROLLBAR_HORIZONTAL | .SCROLLBAR_VERTICAL) {
+        scrollbar := ifx flags & .SCROLLBAR_HORIZONTAL
+                     then *currently_drawing_window._horizontal_scrollbar
+                     else *currently_drawing_window._vertical_scrollbar;
+        scrollbar.location = window_decoration.location;
+        maybe_calculate_rect(scrollbar);
 
-    if flags & .SCROLLBAR_VERTICAL {
+        Simp.set_shader_for_color();
+        with_scissor(scrollbar.calculated_rect, flags);
+
+        draw_rect(scrollbar.calculated_rect, theme.window_decoration_scrollbar_groove_background);
+
+        _, handle_rect, _ : = get_scrollbar_rects(scrollbar);
+        color := hot_warm_else(scrollbar, theme.window_decoration_scrollbar_handle_background_hot, theme.window_decoration_scrollbar_handle_background_warm, theme.window_decoration_scrollbar_handle_background);
+        draw_rect(shrink(handle_rect, 1), color);
+
         return;
     }
 
@@ -859,6 +878,17 @@ bite_text_line_for_width :: (text: string, default_font: Font_Style, size: s16, 
 
     return line, remainder;
 }
+
+
+widget_became_warm_time ::     (widget: *Widget, time: float64) { }
+widget_lost_warm_time ::       (widget: *Widget, time: float64) { }
+widget_became_hot_time ::      (widget: *Widget, time: float64) { }
+widget_lost_hot_time ::        (widget: *Widget, time: float64) { }
+widget_became_focussed_time :: (widget: *Widget, time: float64) { }
+widget_lost_focussed_time ::   (widget: *Widget, time: float64) { }
+widget_was_clicked_time ::     (widget: *Widget, time: float64) { }
+widget_was_released_time ::    (widget: *Widget, time: float64) { }
+widget_was_changed_time ::     (widget: *Widget, time: float64) { }
 
 
 #scope_export
