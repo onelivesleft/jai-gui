@@ -1,9 +1,9 @@
-
+// Base struct for all widgets
 Widget :: struct {
     #as using location: At_Location;
 
     type : enum { // Need to use an enum because the Type itself can be polymorphic, e.g. Data_Table($T)
-        CUSTOM :: 0;
+        CUSTOM;
         WINDOW;
         WINDOW_DECORATION;
 
@@ -22,18 +22,51 @@ Widget :: struct {
     flags : Flags;
 }
 
+// Custom Widget when user calls widget() to make their own widget without patching it into GUI.
+// It's just a Widget with a *void data pointer attached.
+Custom_Widget :: struct {
+    #as using widget: Widget;
+    type = .CUSTOM;
 
-widget :: (location: *At_Location, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Widget {
+    data: *void;
+}
+
+widget :: (location: *At_Location, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget {
     return _widget(0, location, flags, tooltip, callsite_key(callsite));
 }
 
-widget :: (id: int, location: *At_Location, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Widget {
+widget :: (id: int, location: *At_Location, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget {
     return _widget(id, location, flags, tooltip, callsite_key(callsite));
 }
 
-widget :: (widget: *Widget, location: *At_Location, flags := Flags.NONE, tooltip := "") -> *Widget {
+widget :: (widget: *Custom_Widget, location: *At_Location, flags := Flags.NONE, tooltip := "") -> *Custom_Widget {
     return _widget(widget, location, flags, tooltip);
 }
+
+
+#scope_file
+
+
+custom_widget_data: Table(u64, Custom_Widget);
+
+
+_widget :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, callsite_key: u64) -> *Custom_Widget {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    widget := find_or_add(*custom_widget_data, key);
+    return _widget(widget, location, flags, tooltip);
+}
+
+_widget :: (widget: *Custom_Widget, location: *At_Location, flags: Flags, tooltip: string) -> *Custom_Widget {
+    widget.widget = .{ location, .CUSTOM, tooltip, flags };
+    last_widget_location = location.*;
+
+    update_widget(widget);
+
+    return widget;
+}
+
+
+#scope_export
 
 
 widget_key :: (id: int, window: *Window, callsite_key: u64) -> u64 {
@@ -94,7 +127,7 @@ update_widget :: (using widget: *Widget) {
         request_warmth(widget);
 
     if is_hot(widget) {
-        if mouse.left_button_up {
+        if mouse.left_button_end {
             set_hot(widget, false);
             if is_mouse_over
                 set_released(widget);
@@ -105,7 +138,7 @@ update_widget :: (using widget: *Widget) {
         if !is_mouse_over {
             set_warm(widget, false);
         }
-        else if mouse.left_button_down {
+        else if mouse.left_button_start {
             set_hot(widget, true);
             set_clicked(widget);
         }
@@ -126,24 +159,3 @@ deplete_scrollwheel :: () {
     scrollwheel_widget = null;
 }
 
-
-#scope_file
-
-
-widget_data: Table(u64, Widget);
-
-
-_widget :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, callsite_key: u64) -> *Widget {
-    key := widget_key(id, currently_drawing_window, callsite_key);
-    widget := find_or_add(*widget_data, key);
-    return _widget(widget, location, flags, tooltip);
-}
-
-_widget :: (widget: *Widget, location: *At_Location, flags: Flags, tooltip: string) -> *Widget {
-    widget.* = .{ location, .CUSTOM, tooltip, flags };
-    last_widget_location = location.*;
-
-    update_widget(widget);
-
-    return widget;
-}

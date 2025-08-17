@@ -61,26 +61,26 @@ get_key_code :: (wParam: WPARAM, extended := false) -> Key_Code {
     if wParam == VK_END   return END;
 
     if wParam == VK_PAUSE        return PAUSE;
-    if wParam == VK_SCROLL       return SCROLL_LOCK;
+    if wParam == VK_SCROLL       return SCROLLLOCK;
 
     if wParam == VK_PRIOR
-        return PAGE_UP;
+        return PAGEUP;
     if wParam == VK_NEXT
-        return PAGE_DOWN;
+        return PAGEDOWN;
     if wParam == VK_LEFT
-        return ARROW_LEFT;
+        return LEFT;
     if wParam == VK_RIGHT
-        return ARROW_RIGHT;
+        return RIGHT;
     if wParam == VK_UP
-        return ARROW_UP;
+        return UP;
     if wParam == VK_DOWN
-        return ARROW_DOWN;
+        return DOWN;
     if wParam == VK_MENU
         return ALT;
     if wParam == VK_SHIFT
         return SHIFT;
     if wParam == VK_CONTROL
-        return CTRL;
+        return C;
     if wParam == VK_BACK
         return BACKSPACE;
     if wParam == VK_DELETE
@@ -121,7 +121,7 @@ get_key_code :: (wParam: WPARAM, extended := false) -> Key_Code {
         return xx(F1 + xx delta);
     }
     if wParam == VK_SNAPSHOT
-        return PRINT_SCREEN;
+        return .PRINTSCREEN;
 
     // Numpad keys
     if wParam == VK_NUMPAD0  return NUMPAD_0;
@@ -135,9 +135,9 @@ get_key_code :: (wParam: WPARAM, extended := false) -> Key_Code {
     if wParam == VK_NUMPAD8  return NUMPAD_8;
     if wParam == VK_NUMPAD9  return NUMPAD_9;
     if wParam == VK_MULTIPLY return NUMPAD_MULTIPLY;
-    if wParam == VK_ADD      return NUMPAD_ADD;
-    if wParam == VK_SUBTRACT return NUMPAD_SUBTRACT;
-    if wParam == VK_DECIMAL  return NUMPAD_DECIMAL;
+    if wParam == VK_ADD      return NUMPAD_PLUS;
+    if wParam == VK_SUBTRACT return NUMPAD_MINUS;
+    if wParam == VK_DECIMAL  return NUMPAD_PERIOD;
     if wParam == VK_DIVIDE   return NUMPAD_DIVIDE;
 
     return UNKNOWN;
@@ -150,21 +150,21 @@ get_vk :: (key: Key_Code) -> VK: u64 {
 
     if key == xx 32            return  VK_SPACE;
 
-    if key == PAGE_UP          return VK_PRIOR;
-    if key == PAGE_DOWN        return VK_NEXT;
+    if key == PAGEUP          return VK_PRIOR;
+    if key == PAGEDOWN        return VK_NEXT;
 
-    if key == ARROW_LEFT       return VK_LEFT;
+    if key == LEFT       return VK_LEFT;
 
-    if key == ARROW_RIGHT      return VK_RIGHT;
+    if key == RIGHT      return VK_RIGHT;
 
-    if key == ARROW_UP         return VK_UP;
+    if key == UP         return VK_UP;
 
-    if key == ARROW_DOWN       return VK_DOWN;
+    if key == DOWN       return VK_DOWN;
 
     if key == ALT              return VK_MENU;
     if key == SHIFT            return VK_SHIFT;
 
-    if key == CTRL             return VK_CONTROL;
+    if key == CONTROL             return VK_CONTROL;
 
     if key == BACKSPACE        return VK_BACK;
 
@@ -195,7 +195,7 @@ get_vk :: (key: Key_Code) -> VK: u64 {
         return xx(VK_F1 + xx delta);
     }
 
-    if key == PRINT_SCREEN  return VK_SNAPSHOT;
+    if key == PRINTSCREEN  return VK_SNAPSHOT;
 
     return 0;
 }
@@ -309,10 +309,10 @@ MyWindowProc :: (hwnd: HWND, message: u32,
             keycode := wParam;
 
             // @Hack to allow AltGr shortcuts for AZERTY and QWERTZ layout...
-            altgr_keycode := keycode == #char "~" || keycode == #char "#" || keycode == #char "{"  || keycode == #char "[" ||
-                             keycode == #char "|" || keycode == #char "`" || keycode == #char "\\" || keycode == #char "^" ||
-                             keycode == #char "@" || keycode == #char "]" || keycode == #char "}"  || keycode == #char ";" ||
-                             keycode == #char "<" || keycode == #char ">"  || keycode == #char "$" || keycode == #char "&" ||
+            altgr_keycode := keycode == #char "~" || keycode == #char "#" || keycode == #char "{" || keycode == #char "[" ||
+                             keycode == #char "|" || keycode == #char "`" || keycode == #char "^" || keycode == #char "\\" ||
+                             keycode == #char "@" || keycode == #char "]" || keycode == #char "}" || keycode == #char ";" ||
+                             keycode == #char "<" || keycode == #char ">" || keycode == #char "$" || keycode == #char "&" ||
                              keycode == #char "*";
 
             if (keycode > 31 && keycode < 127 && !(ctrl_state || alt_state)) || (altgr_keycode && alt_state) || keycode > 255 {
@@ -349,6 +349,25 @@ MyWindowProc :: (hwnd: HWND, message: u32,
          case WM_MBUTTONUP;
             maybe_send_vkey_event(VK_MBUTTON, message == WM_MBUTTONDOWN);
             if message == WM_MBUTTONDOWN SetCapture(hwnd); else ReleaseCapture();
+
+
+         case WM_XBUTTONDOWN; #through;
+         case WM_XBUTTONUP;
+            event: Event;
+            event.type = Event_Type.KEYBOARD;
+            event.key_code = ifx wParam < 1 << 17 then MOUSE_BUTTON_X1 else MOUSE_BUTTON_X2;
+
+            pressed := false;
+            if message == WM_XBUTTONDOWN {
+                pressed = true;
+                input_button_states[event.key_code] |= (.START | .HELD);
+            } else {
+                input_button_states[event.key_code] |= .END;  // Because we shadowed that by Key_Code.END.
+            }
+
+            event.key_pressed = xx pressed;
+
+            array_add(*events_this_frame, event);
 
 
           case WM_MOUSEMOVE;
@@ -504,7 +523,7 @@ update_window_events :: () {
     input_per_frame_event_and_flag_update();
 
     // @Robustness: Maybe do this for all keystrokes that are down? Sigh...
-    if alt_state || (input_button_states[Key_Code.ALT] & .DOWN) { // Checking both just to be paranoid about desync between them.
+    if alt_state || (input_button_states[Key_Code.ALT] & .HELD) { // Checking both just to be paranoid about desync between them.
         state := GetAsyncKeyState(VK_MENU);  // GetAsyncKeyState actually checks the key, not to be confused with GetKeyState, which does nothing.
         if !(state & 0x8000) {
             alt_state = false;
@@ -512,20 +531,29 @@ update_window_events :: () {
         }
     }
 
-    if ctrl_state || (input_button_states[Key_Code.CTRL] & .DOWN) { // Checking both just to be paranoid about desync between them.
+    if ctrl_state || (input_button_states[Key_Code.CONTROL] & .HELD) { // Checking both just to be paranoid about desync between them.
         state := GetAsyncKeyState(VK_CONTROL);  // GetAsyncKeyState actually checks the key, not to be confused with GetKeyState, which does nothing.
         if !(state & 0x8000) {
             ctrl_state = false;
-            input_button_states[Key_Code.CTRL] |= .END;
+            input_button_states[Key_Code.CONTROL] |= .END;
         }
     }
 
-    if shift_state || (input_button_states[Key_Code.SHIFT] & .DOWN) { // Checking both just to be paranoid about desync between them.
+    if shift_state || (input_button_states[Key_Code.SHIFT] & .HELD) { // Checking both just to be paranoid about desync between them.
         state := GetAsyncKeyState(VK_SHIFT);  // GetAsyncKeyState actually checks the key, not to be confused with GetKeyState, which does nothing.
         if !(state & 0x8000) {
             shift_state = false;
             input_button_states[Key_Code.SHIFT] |= .END;
         }
+    }
+
+    // Windows does not send a key up event for one shift key while the other is held down.
+    // So, check the shift keys directly every frame.
+    if input_button_states[Key_Code.LEFT_SHIFT] && input_button_states[Key_Code.RIGHT_SHIFT] {
+        if !GetAsyncKeyState(cast,trunc(s32) VK_LSHIFT)
+            input_button_states[Key_Code.LEFT_SHIFT] |= .END;
+        if !GetAsyncKeyState(cast,trunc(s32) VK_RSHIFT)
+            input_button_states[Key_Code.RIGHT_SHIFT] |= .END;
     }
 
     while true {
@@ -650,7 +678,7 @@ handle_keyboard_event :: (is_left: bool, is_right: bool, is_down: bool, vkey: u1
     if vkey != VK_SNAPSHOT return false;
 
     key_code := get_key_code(vkey);
-    repeat := is_down && (input_button_states[key_code] & .DOWN) != 0;
+    repeat := is_down && (input_button_states[key_code] & .HELD) != 0;
     maybe_send_vkey_event(vkey, is_down, repeat);
 
     return true;
@@ -800,17 +828,17 @@ set_key_down_state :: (vkey : u32, is_down: bool) -> was_down:bool {
 
 
 maybe_send_vkey_event :: (vkey: u64, key_down: bool, repeat := false, extended := false, is_left_right_key_code := false, left_right_key_code := Key_Code.UNKNOWN) {
-    was_down := set_key_down_state(cast,trunc(u32) vkey, key_down);
-    if !key_down && !was_down {
-        // redundant key_up event
-        return;
-    }
+    //was_down := set_key_down_state(cast,trunc(u32) vkey, key_down);
+    //if !key_down && !was_down {
+    //    // redundant key_up event
+    //    return;
+    //}
 
-    if key_down && repeat && !was_down {
-        // key was pressed while we didn't have focus so the first
-        // event we see is incorrectly labeled as a repeat.
-        repeat = false;
-    }
+    //if key_down && repeat && !was_down {
+    //    // key was pressed while we didn't have focus so the first
+    //    // event we see is incorrectly labeled as a repeat.
+    //    repeat = false;
+    //}
 
     if is_left_right_key_code
         send_key_event(left_right_key_code, key_down, repeat);
@@ -821,7 +849,7 @@ maybe_send_vkey_event :: (vkey: u64, key_down: bool, repeat := false, extended :
 send_key_event :: (key_code: Key_Code, key_down: bool, repeat := false) {
     if key_code == .ALT     alt_state   = key_down;
     if key_code == .SHIFT   shift_state = key_down;
-    if key_code == .CTRL    ctrl_state  = key_down;  // @Cleanup: Look at what I do in the Braid code because this is bananas.
+    if key_code == .CONTROL    ctrl_state  = key_down;  // @Cleanup: Look at what I do in the Braid code because this is bananas.
 
     event: Event;
     event.type = .KEYBOARD;
@@ -839,5 +867,12 @@ send_key_event :: (key_code: Key_Code, key_down: bool, repeat := false) {
 
     array_add(*events_this_frame, event);
 
-    input_button_states[key_code] |= ifx key_down then (Key_Current_State.DOWN | .START) else .END;
+    input_button_states[key_code] = .HELD;
+    if key_down {
+        input_button_states[key_code] |= .START;
+        if repeat  input_button_states[key_code] |= .REPEAT;
+    }
+    else {
+        input_button_states[key_code] |= .END;
+    }
 }

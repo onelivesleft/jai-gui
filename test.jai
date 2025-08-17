@@ -20,8 +20,8 @@ buttons : [max_found_buttons] Button;
 toast_text: string;
 toast_pos: Vector2;
 toast_speed: Vector2;
-toast_start_time: float64;
-toast_duration : float64 : 2.0;
+toast_start_time: Frame_Time;
+toast_duration : Frame_Time : 2.0;
 toast_gravity :: 200.0;
 toast_up_speed :: 200.0;
 
@@ -56,7 +56,7 @@ get_rbp :: inline () -> *u64 {
 
 main :: () {
     //print("main rbp = 0x%\n", get_rbp());
-    window, window_handle := gui_create_application_window("GUI Test", 1280, 896, 3100, 40);
+    application_panel, application_window_handle := gui_create_application_window("GUI Test", 1280, 896, 3100, 40);
 
     show_wheel := true;
     maybe_lock : Flags;
@@ -94,9 +94,9 @@ main :: () {
         button_window := show_window(draw_button_window, "Button", at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
         keyboard_window := show_window(draw_keyboard_window, "Keyboard", at(0.25, 0.25,  0.75, 0.75), initially_closed=false);
 
-        for keyboard.keys  if it & .DOWN  last_pressed_key_code = cast(Key_Code) it_index;
+        for keyboard.keys  if it & .START  last_pressed_key_code = cast(Key_Code) it_index;
 
-        top, middle, bottom := split_top_middle_bottom(window, 100, -100);
+        top, middle, bottom := split_top_middle_bottom(application_panel, 100, -100);
         left, right := split_left_right(middle, 0.5);
 
         height :: 32;
@@ -113,7 +113,7 @@ main :: () {
             icon_id = xx new_id;
         }
         {
-            w, h := Simp.get_render_dimensions(window_handle);
+            w, h := Simp.get_render_dimensions(application_window_handle);
             label(at(.COPY_RIGHT), tprint("% %", w, h));
         }
 
@@ -129,8 +129,6 @@ main :: () {
         if show_table {
             table_panel, _ := split_left_right(right, 0.7);
             clicked, table := data_table(at_top(table_panel, -50), word_count_ptr);
-            if clicked
-                print("% %", table.clicked_header, table.clicked_item.*);
         }
         else {
             button_count :: 20;
@@ -326,7 +324,7 @@ draw_button_window :: (window: *Window) {
 }
 
 draw_keyboard_window :: (window: *Window) {
-    key_widget(.backquote, "`", at(10,10, 42,42));
+    key_widget(.BACKQUOTE, "`", at(10,10, 42,42));
     key_widget(._1, .NUMERIC_1);
     key_widget(._2, .NUMERIC_2);
     key_widget(._3, .NUMERIC_3);
@@ -337,78 +335,96 @@ draw_keyboard_window :: (window: *Window) {
     key_widget(._8, .NUMERIC_8);
     key_widget(._9, .NUMERIC_9);
     key_widget(._0, .NUMERIC_0);
-    key_widget(.minus, .MINUS);
-    key_widget(.equals, .EQUAL);
-    key_widget(.backspace, .BACKSPACE);
+    key_widget(.MINUS, .MINUS);
+    key_widget(.EQUALS, .EQUAL);
+    key_widget(.BACKSPACE, .BACKSPACE);
 
-    key_widget(.tab, .KEYBOARD_TAB, at(10,44, 58,74));
-    key_widget(.q, .ALPHA_Q, at(58,44, 90,74));
-    key_widget(.w, .ALPHA_W);
-    key_widget(.e, .ALPHA_E);
-    key_widget(.r, .ALPHA_R);
-    key_widget(.t, .ALPHA_T);
-    key_widget(.y, .ALPHA_Y);
-    key_widget(.u, .ALPHA_U);
-    key_widget(.i, .ALPHA_I);
-    key_widget(.o, .ALPHA_O);
-    key_widget(.p, .ALPHA_P);
-    key_widget(.left_bracket, "[");
-    key_widget(.right_bracket, "]");
+    key_widget(.TAB, .KEYBOARD_TAB, at(10,44, 58,74));
+    key_widget(.Q, .ALPHA_Q, at(58,44, 90,74));
+    key_widget(.W, .ALPHA_W);
+    key_widget(.E, .ALPHA_E);
+    key_widget(.R, .ALPHA_R);
+    key_widget(.T, .ALPHA_T);
+    key_widget(.Y, .ALPHA_Y);
+    key_widget(.U, .ALPHA_U);
+    key_widget(.I, .ALPHA_I);
+    key_widget(.O, .ALPHA_O);
+    key_widget(.P, .ALPHA_P);
+    key_widget(.LEFT_BRACKET, "[");
+    key_widget(.RIGHT_BRACKET, "]");
 
-    key_widget(.enter, .KEYBOARD_RETURN);
+    key_widget(.ENTER, .KEYBOARD_RETURN);
 
-    //key_widget(.capslock, .KEYBOARD_CAPS, at(10,44, 58,74)); //@TODO
-    key_widget(.a, .ALPHA_A, at(58,76, 90,106));
-    key_widget(.s, .ALPHA_S);
-    key_widget(.d, .ALPHA_D);
-    key_widget(.f, .ALPHA_F);
-    key_widget(.g, .ALPHA_G);
-    key_widget(.h, .ALPHA_H);
-    key_widget(.j, .ALPHA_J);
-    key_widget(.k, .ALPHA_K);
-    key_widget(.l, .ALPHA_L);
-    key_widget(.semicolon, ";");
+    //key_widget(.CAPSLOCK, .KEYBOARD_CAPS, at(10,44, 58,74)); //@TODO
+    key_widget(.A, .ALPHA_A, at(58,76, 90,106));
+    key_widget(.S, .ALPHA_S);
+    key_widget(.D, .ALPHA_D);
+    key_widget(.F, .ALPHA_F);
+    key_widget(.G, .ALPHA_G);
+    key_widget(.H, .ALPHA_H);
+    key_widget(.J, .ALPHA_J);
+    key_widget(.K, .ALPHA_K);
+    key_widget(.L, .ALPHA_L);
+    key_widget(.SEMICOLON, ";");
 
-    key_widget(.quote, "'");
-    key_widget(.hash, "#");
+    key_widget(.QUOTE, "'");
+    key_widget(.HASH, "#");
 
-    key_widget(.left_shift, .APPLE_KEYBOARD_SHIFT, at(10,108, 58,138));
-    key_widget(.backslash, "\\", at(58,108, 90,138));
-    key_widget(.z, .ALPHA_Z);
-    key_widget(.x, .ALPHA_X);
-    key_widget(.c, .ALPHA_C);
-    key_widget(.v, .ALPHA_V);
-    key_widget(.b, .ALPHA_B);
-    key_widget(.n, .ALPHA_N);
-    key_widget(.m, .ALPHA_M);
-    key_widget(.comma, ",");
-    key_widget(.period, ".");
-    key_widget(.slash, "/");
-    key_widget(.right_shift, .APPLE_KEYBOARD_SHIFT);
+    key_widget(.LEFT_SHIFT, .APPLE_KEYBOARD_SHIFT, at(10,108, 58,138));
+    key_widget(.BACKSLASH, "\\", at(58,108, 90,138));
+    key_widget(.Z, .ALPHA_Z);
+    key_widget(.X, .ALPHA_X);
+    key_widget(.C, .ALPHA_C);
+    key_widget(.V, .ALPHA_V);
+    key_widget(.B, .ALPHA_B);
+    key_widget(.N, .ALPHA_N);
+    key_widget(.M, .ALPHA_M);
+    key_widget(.COMMA, ",");
+    key_widget(.PERIOD, ".");
+    key_widget(.SLASH, "/");
+    key_widget(.RIGHT_SHIFT, .APPLE_KEYBOARD_SHIFT);
 
-    key_widget(.left_control, "CTRL", at(10,140, 58,170));
-    key_widget(.left_alt, "ALT");
-    key_widget(.space, " ");
-    key_widget(.right_alt, "ALT");
-    key_widget(.right_control, "CTRL");
+    key_widget(.LEFT_CONTROL, "CTRL", at(10,140, 58,170));
+    key_widget(.LEFT_ALT, "ALT");
+    key_widget(.SPACE, " ");
+    key_widget(.RIGHT_ALT, "ALT");
+    key_widget(.RIGHT_CONTROL, "CTRL");
 
-    key_widget(.shift, "Shift", at(100,192, 200,224));
-    key_widget(.control, "Ctrl");
-    key_widget(.alt, "Alt");
+    key_widget(.SHIFT, "Shift", at(100,192, 200,224));
+    key_widget(.CONTROL, "Ctrl");
+    key_widget(.ALT, "Alt");
 }
 
 // Custom key widget
 
 key_widget :: (key_code: Key_Code, text: string, icon_id: Icon_Id, location: *At_Location, $callsite := #caller_location) {
     key_widget := widget(location, callsite=callsite);
+    Key_Widget_Data :: struct {
+        from_color := Vector4.{0, 0, 0, 1.0};
+        to_color := Vector4.{0, 0, 0, 1.0};
+        time: Frame_Time;
+    }
+    if !key_widget.data  key_widget.data = New(Key_Widget_Data);
+    key_widget_data := cast(*Key_Widget_Data) key_widget.data;
 
     key_state := keyboard.keys[key_code];
-    color := ifx was_clicked(key_state, ignore_repeat=true) then Vector4.{1.0, 0.0, 0.0, 1.0}
-        else ifx was_released(key_state) then                    Vector4.{0.0, 1.0, 0.0, 1.0}
-        else ifx key_state then                                  Vector4.{0.0, 0.0, 1.0, 1.0}
-        else ifx is_hot(key_widget) then                     Vector4.{1.0, 0.0, 1.0, 1.0}
-        else ifx is_warm(key_widget) then                    Vector4.{1.0, 0.0, 1.0, 0.75}
-        else                                                 Vector4.{0.0, 0.0, 0.0, 1.0};
+    fade_duration :: 0.2;
+
+    if was_clicked(key_state, ignore_repeat=true) {
+        key_widget_data.from_color = .{1.0, 0.0, 0.0, 1.0};
+        key_widget_data.to_color = .{0.0, 0.0, 1.0, 1.0};
+        key_widget_data.time = frame.time;
+    }
+    else if was_released(key_state) {
+        key_widget_data.from_color = .{0.0, 1.0, 0.0, 1.0};
+        key_widget_data.to_color = .{0.0, 0.0, 0.0, 1.0};
+        key_widget_data.time = frame.time;
+    }
+    t := cast(float) ((frame.time - key_widget_data.time) / fade_duration);
+    color := lerp(key_widget_data.from_color, key_widget_data.to_color, t);
+
+    if is_hot(key_widget) then color = .{1.0, 0.0, 1.0, 1.0};
+    else if is_warm(key_widget) then color = .{1.0, 0.0, 1.0, 0.75};
 
     Simp.set_shader_for_color();
     draw_box(location, color);

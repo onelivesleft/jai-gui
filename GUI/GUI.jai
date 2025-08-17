@@ -13,17 +13,19 @@
 //  [ ] Render window to its own buffer.
 //  [x] Content scrolling / sizing.
 // [ ] text_box input.  rename text_input and text_box?  Maybe just have one call, with a flag to specify multiline (will still be two widgets behind the scenes).
+// [ ] Keyboard
+//  [x] start/held/end for clicks/keypresses?
+//  [x] Get Input to recognise most keys (e.g. left/right shift/ctrl/alt)
+//  [ ] Remove Input.events from user layer
 
-// [ ] Fix scrollwheel erronously scrolling things below other things.
-// [ ] Allocate all widgets as one.
-// [ ] Remove was_clicked_time et al from Widgets; add hook to skin instead.
-// [ ] Remove need for widget id
+// [x] Fix scrollwheel erronously scrolling things below other things.
+// [x] Remove was_clicked_time et al from Widgets; add hook to skin instead.
 // [ ] radio buttons
 // [ ] dropdown
 // [ ] fx blend colors
 // [ ] text_input/_box merge? name?
 // [ ] text_input/_box take pointer to string+buffer instead of initial_text
-// [ ] Move widget timestamps to skin + widget .ANIMATING flag
+// [.] Move widget timestamps to skin + widget .ANIMATING flag
 
 #load "widgets/widget.jai";
 #load "widgets/window.jai";
@@ -57,9 +59,11 @@ released_widget:  *Widget;   // use was_released(widget).  Lasts a single frame,
 changed_widget:  *Widget;    // use was_changed(widget).  Lasts a single frame, a widget with a value which changed, e.g. a scrollbar moving.
 scrollwheel_widget: *Widget; // At end of frame use_scrollwheel is called on this widget.  Call block_scrollwheel during a frame to stop it (i.e. if you have used the scrollwheel input for something)
 
+Frame_Time :: float64;
+
 frame: struct {
     index := 1;
-    time: float64;
+    time: Frame_Time;
     dt: float;
     no_sleep: bool;
 }
@@ -81,6 +85,8 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 
     widget_allocator.proc = flat_pool_allocator_proc;
     widget_allocator.data = *widget_allocator_pool;
+
+    if !keyboard  keyboard = cast(*Keyboard) *Input.input_button_states;
 
     init_skin();
 
@@ -123,7 +129,7 @@ gui_begin_frame :: () -> should_quit: bool {
     pointer_end_frame();
 
     if mouse.left_button_held {
-        if mouse.left_button_down && !hot_widget && focussed_widget
+        if mouse.left_button_start && !hot_widget && focussed_widget
             remove_focus(focussed_widget);
     }
     else if hot_widget {
@@ -183,11 +189,6 @@ gui_begin_frame :: () -> should_quit: bool {
             set_application_window_size(it.width, it.height);
     }
 
-    for * keyboard.keys {
-        if it.* & .UP then it.* = .NONE;
-        else if it.* & .DOWN then it.* = .HELD;
-    }
-
     for event: Input.events_this_frame {
         if event.type == .QUIT  should_quit = true;
 
@@ -197,16 +198,6 @@ gui_begin_frame :: () -> should_quit: bool {
                 dispatch_event_to_focussed_widget(event);
 
             case .KEYBOARD;
-            if event.key_pressed {
-                if keyboard.keys[event.key_code] & .HELD
-                    keyboard.keys[event.key_code] = .DOWN | .HELD | .REPEAT;
-                else
-                    keyboard.keys[event.key_code] = .DOWN | .HELD;
-            }
-            else {
-                keyboard.keys[event.key_code] = .UP | .HELD;
-            }
-
             if focussed_widget {
                 dispatch_event_to_focussed_widget(event);
             }
@@ -223,15 +214,14 @@ gui_begin_frame :: () -> should_quit: bool {
     }
 
     combine_keys :: (combined_key: *Key_State, left_key: Key_State, right_key: Key_State) {
-        if left_key || right_key  print("% %\n", left_key, right_key);
         combined_key.* = .NONE;
         if left_key {
             if right_key {
                 combined_key.* = .HELD;
-                if left_key & right_key & .DOWN
-                    combined_key.* |= .DOWN;
-                if left_key & right_key & .UP
-                    combined_key.* |= .UP;
+                if left_key & right_key & .HELD
+                    combined_key.* |= .HELD;
+                if left_key & right_key & .END
+                    combined_key.* |= .END;
             }
             else {
                 combined_key.* = left_key;
@@ -254,17 +244,17 @@ gui_begin_frame :: () -> should_quit: bool {
     mouse.x = xx mouse_x;
     mouse.y = xx mouse_y;
 
-    mouse.left_button_down = xx (button_state(.MOUSE_BUTTON_LEFT) & .START);
-    mouse.left_button_held = xx (button_state(.MOUSE_BUTTON_LEFT) & .DOWN);
-    mouse.left_button_up   = xx (button_state(.MOUSE_BUTTON_LEFT) & .END);
+    mouse.left_button_start = xx (button_state(.MOUSE_BUTTON_LEFT) & .START);
+    mouse.left_button_held = xx (button_state(.MOUSE_BUTTON_LEFT) & .HELD);
+    mouse.left_button_end   = xx (button_state(.MOUSE_BUTTON_LEFT) & .END);
 
-    mouse.middle_button_down = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .START);
-    mouse.middle_button_held = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .DOWN);
-    mouse.middle_button_up   = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .END);
+    mouse.middle_button_start = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .START);
+    mouse.middle_button_held = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .HELD);
+    mouse.middle_button_end   = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .END);
 
-    mouse.right_button_down = xx (button_state(.MOUSE_BUTTON_RIGHT) & .START);
-    mouse.right_button_held = xx (button_state(.MOUSE_BUTTON_RIGHT) & .DOWN);
-    mouse.right_button_up   = xx (button_state(.MOUSE_BUTTON_RIGHT) & .END);
+    mouse.right_button_start = xx (button_state(.MOUSE_BUTTON_RIGHT) & .START);
+    mouse.right_button_held = xx (button_state(.MOUSE_BUTTON_RIGHT) & .HELD);
+    mouse.right_button_end   = xx (button_state(.MOUSE_BUTTON_RIGHT) & .END);
 
 
     mouse.scrollwheel = Input.mouse_delta_z / mouse.scrollwheel_resolution;
@@ -335,9 +325,9 @@ mouse: struct {
     x, y: float;
     #place x;
     position: Vector2;
-    left_button_down, left_button_up, left_button_held: bool;
-    middle_button_down, middle_button_up, middle_button_held: bool;
-    right_button_down, right_button_up, right_button_held: bool;
+    left_button_start, left_button_end, left_button_held: bool;
+    middle_button_start, middle_button_end, middle_button_held: bool;
+    right_button_start, right_button_end, right_button_held: bool;
     scrollwheel: int;             // normalized, will typically be -1, +1 or 0
     scrollwheel_fraction: float;  // on devices with high-precision wheels this can be (-1.0, +1.0)
                                   // (though you can typically ignore it as it will automaticaly accumulate
@@ -345,17 +335,21 @@ mouse: struct {
     scrollwheel_resolution :: 120;
 }
 
-Key_State :: enum_flags u8 { NONE :: 0; HELD :: 1; DOWN :: 2; UP :: 4; REPEAT :: 8; }
+Key_State :: Input.Key_Current_State;
+Key_Code :: Input.Key_Code;
+keyboard: *Keyboard;
 
 // Generated from #insert below when absent - if you want to regenerate it, delete it, then paste it back from added_strings.
-keyboard: struct {
+Keyboard :: struct {
     keys: [256] Key_State;
 
     #place keys;
-    __pad1: [8] Key_State;
+    unknown: Key_State;
+    __pad1: [7] Key_State;
     backspace: Key_State;
     tab: Key_State;
-    __pad2: [2] Key_State;
+    linefeed: Key_State;
+    __pad2: [1] Key_State;
     clear: Key_State;
     enter: Key_State;
     __pad3: [2] Key_State;
@@ -474,7 +468,8 @@ keyboard: struct {
     f13: Key_State;
     f14: Key_State;
     f15: Key_State;
-    __pad11: [2] Key_State;
+    f16: Key_State;
+    __pad11: [1] Key_State;
     left_shift: Key_State;
     right_shift: Key_State;
     left_control: Key_State;
@@ -491,8 +486,8 @@ keyboard: struct {
     numpad_6: Key_State;
     numpad_7: Key_State;
     numpad_8: Key_State;
-    media_next_track: Key_State;
-    numpad_times: Key_State;
+    numpad_9: Key_State;
+    numpad_multiply: Key_State;
     numpad_divide: Key_State;
     numpad_plus: Key_State;
     numpad_minus: Key_State;
@@ -519,7 +514,13 @@ keyboard: struct {
     processkey: Key_State;
     __pad16: [1] Key_State;
     packet: Key_State;
-    __pad17: [14] Key_State;
+    mouse_button_left: Key_State;
+    mouse_button_middle: Key_State;
+    mouse_button_right: Key_State;
+    mouse_button_x1: Key_State;
+    mouse_button_x2: Key_State;
+    printscreen: Key_State;
+    __pad17: [8] Key_State;
     attn: Key_State;
     crsel: Key_State;
     exsel: Key_State;
@@ -531,12 +532,12 @@ keyboard: struct {
     oem_clear: Key_State;
 }
 
-#assert cast(u8)(*keyboard.oem_clear - keyboard.keys.data) == cast(u8)Key_Code.oem_clear;
+#assert cast(*void)*keyboard.oem_clear - cast(*void)*keyboard.keys == cast(int) Key_Code.OEM_CLEAR;
 
-#if !#exists(keyboard) #insert -> string {
+#if !#exists(Keyboard) #insert -> string {
     builder: String_Builder;
     append(*builder, #string __jai
-keyboard: struct {
+Keyboard :: struct {
     keys: [256] Key_State;
 
     #place keys;
@@ -548,7 +549,8 @@ keyboard: struct {
     pad_count := 0;
     for 0 .. names.count - 1 {
         value := values[it];
-        name := names[it];
+        name := copy_string(names[it]);
+        for 0 .. name.count - 1  name[it] = to_lower(name[it]);
         if value > previous_value + 1 {
             pad_count += 1;
             print_to_builder(*builder, #string __jai
@@ -566,180 +568,14 @@ keyboard: struct {
     return builder_to_string(*builder);
 }
 
-Key_Code :: enum u8 {
-    backspace :: 0x8;
-    tab :: 0x9;
-    clear :: 0xc;
-    enter :: 0xd;
-    shift :: 0x10;
-    control :: 0x11;
-    alt :: 0x12;
-    capital :: 0x14;
-    kana :: 0x15;
-    ime_on :: 0x16;
-    junja :: 0x17;
-    final :: 0x18;
-    hanja :: 0x19;
-    ime_off :: 0x1a;
-    escape :: 0x1b;
-    convert :: 0x1c;
-    nonconvert :: 0x1d;
-    accept :: 0x1e;
-    modechange :: 0x1f;
-    space :: 0x20;
-    prior :: 0x21;
-    next :: 0x22;
-    hash :: 0x23;
-    quote :: 0x27;
-    select :: 0x29;
-    print :: 0x2a;
-    equals :: 0x2b;
-    comma :: 0x2c;
-    minus :: 0x2d;
-    period :: 0x2e;
-    slash :: 0x2f;
-    _0 :: 0x30;
-    _1 :: 0x31;
-    _2 :: 0x32;
-    _3 :: 0x33;
-    _4 :: 0x34;
-    _5 :: 0x35;
-    _6 :: 0x36;
-    _7 :: 0x37;
-    _8 :: 0x38;
-    _9 :: 0x39;
-    colon :: 0x3a;
-    semicolon :: 0x3b;
-    less_than :: 0x3c;
-    something :: 0x3d;
-    greater_than :: 0x3e;
-    question_mark :: 0x3f;
-    at :: 0x40;
-    a :: 0x41;
-    b :: 0x42;
-    c :: 0x43;
-    d :: 0x44;
-    e :: 0x45;
-    f :: 0x46;
-    g :: 0x47;
-    h :: 0x48;
-    i :: 0x49;
-    j :: 0x4a;
-    k :: 0x4b;
-    l :: 0x4c;
-    m :: 0x4d;
-    n :: 0x4e;
-    o :: 0x4f;
-    p :: 0x50;
-    q :: 0x51;
-    r :: 0x52;
-    s :: 0x53;
-    t :: 0x54;
-    u :: 0x55;
-    v :: 0x56;
-    w :: 0x57;
-    x :: 0x58;
-    y :: 0x59;
-    z :: 0x5a;
-    left_bracket :: 0x5b;
-    backslash :: 0x5c;
-    right_bracket :: 0x5d;
-    //left_windows :: 0x5b;
-    //right_windows :: 0x5c;
-    //application :: 0x5d;
-    // huh?
-    sleep :: 0x5f;
-    backquote :: 0x60;
-    multiply :: 0x6a;
-    add :: 0x6b;
-    separator :: 0x6c;
-    subtract :: 0x6d;
-    decimal :: 0x6e;
-    divide :: 0x6f;
-    delete :: 0x7f;
-    up :: 0x80;
-    down :: 0x81;
-    left :: 0x82;
-    right :: 0x83;
-    pageup :: 0x84;
-    pagedown :: 0x85;
-    home :: 0x86;
-    end :: 0x87;
-    insert :: 0x88;
-    pause :: 0x89;
-    scrolllock :: 0x8a;
-    f1 :: 0x8f;
-    f2 :: 0x90;
-    f3 :: 0x91;
-    f4 :: 0x92;
-    f5 :: 0x93;
-    f6 :: 0x94;
-    f7 :: 0x95;
-    f8 :: 0x96;
-    f9 :: 0x97;
-    f10 :: 0x98;
-    f11 :: 0x99;
-    f12 :: 0x9a;
-    f13 :: 0x9b;
-    f14 :: 0x9c;
-    f15 :: 0x9d;
-    left_shift :: 0xa0;
-    right_shift :: 0xa1;
-    left_control :: 0xa2;
-    right_control :: 0xa3;
-    left_alt :: 0xa4;
-    right_alt :: 0xa5;
-    browser_back :: 0xa6;
-    numpad_0 :: 0xa7;
-    numpad_1 :: 0xa8;
-    numpad_2 :: 0xa9;
-    numpad_3 :: 0xaa;
-    numpad_4 :: 0xab;
-    numpad_5 :: 0xac;
-    numpad_6 :: 0xad;
-    numpad_7 :: 0xae;
-    numpad_8 :: 0xaf;
-    media_next_track :: 0xb0;
-    numpad_times :: 0xb1;
-    numpad_divide :: 0xb2;
-    numpad_plus :: 0xb3;
-    numpad_minus :: 0xb4;
-    numpad_period :: 0xb5;
-    numpad_enter :: 0xb6;
-    launch_app2 :: 0xb7;
-    oem_1 :: 0xba;
-    oem_plus :: 0xbb;
-    oem_comma :: 0xbc;
-    oem_minus :: 0xbd;
-    oem_period :: 0xbe;
-    oem_2 :: 0xbf;
-    oem_3 :: 0xc0;
-    oem_4 :: 0xdb;
-    oem_5 :: 0xdc;
-    oem_6 :: 0xdd;
-    oem_7 :: 0xde;
-    oem_8 :: 0xdf;
-    oem_102 :: 0xe2;
-    processkey :: 0xe5;
-    packet :: 0xe7;
-    attn :: 0xf6;
-    crsel :: 0xf7;
-    exsel :: 0xf8;
-    ereof :: 0xf9;
-    play :: 0xfa;
-    zoom :: 0xfb;
-    noname :: 0xfc;
-    pa1 :: 0xfd;
-    oem_clear :: 0xfe;
-}
 
 was_clicked :: inline (key_state: Key_State, ignore_repeat := false) -> bool {
-    if ignore_repeat   return cast(bool) key_state & .DOWN && !(key_state & .REPEAT);
-    else               return cast(bool) key_state & .DOWN;
+    if ignore_repeat   return cast(bool) key_state & .START && !(key_state & .REPEAT);
+    else               return cast(bool) key_state & .START;
 }
 
 was_released :: inline (key_state: Key_State) -> bool {
-    return cast(bool) key_state & .UP;
+    return cast(bool) key_state & .END;
 }
 
 Flags :: enum_flags u64 {

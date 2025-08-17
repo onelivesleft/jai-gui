@@ -25,116 +25,189 @@ Event_Type :: enum u32 {  // If we set this to u8, our packing will stop matchin
     DRAG_AND_DROP_FILES :: 6;
 }
 
-Key_Current_State :: enum_flags u32 {
+Key_Current_State :: enum_flags u8 {
     NONE  :: 0x0;
-    DOWN  :: 0x1;
+    HELD  :: 0x1;
     START :: 0x4;
     END   :: 0x8;
+    REPEAT :: 0x10;
 }
 
 // We reserve 32 buttons for each gamepad.
 GAMEPAD_BUTTON_COUNT :: 32;
 
-Key_Code :: enum u32 {
-    UNKNOWN :: 0;
+Key_Code :: enum u8 {
+    UNKNOWN :: 0x0;
 
-    // Non-textual keys that have placements in the ASCII table
-    // (and thus in Unicode):
+    BACKSPACE :: 0x8;
+    TAB :: 0x9;
+    LINEFEED :: 0xa;
+    CLEAR :: 0xc;
+    ENTER :: 0xd;
+    SHIFT :: 0x10;
+    CONTROL :: 0x11;
+    ALT :: 0x12;
+    CAPITAL :: 0x14;
+    KANA :: 0x15;
+    IME_ON :: 0x16;
+    JUNJA :: 0x17;
+    FINAL :: 0x18;
+    HANJA :: 0x19;
+    IME_OFF :: 0x1a;
+    ESCAPE :: 0x1b;
+    CONVERT :: 0x1c;
+    NONCONVERT :: 0x1d;
+    ACCEPT :: 0x1e;
+    MODECHANGE :: 0x1f;
+    SPACE :: 0x20;
+    PRIOR :: 0x21;
+    NEXT :: 0x22;
+    HASH :: 0x23;
+    QUOTE :: 0x27;
+    SELECT :: 0x29;
+    PRINT :: 0x2a;
+    EQUALS :: 0x2b;
+    COMMA :: 0x2c;
+    MINUS :: 0x2d;
+    PERIOD :: 0x2e;
+    SLASH :: 0x2f;
+    _0 :: 0x30;
+    _1 :: 0x31;
+    _2 :: 0x32;
+    _3 :: 0x33;
+    _4 :: 0x34;
+    _5 :: 0x35;
+    _6 :: 0x36;
+    _7 :: 0x37;
+    _8 :: 0x38;
+    _9 :: 0x39;
+    COLON :: 0x3a;
+    SEMICOLON :: 0x3b;
+    LESS_THAN :: 0x3c;
+    SOMETHING :: 0x3d;
+    GREATER_THAN :: 0x3e;
+    QUESTION_MARK :: 0x3f;
+    AT :: 0x40;
+    A :: 0x41;
+    B :: 0x42;
+    C :: 0x43;
+    D :: 0x44;
+    E :: 0x45;
+    F :: 0x46;
+    G :: 0x47;
+    H :: 0x48;
+    I :: 0x49;
+    J :: 0x4a;
+    K :: 0x4b;
+    L :: 0x4c;
+    M :: 0x4d;
+    N :: 0x4e;
+    O :: 0x4f;
+    P :: 0x50;
+    Q :: 0x51;
+    R :: 0x52;
+    S :: 0x53;
+    T :: 0x54;
+    U :: 0x55;
+    V :: 0x56;
+    W :: 0x57;
+    X :: 0x58;
+    Y :: 0x59;
+    Z :: 0x5a;
+    LEFT_BRACKET :: 0x5b;
+    BACKSLASH :: 0x5c;
+    RIGHT_BRACKET :: 0x5d;
+    SLEEP :: 0x5f;
+    BACKQUOTE :: 0x60;
+    MULTIPLY :: 0x6a;
+    ADD :: 0x6b;
+    SEPARATOR :: 0x6c;
+    SUBTRACT :: 0x6d;
+    DECIMAL :: 0x6e;
+    DIVIDE :: 0x6f;
+    DELETE :: 0x7f;
+    UP :: 0x80;
+    DOWN :: 0x81;
+    LEFT :: 0x82;
+    RIGHT :: 0x83;
+    PAGEUP :: 0x84;
+    PAGEDOWN :: 0x85;
+    HOME :: 0x86;
+    END :: 0x87;
+    INSERT :: 0x88;
+    PAUSE :: 0x89;
+    SCROLLLOCK :: 0x8a;
+    F1 :: 0x8f;
+    F2 :: 0x90;
+    F3 :: 0x91;
+    F4 :: 0x92;
+    F5 :: 0x93;
+    F6 :: 0x94;
+    F7 :: 0x95;
+    F8 :: 0x96;
+    F9 :: 0x97;
+    F10 :: 0x98;
+    F11 :: 0x99;
+    F12 :: 0x9a;
+    F13 :: 0x9b;
+    F14 :: 0x9c;
+    F15 :: 0x9d;
+    F16 :: 0x9e;
+    LEFT_SHIFT :: 0xa0;
+    RIGHT_SHIFT :: 0xa1;
+    LEFT_CONTROL :: 0xa2;
+    RIGHT_CONTROL :: 0xa3;
+    LEFT_ALT :: 0xa4;
+    RIGHT_ALT :: 0xa5;
+    BROWSER_BACK :: 0xa6;
+    NUMPAD_0 :: 0xa7;
+    NUMPAD_1 :: 0xa8;
+    NUMPAD_2 :: 0xa9;
+    NUMPAD_3 :: 0xaa;
+    NUMPAD_4 :: 0xab;
+    NUMPAD_5 :: 0xac;
+    NUMPAD_6 :: 0xad;
+    NUMPAD_7 :: 0xae;
+    NUMPAD_8 :: 0xaf;
+    NUMPAD_9 :: 0xb0;
+    NUMPAD_MULTIPLY :: 0xb1;
+    NUMPAD_DIVIDE :: 0xb2;
+    NUMPAD_PLUS :: 0xb3;
+    NUMPAD_MINUS :: 0xb4;
+    NUMPAD_PERIOD :: 0xb5;
+    NUMPAD_ENTER :: 0xb6;
+    LAUNCH_APP2 :: 0xb7;
+    OEM_1 :: 0xba;
+    OEM_PLUS :: 0xbb;
+    OEM_COMMA :: 0xbc;
+    OEM_MINUS :: 0xbd;
+    OEM_PERIOD :: 0xbe;
+    OEM_2 :: 0xbf;
+    OEM_3 :: 0xc0;
+    OEM_4 :: 0xdb;
+    OEM_5 :: 0xdc;
+    OEM_6 :: 0xdd;
+    OEM_7 :: 0xde;
+    OEM_8 :: 0xdf;
+    OEM_102 :: 0xe2;
+    PROCESSKEY :: 0xe5;
+    PACKET :: 0xe7;
+    MOUSE_BUTTON_LEFT :: 0xe8;
+    MOUSE_BUTTON_MIDDLE :: 0xe9;
+    MOUSE_BUTTON_RIGHT :: 0xea;
+    MOUSE_BUTTON_X1 :: 0xeb;
+    MOUSE_BUTTON_X2 :: 0xec;
+    PRINTSCREEN :: 0xed;
+    ATTN :: 0xf6;
+    CRSEL :: 0xf7;
+    EXSEL :: 0xf8;
+    EREOF :: 0xf9;
+    PLAY :: 0xfa;
+    ZOOM :: 0xfb;
+    NONAME :: 0xfc;
+    PA1 :: 0xfd;
+    OEM_CLEAR :: 0xfe;
 
-    BACKSPACE   :: 8;
-    TAB         :: 9;
-    LINEFEED    :: 10;
-    ENTER       :: 13;
-    ESCAPE      :: 27;
-    SPACEBAR    :: 32;
-
-    // The letters A-Z live in here as well and may be returned
-    // by keyboard events.
-
-    DELETE      :: 127;
-
-    ARROW_UP    :: 128;
-    ARROW_DOWN  :: 129;
-    ARROW_LEFT  :: 130;
-    ARROW_RIGHT :: 131;
-
-    PAGE_UP     :: 132;
-    PAGE_DOWN   :: 133;
-
-    HOME        :: 134;
-    END         :: 135;
-
-    INSERT      :: 136;
-
-    PAUSE       :: 137;
-    SCROLL_LOCK :: 138;
-
-    ALT;
-    CTRL;
-    SHIFT;
-    CMD;
-    META :: CMD;
-
-    F1;
-    F2;
-    F3;
-    F4;
-    F5;
-    F6;
-    F7;
-    F8;
-    F9;
-    F10;
-    F11;
-    F12;
-    F13;
-    F14;
-    F15;
-    F16;
-    F17;
-    F18;
-    F19;
-    F20;
-    F21;
-    F22;
-    F23;
-    F24;
-
-    NUMPAD_0;
-    NUMPAD_1;
-    NUMPAD_2;
-    NUMPAD_3;
-    NUMPAD_4;
-    NUMPAD_5;
-    NUMPAD_6;
-    NUMPAD_7;
-    NUMPAD_8;
-    NUMPAD_9;
-    NUMPAD_MULTIPLY;
-    NUMPAD_DIVIDE;
-    NUMPAD_ADD;
-    NUMPAD_SUBTRACT;
-    NUMPAD_DECIMAL;
-    NUMPAD_ENTER;
-
-    PRINT_SCREEN;
-
-    MOUSE_BUTTON_LEFT;
-    MOUSE_BUTTON_MIDDLE;
-    MOUSE_BUTTON_RIGHT;
-
-    MOUSE_WHEEL_UP;
-    MOUSE_WHEEL_DOWN;
-
-    // We reserve button codes for up to 4 gamepads.
-    GAMEPAD_0_BEGIN;
-    GAMEPAD_0_END :: GAMEPAD_0_BEGIN + xx GAMEPAD_BUTTON_COUNT;
-    GAMEPAD_1_BEGIN;
-    GAMEPAD_1_END :: GAMEPAD_1_BEGIN + xx GAMEPAD_BUTTON_COUNT;
-    GAMEPAD_2_BEGIN;
-    GAMEPAD_2_END :: GAMEPAD_2_BEGIN + xx GAMEPAD_BUTTON_COUNT;
-    GAMEPAD_3_BEGIN;
-    GAMEPAD_3_END :: GAMEPAD_3_BEGIN + xx GAMEPAD_BUTTON_COUNT;
 
     // WARNING!
     //
@@ -192,10 +265,11 @@ mouse_delta_z: int;
 
 events_this_frame:   [..] Event;
 input_button_states: [NUM_BUTTON_STATES] Key_Current_State;
-
+left_shift_released_while_right_shift_held: bool;
+right_shift_released_while_left_shift_held: bool;
 input_application_has_focus := false;
 
-NUM_BUTTON_STATES :: #run enum_highest_value(Key_Code) + 1;
+NUM_BUTTON_STATES :: 256;// #run enum_highest_value(Key_Code) + 1;
 
 Window_Resize_Record :: struct {
     window: Window_Type;
@@ -244,15 +318,9 @@ input_per_frame_event_and_flag_update :: () {
     }
     array_reset(*events_this_frame);
 
-    mask     := ~Key_Current_State.START;
-    end_mask := ~(Key_Current_State.END | .DOWN | .START);
-    // @Speed: Could just keep a list of who is not currently set.
     for * input_button_states {
-        if (<<it & .END || !input_application_has_focus) {
-            <<it &= end_mask;
-        } else {
-            <<it &= mask;
-        }
+        if it.* & .END || !input_application_has_focus then it.* = .NONE;
+        else it.* &= ~(.START | .REPEAT);
     }
 
     mouse_delta_x = 0;

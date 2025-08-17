@@ -122,8 +122,8 @@ handle_event :: (using text_input: *Text_Input, event: Input.Event) {
                 case .ESCAPE;       remove_focus(text_input, .CANCELLED);
                 case .ENTER;        remove_focus(text_input, .CONFIRMED);
                 case .TAB;          remove_focus(text_input, .UNDETERMINED);
-                case .ARROW_LEFT;   move_cursor(-1, event.shift_pressed);
-                case .ARROW_RIGHT;  move_cursor(+1, event.shift_pressed);
+                case .LEFT;         move_cursor(-1, event.shift_pressed);
+                case .RIGHT;        move_cursor(+1, event.shift_pressed);
                 case .BACKSPACE;    backspace();
                 case .DELETE;       delete();
                 case .HOME;         set_text_edit_cursor(0, event.shift_pressed);
