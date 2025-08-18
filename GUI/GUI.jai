@@ -1,4 +1,5 @@
 // @TODO
+// [ ] Investigate reworking positioning so it doesn't use pointers+macros
 // [x] Simplify (click on down, checkbox live)
 // [x] Click on down instead of up
 // [.] Windows!
@@ -42,7 +43,7 @@
 #load "widgets/text_input.jai";
 
 Widget_Types :: Type.[
-    Window, Window_Decoration, Button, Checkbox, Data_Table, Icon, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
+    Custom_Widget, Window, Window_Decoration, Button, Checkbox, Data_Table, Icon, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
 ];
 // @TODO Compile time check Widget_Types matches type enum in Widget
 
@@ -70,7 +71,13 @@ frame: struct {
 
 application_window : Window_Creation.Window_Type;
 
-gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *At_Location, *Window_Creation.Window_Type {
+window_back_buffer : struct {
+    fbo: GLuint;
+    texture: GLuint;
+    active := true;
+}
+
+gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *Panel, *Window_Creation.Window_Type {
     assert(widget_allocator.proc == null, "You should only call gui_create_window once!");
 
     #if OS == .WINDOWS {
@@ -114,6 +121,26 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 
     Simp.set_render_target(application_window);
 
+    setup_window_back_buffer :: () #expand {
+        using window_back_buffer;
+        glGenFramebuffers(1, *fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+        glGenTextures(1, *texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, xx window_width, xx window_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, null);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+        if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
+            print("Error setting up window back buffer.\n");
+            active = false;
+            return;
+        }
+    }
+    setup_window_back_buffer();
+
     array_reset(*placement_spacing);
     array_add(*placement_spacing, .{0, 0});
 
@@ -129,7 +156,7 @@ gui_begin_frame :: () -> should_quit: bool {
     pointer_end_frame();
 
     if mouse.left_button_held {
-        if mouse.left_button_start && !hot_widget && focussed_widget
+        if mouse.left_button_start && hot_widget != focussed_widget && focussed_widget
             remove_focus(focussed_widget);
     }
     else if hot_widget {
@@ -189,22 +216,18 @@ gui_begin_frame :: () -> should_quit: bool {
             set_application_window_size(it.width, it.height);
     }
 
+    characters_typed_this_frame.data = characters_typed_this_frame_buffer.data;
+    characters_typed_this_frame.count = 0;
+
     for event: Input.events_this_frame {
         if event.type == .QUIT  should_quit = true;
 
         if event.type == {
             case .TEXT_INPUT;
-            if focussed_widget
-                dispatch_event_to_focussed_widget(event);
-
-            case .KEYBOARD;
-            if focussed_widget {
-                dispatch_event_to_focussed_widget(event);
-            }
-            else if event.key_pressed && event.key_code == .ESCAPE {
-                should_quit = true; // @TODO  Don't leave this in
-                //hot_widget_deactivate_all();
-            }
+                utf8_string := "";
+                utf8_string.data = characters_typed_this_frame.data + characters_typed_this_frame.count;
+                character_utf32_to_utf8(event.utf32, *utf8_string);
+                characters_typed_this_frame.count += utf8_string.count;
 
             case .DRAG_AND_DROP_FILES;
             //for dropped_files free(it);
@@ -279,18 +302,20 @@ gui_draw_windows :: () {
         assert(!was_added, "Didn't find the window in the window_data table, but it should be there!");
 
         if window.flags & .SHOW && window.is_open {
+            if window_back_buffer.active {
+                glBindFramebuffer(GL_FRAMEBUFFER, window_back_buffer.fbo);
+                glClearColor(0, 0, 0, 0);
+                glClear(GL_COLOR_BUFFER_BIT);
+            }
+
             currently_drawing_window = window;
             update_widget(window);
-
-
-            with_panel(window);
-            with_scissor(window.calculated_rect, window.flags);
             draw_window(.BACKGROUND);
 
             {
-                calculate_usable_area(window);
-                with_panel(*window.usable_area);
-                with_scissor(window.available_area.calculated_rect, window.flags);
+                calculate_virtual_panel(window);
+                with_panel(window.virtual_panel);
+                with_scissor(window.calculated_rect, window.flags);
 
                 reset_drawn_widget_bounds();
                 window.draw_proc(window);
@@ -299,6 +324,46 @@ gui_draw_windows :: () {
 
             update_window(window);
             draw_window(.FOREGROUND);
+
+            if window_back_buffer.active {
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, window_back_buffer.fbo);
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Default framebuffer
+                width : float = xx application_panel.calculated_rect.w;
+                height : float = xx application_panel.calculated_rect.h;
+                glEnable(GL_BLEND);
+                gl_vec4 :: (rect: Rect) -> Vector4 {
+                    return .{rect.x, application_panel.calculated_rect.h - rect.y - rect.h, rect.x + rect.w, application_panel.calculated_rect.h - rect.y};
+                }
+
+                get_quad :: (r: Rect, snap_coordinates := false) -> (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) {
+                    using v4 := gl_vec4(r);
+                    p0 := Vector2.{x, y};
+                    p1 := Vector2.{z, y};
+                    p2 := Vector2.{z, w};
+                    p3 := Vector2.{x, w};
+
+                    if snap_coordinates {
+                        p0.x = floor(p0.x + .5);
+                        p0.y = floor(p0.y + .5);
+                        p1.x = floor(p1.x + .5);
+                        p1.y = floor(p1.y + .5);
+                        p2.x = floor(p2.x + .5);
+                        p2.y = floor(p2.y + .5);
+                        p3.x = floor(p3.x + .5);
+                        p3.y = floor(p3.y + .5);
+                    }
+
+                    return p0, p1, p2, p3;
+                }
+
+                p0, p1, p2, p3 := get_quad(.{0, 0, width, height});
+                Simp.immediate_set_shader(*Simp.shader_sprite_left_handed);
+                Simp.set_projection();
+
+                glBindTexture(GL_TEXTURE_2D, window_back_buffer.texture);
+                Simp.immediate_quad(p0, p1, p2, p3, .{1,1,1,0.5});
+                Simp.immediate_flush();
+            }
 
             if clicked_window == window  bring_to_front_window = clicked_window;
         }
@@ -311,7 +376,7 @@ gui_draw_windows :: () {
         currently_dragging_window = null;
 
     if currently_dragging_window
-        drag_window(currently_dragging_window);
+        update_window_drag(currently_dragging_window);
 
     currently_drawing_window = null;
 }
@@ -335,9 +400,16 @@ mouse: struct {
     scrollwheel_resolution :: 120;
 }
 
-Key_State :: Input.Key_Current_State;
-Key_Code :: Input.Key_Code;
 keyboard: *Keyboard;
+Key_Code :: Input.Key_Code;
+Key_State :: Input.Key_Current_State;
+
+#scope_file
+
+characters_typed_this_frame_buffer: [1024] u8;
+characters_typed_this_frame := "";
+
+#scope_export
 
 // Generated from #insert below when absent - if you want to regenerate it, delete it, then paste it back from added_strings.
 Keyboard :: struct {
@@ -530,6 +602,12 @@ Keyboard :: struct {
     noname: Key_State;
     pa1: Key_State;
     oem_clear: Key_State;
+
+    typed_this_frame :: () -> string {
+        s := characters_typed_this_frame;
+        characters_typed_this_frame.count = 0;
+        return s;
+    }
 }
 
 #assert cast(*void)*keyboard.oem_clear - cast(*void)*keyboard.keys == cast(int) Key_Code.OEM_CLEAR;
@@ -563,6 +641,12 @@ Keyboard :: struct {
         previous_value = value;
     }
     append(*builder, #string __jai
+
+    typed_this_frame :: () -> string {
+        s := characters_typed_this_frame;
+        characters_typed_this_frame.count = 0;
+        return s;
+    }
 }
     __jai);
     return builder_to_string(*builder);
@@ -802,12 +886,6 @@ remove_focus :: (widget: *$T/Widget, reason := Lost_Focus_Reason.UNDETERMINED) {
     focussed_widget = null;
 }
 
-dispatch_event_to_focussed_widget :: (event: Input.Event) {
-    if focussed_widget.type == {
-        case .TEXT_INPUT;  handle_event(cast(*Text_Input)focussed_widget, event);
-    }
-}
-
 set_clicked :: (widget: *Widget) {
     clicked_widget = widget;
     clicked_window = currently_drawing_window;
@@ -915,11 +993,6 @@ resolve_rect :: (rect: Rect, _box: Box) -> Rect {
     return .{ x, y, w, h };
 }
 
-calculate_rect :: (parent: *Panel, _box: Box) -> Rect {
-    calculate_rect(parent);
-    return resolve_rect(parent.calculated_rect, _box);
-}
-
 get_rect :: (panel: *Panel) -> Rect {
     if panel.calculated_rect_frame_index == frame.index
         return panel.calculated_rect;
@@ -932,9 +1005,6 @@ maybe_calculate_rect :: (panel: *Panel) {
         panel.calculated_rect = calculate_rect(panel);
 }
 
-recalculate_rect :: (panel: *Panel) {
-    panel.calculated_rect = calculate_rect(panel);
-}
 
 button_state :: inline (key: Input.Key_Code) -> Input.Key_Current_State {
     return Input.input_button_states[key];

@@ -7,18 +7,18 @@ Window_Decoration :: struct {
 }
 
 
-window_decoration :: (location: *At_Location, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Window_Decoration {
-    widget := _window_decoration(0, location, flags, tooltip, callsite_key(callsite));
+window_decoration :: (panel: *Panel, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Window_Decoration {
+    widget := _window_decoration(0, panel, flags, tooltip, callsite_key(callsite));
     return widget;
 }
 
-window_decoration :: (id: int, location: *At_Location, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Window_Decoration {
-    widget := _window_decoration(id, location, flags, tooltip, callsite_key(callsite));
+window_decoration :: (id: int, panel: *Panel, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Window_Decoration {
+    widget := _window_decoration(id, panel, flags, tooltip, callsite_key(callsite));
     return widget;
 }
 
-window_decoration :: (window_decoration: *Window_Decoration, location: *At_Location, flags := Flags.NONE, tooltip := "") -> *Window_Decoration {
-    widget := _window_decoration(window_decoration, location, flags, tooltip);
+window_decoration :: (window_decoration: *Window_Decoration, panel: *Panel, flags := Flags.NONE, tooltip := "") -> *Window_Decoration {
+    widget := _window_decoration(window_decoration, panel, flags, tooltip);
     return widget;
 }
 
@@ -29,16 +29,16 @@ window_decoration :: (window_decoration: *Window_Decoration, location: *At_Locat
 window_decoration_data: Table(u64, Window_Decoration);
 
 
-_window_decoration :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, callsite_key: u64) -> *Window_Decoration {
+_window_decoration :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, callsite_key: u64) -> *Window_Decoration {
     key := widget_key(id, currently_drawing_window, callsite_key);
     window_decoration := find_or_add(*window_decoration_data, key);
-    _window_decoration(window_decoration, location, flags, tooltip);
+    _window_decoration(window_decoration, panel, flags, tooltip);
     return window_decoration;
 }
 
-_window_decoration :: (window_decoration: *Window_Decoration, location: *At_Location, flags: Flags, tooltip: string) -> *Window_Decoration {
-    window_decoration.* = .{ .{location, .WINDOW_DECORATION, tooltip, flags} };
-    last_widget_location = location.*;
+_window_decoration :: (window_decoration: *Window_Decoration, panel: *Panel, flags: Flags, tooltip: string) -> *Window_Decoration {
+    window_decoration.* = .{ .{panel, .WINDOW_DECORATION, tooltip, flags} };
+    last_widget_panel = panel.*;
 
     update_window_decoration(window_decoration);
     draw_window_decoration(window_decoration);
@@ -58,12 +58,7 @@ update_window_decoration :: (window_decoration: *Window_Decoration) {
     }
 
     if window_decoration.flags & .TITLE_BAR {
-        if was_clicked(window_decoration) {
-            current_window_drag = .MOVE;
-            currently_dragging_window = currently_drawing_window;
-            drag_start_mouse_position = mouse.position;
-            drag_start_window_box = currently_drawing_window.desired_box;
-        }
+        if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .MOVE);
         return;
     }
 
@@ -71,15 +66,17 @@ update_window_decoration :: (window_decoration: *Window_Decoration) {
         scrollbar := ifx window_decoration.flags & .SCROLLBAR_HORIZONTAL
              then *currently_drawing_window._horizontal_scrollbar
              else *currently_drawing_window._vertical_scrollbar;
-        float_scrollbar(scrollbar, scrollbar.orientation, *window_decoration.location, window_decoration.flags, window_decoration.tooltip, 0, .{}, scrollbar.handle_size);
+        float_scrollbar(scrollbar, scrollbar.orientation, *window_decoration.panel, window_decoration.flags, window_decoration.tooltip, 0, .{}, scrollbar.handle_size);
         return;
     }
 
     if window_decoration.flags & .RESIZE {
+        if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .RESIZE_SE);
         return;
     }
 
     if window_decoration.flags & .MOVE {
+        if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .MOVE);
         return;
     }
 }

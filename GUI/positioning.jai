@@ -1,6 +1,6 @@
 // @Note GUI provides a simple but powerful layout engine to allow you to quickly and easily
 //       describe your UI widget positions.  The two core concepts you need to understand
-//       are the Ord, and the At_Location/Panel.
+//       are the Ord and the Panel.
 //
 //       An Ord is a position along a single axis, formed of two parts: rel and abs.
 //         rel: a float specifying the position relative to the widget's parent,
@@ -17,225 +17,208 @@
 //       Two Ords bundled together form a Coord - an x/y pair.  Two Coords formed together form
 //       a Box: a top-left Coord and a bottom-right Coord.
 //
-//       At_Location and Panel both refer to the same construct, which is a Box and a parent.
-//       You can think of At_Location as the adjective, and Panel as the noun.  Whenever you
-//       want to describe a location for your widget, you will use an At_Location (generally
-//       by calling `at(...)`).  Sometimes you'll want to use a free-standing location as the
-//       parent to other widgets: for this you will create a Panel.  This duality is just for
-//       user-understanding, the two types are the same type.  Here is some code to demonstrate:
+//       Panel is a Box positioned with a parent Panel (the root Panel is the application_panel;
+//       the area defined by the OS window).
+//       When you want to describe a location for your widget, you will use a Panel, usually
+//       by calling `at(...)`).  Sometimes you'll want to use a free-standing panel as the
+//       parent to other widgets.  Here is some code to demonstrate:
 //
 //          sidebar_panel, main_panel := split_left_right(window, 0.3);
 //          label(at_top(sidebar_panel, 20), "The Program");
-//          data_table(at(main_panel), my_array);
+//          data_table(main_panel, my_array);
 //
 //      In the above, the `0.3` and the `20` are Ords (for a relative left/right partition and
-//       an absolute label height, respectively).
-//      `split_left_right` produces two Panels, while `at_top` and `at` produce an At_Location,
-//      but all four entities do the same thing: describe a rectangular space inside your window.
+//      an absolute label height, respectively).
 
-// @Note All the positioning procs below are macros:  We want to treat widgets as Panels, so
-//       everything in GUI works using a *At_Location/*Panel parameter.  In order for the procs
-//       below (like `at` and `split_left_right`) to generate data on the stack but still return
-//       a pointer they are all macros.
-//
-//       *DO NOT* attempt to walk up the widget heirarchy; panels only exist long enough for their
-//       child widgets to be positioned.  If you try to go up through a widget's ancestors you may
-//       go through a panel that no longer exists and explode.
+// @Note We want to treat widgets as Panels, so everything in GUI works using a *Panel parameter.
+//       Therefor, all the procs below return a pointer; the data itself is put on the
+//       temp allocator (and thus is cleared every frame, so if you keep them around across
+//       the frame boundary be wary of traversing up the hierarchy).
 
 
-At_Location :: struct {
-    parent: *At_Location;
+Panel :: struct {
+    parent: *Panel;
     desired_box: Box;
     calculated_rect: Rect;
     calculated_rect_frame_index: int;
 }
 
-Panel :: At_Location;
-
-
 is_implicit_ord :: inline (T) => (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 
 
-at :: (parent: *At_Location) -> *At_Location #expand {
-    location := At_Location.{ parent, BOX_FILLED, .{}, 0 };
-    return *location;
+at :: (parent: *Panel) -> *Panel  {
+    panel := New(Panel, false,, temp);
+    panel.* = .{ parent, BOX_FILLED, .{}, 0 };
+    return panel;
 }
 
-at :: (parent: *At_Location, tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U) && is_implicit_ord(V) && is_implicit_ord(W);
-} {
-    location := At_Location.{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
-    return *location;
+at :: (parent: *Panel, tlx: $T, tly: $U, brx: $V, bry: $W) -> *Panel
+#modify { return is_implicit_ord(T) && is_implicit_ord(U) && is_implicit_ord(V) && is_implicit_ord(W); }
+{
+    panel := New(Panel, false,, temp);
+    panel.* = .{ parent, .{ coord(tlx, tly), coord(brx, bry) }, .{}, 0};
+    return panel;
 }
 
-at :: (tlx: $T, tly: $U, brx: $V, bry: $W) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U) && is_implicit_ord(V) && is_implicit_ord(W);
-} {
+at :: (tlx: $T, tly: $U, brx: $V, bry: $W) -> *Panel
+#modify { return is_implicit_ord(T) && is_implicit_ord(U) && is_implicit_ord(V) && is_implicit_ord(W); }
+{
     return at(peek_panel(), tlx, tly, brx, bry);
 }
 
-at :: (parent: *At_Location, _box: Box) -> *At_Location #expand {
-    location := At_Location.{ parent, _box, .{}, 0 };
-    return *location;
+at :: (parent: *Panel, _box: Box) -> *Panel  {
+    panel := New(Panel, false,, temp);
+    panel.* = .{ parent, _box, .{}, 0 };
+    return panel;
 }
 
-at :: (_box: Box) -> *At_Location #expand {
+at :: (_box: Box) -> *Panel  {
     return at(peek_panel(), _box);
 }
 
-at :: (parent: *At_Location, auto_place: Placement) -> *At_Location #expand {
-    location := At_Location.{ parent, box(auto_place), .{}, 0 };
-    return *location;
+at :: (parent: *Panel, auto_place: Placement) -> *Panel  {
+    panel := New(Panel, false,, temp);
+    panel.* = .{ parent, box(auto_place), .{}, 0 };
+    return panel;
 }
 
-at :: (auto_place: Placement) -> *At_Location #expand {
+at :: (auto_place: Placement) -> *Panel  {
     //if placement_panel // @TODO best behaviour is?
     //    return at(peek_panel(), auto_place);
     //else
-    return at(last_widget_location.parent, auto_place);
+    return at(last_widget_panel.parent, auto_place);
 }
 
 
-at_top :: (parent: *At_Location, _ord: $T) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T);
-} {
+at_top :: (parent: *Panel, _ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
     return at(parent, 0,0, 1.0,ord(_ord));
 }
 
-at_top :: (_ord: $T) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T);
-} {
+at_top :: (_ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
     return at(peek_panel(), _ord);
 }
 
-at_bottom :: (parent: *At_Location, _ord: $T) -> *At_Location #expand
-#modify {
-    return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
-}
+at_bottom :: (parent: *Panel, _ord: $T) -> *Panel
+#modify { return (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT); }
 {
     return at(parent, 0,ord(_ord), 1.0,1.0);
 }
 
-at_bottom :: (_ord: $T) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T);
-} {
+at_bottom :: (_ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
     return at(peek_panel(), _ord);
 }
 
 
-at_left :: (parent: *At_Location, _ord: $T) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T);
-} {
+at_left :: (parent: *Panel, _ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
     return at(parent, 0,0, ord(_ord),1.0);
 }
 
-at_left :: (_ord: $T) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T);
-} {
+at_left :: (_ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
     return at(peek_panel(), _ord);
 }
 
 
-at_right :: (parent: *At_Location, _ord: $T) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T);
-} {
+at_right :: (parent: *Panel, _ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
     return at(parent, ord(_ord),0, 1.0,1.0);
 }
 
-at_right :: (_ord: $T) -> *At_Location #expand
-#modify {
-    return is_implicit_ord(T);
-} {
+at_right :: (_ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
     return at(peek_panel(), _ord);
 }
 
 
-split_left_right :: (location: *At_Location, partition_ord: $T) -> *Panel, *Panel #expand
-#modify {
-    return is_implicit_ord(T);
-} {
-    return at(location, box(0,0, partition_ord,1.0)), at(location, box(partition_ord,0, 1.0,1.0));
+split_left_right :: (panel: *Panel, partition_ord: $T) -> *Panel, *Panel
+#modify { return is_implicit_ord(T); }
+{
+    return at(panel, box(0,0, partition_ord,1.0)), at(panel, box(partition_ord,0, 1.0,1.0));
 }
 
-split_top_bottom :: (location: *At_Location, partition_ord: $T) -> *Panel, *Panel #expand
-#modify {
-    return is_implicit_ord(T);
-} {
-    return at(location, box(0,0, 1.0,partition_ord)), at(location, box(0,partition_ord, 1.0,1.0));
-}
-
-
-split_left_middle_right :: (location: *At_Location, left_partition_ord: $T, right_partition_ord: $U) -> *Panel, *Panel, *Panel #expand
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U);
-} {
-    return at(location, box(0,0, left_partition_ord,1.0)),
-           at(location, box(left_partition_ord,0, right_partition_ord,1.0)),
-           at(location, box(right_partition_ord,0, 1.0,1.0));
-}
-
-split_top_middle_bottom :: (location: *At_Location, top_partition_ord: $T, bottom_partition_ord: $U) -> *Panel, *Panel, *Panel #expand
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U);
-} {
-    return at(location, box(0,0, 1.0,top_partition_ord)),
-           at(location, box(0,top_partition_ord, 1.0,bottom_partition_ord)),
-           at(location, box(0,bottom_partition_ord, 1.0,1.0));
-}
-
-split_quadrants :: (location: *At_Location, horizontal_partition_ord: $T, vertical_partition_ord: $U) -> top_left: *Panel, top_right: *Panel, bottom_left: *Panel, bottom_right: *Panel #expand
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U);
-} {
-    return at(location, box(0,0, horizontal_partition_ord,vertical_partition_ord)),
-           at(location, box(horizontal_partition_ord,0, 1.0,vertical_partition_ord)),
-           at(location, box(0,vertical_partition_ord, horizontal_partition_ord,1.0)),
-           at(location, box(horizontal_partition_ord,vertical_partition_ord, 1.0,1.0));
+split_top_bottom :: (panel: *Panel, partition_ord: $T) -> *Panel, *Panel
+#modify { return is_implicit_ord(T); }
+{
+    return at(panel, box(0,0, 1.0,partition_ord)), at(panel, box(0,partition_ord, 1.0,1.0));
 }
 
 
-split_for_left_scrollbar :: (location: *At_Location) -> scrollbar_panel: *Panel, *Panel #expand {
-    return at(location, box(0,0, theme.scrollbar_size,1.0)), at(location, box(theme.scrollbar_size,0, 1.0,1.0));
+split_left_middle_right :: (panel: *Panel, left_partition_ord: $T, right_partition_ord: $U) -> *Panel, *Panel, *Panel
+#modify { return is_implicit_ord(T) && is_implicit_ord(U); }
+{
+    return at(panel, box(0,0, left_partition_ord,1.0)),
+           at(panel, box(left_partition_ord,0, right_partition_ord,1.0)),
+           at(panel, box(right_partition_ord,0, 1.0,1.0));
 }
 
-split_for_right_scrollbar :: (location: *At_Location) -> *Panel, scrollbar_panel: *Panel #expand {
-    return at(location, box(0,0, -theme.scrollbar_size,1.0)), at(location, box(-theme.scrollbar_size,0, 1.0,1.0));
+split_top_middle_bottom :: (panel: *Panel, top_partition_ord: $T, bottom_partition_ord: $U) -> *Panel, *Panel, *Panel
+#modify { return is_implicit_ord(T) && is_implicit_ord(U); }
+{
+    return at(panel, box(0,0, 1.0,top_partition_ord)),
+           at(panel, box(0,top_partition_ord, 1.0,bottom_partition_ord)),
+           at(panel, box(0,bottom_partition_ord, 1.0,1.0));
 }
 
-split_for_top_scrollbar :: (location: *At_Location) -> scrollbar_panel: *Panel, *Panel #expand {
-    return at(location, box(0,0, 1.0,theme.scrollbar_size)), at(location, box(0,theme.scrollbar_size, 1.0,1.0));
+split_quadrants :: (panel: *Panel, horizontal_partition_ord: $T, vertical_partition_ord: $U) -> top_left: *Panel, top_right: *Panel, bottom_left: *Panel, bottom_right: *Panel
+#modify { return is_implicit_ord(T) && is_implicit_ord(U); }
+{
+    return at(panel, box(0,0, horizontal_partition_ord,vertical_partition_ord)),
+           at(panel, box(horizontal_partition_ord,0, 1.0,vertical_partition_ord)),
+           at(panel, box(0,vertical_partition_ord, horizontal_partition_ord,1.0)),
+           at(panel, box(horizontal_partition_ord,vertical_partition_ord, 1.0,1.0));
 }
 
-split_for_bottom_scrollbar :: (location: *At_Location) -> *Panel, scrollbar_panel: *Panel #expand {
-    return at(location, box(0,0, 1.0,-theme.scrollbar_size)), at(location, box(0,-theme.scrollbar_size, 1.0,1.0));
+
+split_for_left_scrollbar :: (panel: *Panel) -> scrollbar_panel: *Panel, *Panel  {
+    return at(panel, box(0,0, theme.scrollbar_size,1.0)), at(panel, box(theme.scrollbar_size,0, 1.0,1.0));
 }
 
-split_for_bottom_and_right_scrollbars :: (location: *At_Location) -> main_area: *Panel, bottom_scrollbar: *Panel, right_scrollbar: *Panel #expand {
-    tl, tr, bl, br := split_quadrants(location, -theme.scrollbar_size, -theme.scrollbar_size);
+split_for_right_scrollbar :: (panel: *Panel) -> *Panel, scrollbar_panel: *Panel  {
+    return at(panel, box(0,0, -theme.scrollbar_size,1.0)), at(panel, box(-theme.scrollbar_size,0, 1.0,1.0));
+}
+
+split_for_top_scrollbar :: (panel: *Panel) -> scrollbar_panel: *Panel, *Panel  {
+    return at(panel, box(0,0, 1.0,theme.scrollbar_size)), at(panel, box(0,theme.scrollbar_size, 1.0,1.0));
+}
+
+split_for_bottom_scrollbar :: (panel: *Panel) -> *Panel, scrollbar_panel: *Panel  {
+    return at(panel, box(0,0, 1.0,-theme.scrollbar_size)), at(panel, box(0,-theme.scrollbar_size, 1.0,1.0));
+}
+
+split_for_bottom_and_right_scrollbars :: (panel: *Panel) -> main_area: *Panel, bottom_scrollbar: *Panel, right_scrollbar: *Panel  {
+    tl, tr, bl, br := split_quadrants(panel, -theme.scrollbar_size, -theme.scrollbar_size);
     return tl, bl, tr;
 }
 
 
-shrink :: (panel: *Panel, delta_ord: $T) -> *Panel #expand
-#modify {
-    return is_implicit_ord(T);
-} {
+shrink :: (panel: *Panel, delta_ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
     return at(panel.parent, shrink(panel.desired_box, delta_ord));
 }
 
-shrink :: (panel: *Panel, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> *Panel #expand
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U);
-} {
+shrink :: (panel: *Panel, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> *Panel
+#modify { return is_implicit_ord(T) && is_implicit_ord(U); }
+{
     return at(panel.parent, shrink(panel.desired_box, horizontal_delta_ord, vertical_delta_ord));
+}
+
+
+grow :: (panel: *Panel, delta_ord: $T, direction := Direction.ALL) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
+    return at(panel.parent, grow(panel.desired_box, delta_ord, direction));
 }
 
 
@@ -323,9 +306,8 @@ Coord :: struct {
 }
 
 coord :: inline (x: $T, y: $U) -> Coord
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U);
-} {
+#modify { return is_implicit_ord(T) && is_implicit_ord(U); }
+{
     return .{ ord(x), ord(y) };
 }
 
@@ -344,17 +326,15 @@ Box :: struct {
 BOX_FILLED :: #run box(0,0, 1.0,1.0);
 
 box :: inline (tlx: $T, tly: $U, brx: $V, bry: $W) -> Box
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U) && is_implicit_ord(V) && is_implicit_ord(W);
-} {
+#modify { return is_implicit_ord(T) && is_implicit_ord(U) && is_implicit_ord(V) && is_implicit_ord(W); }
+{
     return .{ coord(tlx, tly), coord(brx, bry) };
 }
 
 
 shrink :: (_box: Box, delta_ord: $T) -> Box
-#modify {
-    return is_implicit_ord(T);
-} {
+#modify { return is_implicit_ord(T); }
+{
     _ord := ord(delta_ord);
     result := _box;
     result.tl.x += _ord;
@@ -365,9 +345,8 @@ shrink :: (_box: Box, delta_ord: $T) -> Box
 }
 
 shrink :: (_box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
-#modify {
-    return is_implicit_ord(T) && is_implicit_ord(U);
-} {
+#modify { return is_implicit_ord(T) && is_implicit_ord(U); }
+{
     horizontal_ord := ord(horizontal_delta_ord);
     vertical_ord := ord(vertical_delta_ord);
     result := _box;
@@ -375,6 +354,18 @@ shrink :: (_box: Box, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> Box
     result.tl.y += vertical_ord;
     result.br.x -= horizontal_ord;;
     result.br.y -= vertical_ord;;
+    return result;
+}
+
+grow :: (_box: Box, delta_ord: $T, direction := Direction.ALL) -> Box
+#modify { return is_implicit_ord(T); }
+{
+    _ord := ord(delta_ord);
+    result := _box;
+    if direction & .UP     result.tl.y -= _ord;
+    if direction & .LEFT   result.tl.x -= _ord;
+    if direction & .RIGHT  result.br.x += _ord;;
+    if direction & .DOWN   result.br.y += _ord;;
     return result;
 }
 
@@ -396,16 +387,23 @@ abs_height :: (_box: Box) -> int {
     return _box.br.y.abs - _box.tl.y.abs;
 }
 
+Direction :: enum_flags {
+    UP;
+    DOWN;
+    LEFT;
+    RIGHT;
+    ALL :: UP | DOWN | LEFT | RIGHT;
+}
 
 Placement :: enum {
-    COPY_LEFT;
-    COPY_RIGHT;
     COPY_UP;
     COPY_DOWN;
-    FILL_LEFT;
-    FILL_RIGHT;
+    COPY_LEFT;
+    COPY_RIGHT;
     FILL_UP;
     FILL_DOWN;
+    FILL_LEFT;
+    FILL_RIGHT;
     FILL;
     MIRROR_HORIZONTAL;
     MIRROR_VERTICAL;
@@ -416,7 +414,7 @@ Placement_Spacing :: struct {
     vertical: int;
 }
 
-last_widget_location : At_Location;
+last_widget_panel : Panel;
 placement_spacing : [..] Placement_Spacing;
 placement_panel : [..] *Panel;
 new_placement := false;
@@ -479,23 +477,23 @@ with_panel :: (panel: *Panel) #expand {
 }
 
 
-begin_placing :: (location: *At_Location) {
-    last_widget_location = location.*;
+begin_placing :: (panel: *Panel) {
+    last_widget_panel = panel.*;
     new_placement = true;
 }
 
 box :: inline (auto_place: Placement) -> Box {
     if new_placement {
         new_placement = false;
-        return last_widget_location.desired_box;
+        return last_widget_panel.desired_box;
     }
     else {
-        return box(*last_widget_location, auto_place);
+        return box(*last_widget_panel, auto_place);
     }
 }
 
-box :: inline (location: *At_Location, auto_place: Placement) -> Box {
-    return box(location.desired_box, auto_place);
+box :: inline (panel: *Panel, auto_place: Placement) -> Box {
+    return box(panel.desired_box, auto_place);
 }
 
 box :: (from_box: Box, auto_place: Placement) -> Box {

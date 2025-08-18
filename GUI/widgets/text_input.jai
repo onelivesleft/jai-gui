@@ -7,18 +7,18 @@ Text_Input :: struct {
 }
 
 
-text_input :: (location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Text_Input {
-    text, widget := _text_input(0, location, flags, initial_text, tooltip, callsite_key(callsite));
+text_input :: (panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Text_Input {
+    text, widget := _text_input(0, panel, flags, initial_text, tooltip, callsite_key(callsite));
     return text, widget;
 }
 
-text_input :: (id: int, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Text_Input {
-    text, widget := _text_input(id, location, flags, initial_text, tooltip, callsite_key(callsite));
+text_input :: (id: int, panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Text_Input {
+    text, widget := _text_input(id, panel, flags, initial_text, tooltip, callsite_key(callsite));
     return text, widget;
 }
 
-text_input :: (text_input: *Text_Input, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> text: string, *Text_Input {
-    text, widget := _text_input(text_input, location, flags, initial_text, tooltip);
+text_input :: (text_input: *Text_Input, panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "") -> text: string, *Text_Input {
+    text, widget := _text_input(text_input, panel, flags, initial_text, tooltip);
     return text, widget;
 }
 
@@ -74,17 +74,17 @@ set_text :: (text_input: *Text_Input, text: string) {
 text_input_data: Table(u64, Text_Input);
 
 
-_text_input :: inline (id: int, location: *At_Location, flags: Flags, initial_text: string, tooltip: string, callsite_key: u64) -> text: string, *Text_Input {
+_text_input :: inline (id: int, panel: *Panel, flags: Flags, initial_text: string, tooltip: string, callsite_key: u64) -> text: string, *Text_Input {
     key := widget_key(id, currently_drawing_window, callsite_key);
     text_input := find_or_add(*text_input_data, key);
-    text := _text_input(text_input, location, flags, initial_text, tooltip);
+    text := _text_input(text_input, panel, flags, initial_text, tooltip);
     return text, text_input;
 }
 
-_text_input :: (text_input: *Text_Input, location: *At_Location, flags: Flags, initial_text: string, tooltip: string) -> text: string, *Text_Input {
+_text_input :: (text_input: *Text_Input, panel: *Panel, flags: Flags, initial_text: string, tooltip: string) -> text: string, *Text_Input {
     text := ifx text_input.initialized then text_input.text else copy_string(initial_text);
-    text_input.* = .{ .{location, .TEXT_INPUT, tooltip, flags}, true, text };
-    last_widget_location = location.*;
+    text_input.* = .{ .{panel, .TEXT_INPUT, tooltip, flags}, true, text };
+    last_widget_panel = panel.*;
 
     update_text_input(text_input);
     draw_text_input(text_input);
@@ -99,44 +99,33 @@ update_text_input :: (using text_input: *Text_Input) {
     was_hot := is_hot(text_input);
     update_widget(text_input);
 
+    if has_focus(text_input) {
+        insert_text_edit(keyboard.typed_this_frame());
+
+        if was_clicked(keyboard.escape)     remove_focus(text_input, .CANCELLED);
+        if was_clicked(keyboard.enter)      remove_focus(text_input, .CONFIRMED);
+        if was_clicked(keyboard.tab)        remove_focus(text_input, .UNDETERMINED);
+        if was_clicked(keyboard.left)       move_cursor(-1, xx keyboard.shift);
+        if was_clicked(keyboard.right)      move_cursor(+1, xx keyboard.shift);
+        if was_clicked(keyboard.backspace)  backspace();
+        if was_clicked(keyboard.delete)     delete();
+        if was_clicked(keyboard.home)       set_text_edit_cursor(0, xx keyboard.shift);
+        if was_clicked(keyboard.end)        set_text_edit_cursor(text_edit.bytes.count, xx keyboard.shift);
+
+        if keyboard.control {
+            if was_clicked(keyboard.a)  select_all(text_input);
+            if was_clicked(keyboard.c)  copy_selection(text_input);
+            if was_clicked(keyboard.x)  cut_selection(text_input);
+            if was_clicked(keyboard.v)  paste(text_input);
+        }
+    }
+
     if is_hot(text_input) && !was_hot {
         focus(text_input);
         set_text_edit(text_input, text);
     }
 }
 
-
-handle_event :: (using text_input: *Text_Input, event: Input.Event) {
-    assert(focussed_widget == text_input);
-    if event.type == {
-        case .TEXT_INPUT;
-        utf8_bytes : [4] u8;
-        typed_string : string = ---;
-        typed_string.data = utf8_bytes.data;
-        character_utf32_to_utf8(event.utf32, *typed_string);
-        insert_text_edit(typed_string);
-
-        case .KEYBOARD;
-        if event.key_pressed {
-            if event.key_code == {
-                case .ESCAPE;       remove_focus(text_input, .CANCELLED);
-                case .ENTER;        remove_focus(text_input, .CONFIRMED);
-                case .TAB;          remove_focus(text_input, .UNDETERMINED);
-                case .LEFT;         move_cursor(-1, event.shift_pressed);
-                case .RIGHT;        move_cursor(+1, event.shift_pressed);
-                case .BACKSPACE;    backspace();
-                case .DELETE;       delete();
-                case .HOME;         set_text_edit_cursor(0, event.shift_pressed);
-                case .END;          set_text_edit_cursor(text_edit.bytes.count, event.shift_pressed);
-                case #char "A";     if event.ctrl_pressed  select_all(text_input);
-                case #char "C";     if event.ctrl_pressed  copy_selection(text_input);
-                case #char "X";     if event.ctrl_pressed  cut_selection(text_input);
-                case #char "V";     if event.ctrl_pressed  paste(text_input);
-            }
-        }
-
-    }
-}
 
 lost_focus ::  (using text_input: *Text_Input, reason: Lost_Focus_Reason) {
     if reason == .CONFIRMED || (reason == .UNDETERMINED && flags & .IMMEDIATE) {

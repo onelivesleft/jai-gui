@@ -1,9 +1,9 @@
 // Base struct for all widgets
 Widget :: struct {
-    #as using location: At_Location;
+    #as using panel: Panel;
 
     type : enum { // Need to use an enum because the Type itself can be polymorphic, e.g. Data_Table($T)
-        CUSTOM;
+        CUSTOM_WIDGET;
         WINDOW;
         WINDOW_DECORATION;
 
@@ -26,21 +26,21 @@ Widget :: struct {
 // It's just a Widget with a *void data pointer attached.
 Custom_Widget :: struct {
     #as using widget: Widget;
-    type = .CUSTOM;
+    type = .CUSTOM_WIDGET;
 
     data: *void;
 }
 
-widget :: (location: *At_Location, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget {
-    return _widget(0, location, flags, tooltip, callsite_key(callsite));
+widget :: (panel: *Panel, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget {
+    return _widget(0, panel, flags, tooltip, callsite_key(callsite));
 }
 
-widget :: (id: int, location: *At_Location, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget {
-    return _widget(id, location, flags, tooltip, callsite_key(callsite));
+widget :: (id: int, panel: *Panel, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget {
+    return _widget(id, panel, flags, tooltip, callsite_key(callsite));
 }
 
-widget :: (widget: *Custom_Widget, location: *At_Location, flags := Flags.NONE, tooltip := "") -> *Custom_Widget {
-    return _widget(widget, location, flags, tooltip);
+widget :: (widget: *Custom_Widget, panel: *Panel, flags := Flags.NONE, tooltip := "") -> *Custom_Widget {
+    return _widget(widget, panel, flags, tooltip);
 }
 
 
@@ -50,15 +50,15 @@ widget :: (widget: *Custom_Widget, location: *At_Location, flags := Flags.NONE, 
 custom_widget_data: Table(u64, Custom_Widget);
 
 
-_widget :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, callsite_key: u64) -> *Custom_Widget {
+_widget :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, callsite_key: u64) -> *Custom_Widget {
     key := widget_key(id, currently_drawing_window, callsite_key);
     widget := find_or_add(*custom_widget_data, key);
-    return _widget(widget, location, flags, tooltip);
+    return _widget(widget, panel, flags, tooltip);
 }
 
-_widget :: (widget: *Custom_Widget, location: *At_Location, flags: Flags, tooltip: string) -> *Custom_Widget {
-    widget.widget = .{ location, .CUSTOM, tooltip, flags };
-    last_widget_location = location.*;
+_widget :: (widget: *Custom_Widget, panel: *Panel, flags: Flags, tooltip: string) -> *Custom_Widget {
+    widget.widget = .{ panel, .CUSTOM_WIDGET, tooltip, flags };
+    last_widget_panel = panel.*;
 
     update_widget(widget);
 
@@ -158,4 +158,3 @@ use_scrollwheel :: (using widget: *Widget) {
 deplete_scrollwheel :: () {
     scrollwheel_widget = null;
 }
-

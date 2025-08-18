@@ -7,50 +7,50 @@ Button :: struct {
 }
 
 
-button :: (location: *At_Location, text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
-    clicked, widget := _button(0, location, flags, text, Icon_Id.NONE, tooltip, callsite_key(callsite));
+button :: (panel: *Panel, text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(0, panel, flags, text, Icon_Id.NONE, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (id: int, location: *At_Location, text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
-    clicked, widget := _button(id, location, flags, text, Icon_Id.NONE, tooltip, callsite_key(callsite));
+button :: (id: int, panel: *Panel, text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(id, panel, flags, text, Icon_Id.NONE, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (button: *Button, location: *At_Location, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
-    clicked, widget := _button(button, location, flags, text, Icon_Id.NONE, tooltip);
-    return clicked, widget;
-}
-
-
-button :: (location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
-    clicked, widget := _button(0, location, flags, "", icon_id, tooltip, callsite_key(callsite));
-    return clicked, widget;
-}
-
-button :: (id: int, location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
-    clicked, widget := _button(id, location, flags, "", icon_id, tooltip, callsite_key(callsite));
-    return clicked, widget;
-}
-
-button :: (button: *Button, location: *At_Location, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
-    clicked, widget := _button(button, location, flags, "", icon_id, tooltip);
+button :: (button: *Button, panel: *Panel, text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
+    clicked, widget := _button(button, panel, flags, text, Icon_Id.NONE, tooltip);
     return clicked, widget;
 }
 
 
-button :: (location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
-    clicked, widget := _button(0, location, flags, text, icon_id, tooltip, callsite_key(callsite));
+button :: (panel: *Panel, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(0, panel, flags, "", icon_id, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (id: int, location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
-    clicked, widget := _button(id, location, flags, text, icon_id, tooltip, callsite_key(callsite));
+button :: (id: int, panel: *Panel, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(id, panel, flags, "", icon_id, tooltip, callsite_key(callsite));
     return clicked, widget;
 }
 
-button :: (button: *Button, location: *At_Location, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
-    clicked, widget := _button(button, location, flags, text, icon_id, tooltip);
+button :: (button: *Button, panel: *Panel, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
+    clicked, widget := _button(button, panel, flags, "", icon_id, tooltip);
+    return clicked, widget;
+}
+
+
+button :: (panel: *Panel, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(0, panel, flags, text, icon_id, tooltip, callsite_key(callsite));
+    return clicked, widget;
+}
+
+button :: (id: int, panel: *Panel, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Button {
+    clicked, widget := _button(id, panel, flags, text, icon_id, tooltip, callsite_key(callsite));
+    return clicked, widget;
+}
+
+button :: (button: *Button, panel: *Panel, text: string, icon_id: Icon_Id, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Button {
+    clicked, widget := _button(button, panel, flags, text, icon_id, tooltip);
     return clicked, widget;
 }
 
@@ -61,16 +61,16 @@ button :: (button: *Button, location: *At_Location, text: string, icon_id: Icon_
 button_data: Table(u64, Button);
 
 
-_button :: inline (id: int, location: *At_Location, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string, callsite_key: u64) -> clicked: bool, *Button {
+_button :: inline (id: int, panel: *Panel, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string, callsite_key: u64) -> clicked: bool, *Button {
     key := widget_key(id, currently_drawing_window, callsite_key);
     button := find_or_add(*button_data, key);
-    clicked := _button(button, location, flags, text, icon_id, tooltip);
+    clicked := _button(button, panel, flags, text, icon_id, tooltip);
     return clicked, button;
 }
 
-_button :: (button: *Button, location: *At_Location, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string) -> clicked: bool, *Button {
-    button.* = .{ .{location, .BUTTON, tooltip, flags}, text, icon_id };
-    last_widget_location = location.*;
+_button :: (button: *Button, panel: *Panel, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string) -> clicked: bool, *Button {
+    button.* = .{ .{panel, .BUTTON, tooltip, flags}, text, icon_id };
+    last_widget_panel = panel.*;
 
     update_widget(button);
     draw_button(button);

@@ -148,34 +148,34 @@ Data_Table :: struct(T: Type)
 
 keep_selection : int = 0xffff_ffff;
 
-data_table :: (location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
-    clicked, widget := _data_table(0, location, flags, data, keep_selection, callsite_key(callsite));
+data_table :: (panel: *Panel, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(0, panel, flags, data, keep_selection, callsite_key(callsite));
     return clicked, widget;
 }
 
-data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
-    clicked, widget := _data_table(id, location, flags, data, keep_selection, callsite_key(callsite));
+data_table :: (id: int, $reserve: int, panel: *Panel, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(id, panel, flags, data, keep_selection, callsite_key(callsite));
     return clicked, widget;
 }
 
-data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
-    clicked, widget := _data_table(data_table, location, flags, data, keep_selection);
+data_table :: (data_table: *Data_Table, panel: *Panel, data: [] $STRUCT_OR_POINTER_TO_STRUCT, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(data_table, panel, flags, data, keep_selection);
     return clicked, widget;
 }
 
 
-data_table :: (location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
-    clicked, widget := _data_table(0, location, flags, data, selected_row_index, callsite_key(callsite));
+data_table :: (panel: *Panel, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(0, panel, flags, data, selected_row_index, callsite_key(callsite));
     return clicked, widget;
 }
 
-data_table :: (id: int, $reserve: int, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
-    clicked, widget := _data_table(id, location, flags, data, selected_row_index, callsite_key(callsite));
+data_table :: (id: int, $reserve: int, panel: *Panel, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE, $callsite := #caller_location) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(id, panel, flags, data, selected_row_index, callsite_key(callsite));
     return clicked, widget;
 }
 
-data_table :: (data_table: *Data_Table, location: *At_Location, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
-    clicked, widget := _data_table(data_table, location, flags, data, selected_row_index);
+data_table :: (data_table: *Data_Table, panel: *Panel, data: [] $STRUCT_OR_POINTER_TO_STRUCT, selected_row_index: int, flags := Flags.NONE) -> clicked: bool, *Data_Table(STRUCT_OR_POINTER_TO_STRUCT) {
+    clicked, widget := _data_table(data_table, panel, flags, data, selected_row_index);
     return clicked, widget;
 }
 
@@ -288,18 +288,18 @@ compare :: inline (a: $T, b: T) -> int
 data_table_data : Table(u64, Data_Table(void));
 
 
-_data_table :: inline (id: int, location: *At_Location, flags: Flags, data: [] $T, selected_row_index: int, callsite_key: u64) -> clicked: bool, *Data_Table(T)
+_data_table :: inline (id: int, panel: *Panel, flags: Flags, data: [] $T, selected_row_index: int, callsite_key: u64) -> clicked: bool, *Data_Table(T)
 #modify {
     return T == void || is_struct_or_pointer_to_struct(T) , "data must be an array of struct or pointer-to-struct";
 } {
     key := widget_key(id, currently_drawing_window, callsite_key);
     data_table := cast(*Data_Table(T)) find_or_add(*data_table_data, key);
     #assert(size_of(Data_Table(T)) == size_of(type_of(data_table.*)));
-    clicked := _data_table(cast(*Data_Table(T))data_table, location, flags, data, selected_row_index);
+    clicked := _data_table(cast(*Data_Table(T))data_table, panel, flags, data, selected_row_index);
     return clicked, data_table;
 }
 
-_data_table :: (data_table: *Data_Table(T), location: *At_Location, flags: Flags, data: [] $T, selected_row_index: int) -> clicked: bool, *Data_Table(T)
+_data_table :: (data_table: *Data_Table(T), panel: *Panel, flags: Flags, data: [] $T, selected_row_index: int) -> clicked: bool, *Data_Table(T)
 #modify {
     return T == void || is_struct_or_pointer_to_struct(T) , "data must be an array of struct or pointer-to-struct";
 } {
@@ -310,7 +310,7 @@ _data_table :: (data_table: *Data_Table(T), location: *At_Location, flags: Flags
         data_table.last_clicked_header_parity = data_table.default_last_clicked_header_parity;
     }
 
-    data_table.widget = .{location, .DATA_TABLE, "", flags | .USE_SCROLLWHEEL};
+    data_table.widget = .{panel, .DATA_TABLE, "", flags | .USE_SCROLLWHEEL};
     data_table.data = data;
     data_table.clicked_item = null;
     data_table.clicked_header = false;
@@ -322,7 +322,7 @@ _data_table :: (data_table: *Data_Table(T), location: *At_Location, flags: Flags
     update_data_table(data_table);
     draw_data_table(data_table);
 
-    last_widget_location = location.*;
+    last_widget_panel = panel.*;
 
     return data_table.clicked_header || data_table.clicked_item, data_table;
 }

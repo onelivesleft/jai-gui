@@ -22,18 +22,18 @@ Text_Box :: struct {
 }
 
 
-text_box :: (location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Text_Box {
-    clicked, widget := _text_box(0, location, flags, tooltip, initial_text, callsite_key(callsite));
+text_box :: (panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Text_Box {
+    clicked, widget := _text_box(0, panel, flags, tooltip, initial_text, callsite_key(callsite));
     return clicked, widget;
 }
 
-text_box :: (id: int, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Text_Box {
-    clicked, widget := _text_box(id, location, flags, tooltip, initial_text, callsite_key(callsite));
+text_box :: (id: int, panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> clicked: bool, *Text_Box {
+    clicked, widget := _text_box(id, panel, flags, tooltip, initial_text, callsite_key(callsite));
     return clicked, widget;
 }
 
-text_box :: (text_box: *Text_Box, location: *At_Location, initial_text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Text_Box {
-    clicked, widget := _text_box(text_box, location, flags, tooltip, initial_text);
+text_box :: (text_box: *Text_Box, panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "") -> clicked: bool, *Text_Box {
+    clicked, widget := _text_box(text_box, panel, flags, tooltip, initial_text);
     return clicked, widget;
 }
 
@@ -67,15 +67,15 @@ label_for_text_row :: (using text_box: *Text_Box, row: int) -> *Label {
 text_box_data: Table(u64, Text_Box);
 
 
-_text_box :: inline (id: int, location: *At_Location, flags: Flags, tooltip: string, initial_text: string, callsite_key: u64) -> clicked: bool, *Text_Box {
+_text_box :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, initial_text: string, callsite_key: u64) -> clicked: bool, *Text_Box {
     key := widget_key(id, currently_drawing_window, callsite_key);
     text_box := find_or_add(*text_box_data, key);
-    clicked := _text_box(text_box, location, flags, tooltip, initial_text);
+    clicked := _text_box(text_box, panel, flags, tooltip, initial_text);
     return clicked, text_box;
 }
 
-_text_box :: (text_box: *Text_Box, location: *At_Location, flags: Flags, tooltip: string, initial_text: string) -> clicked: bool, *Text_Box {
-    text_box.widget = .{location, .TEXT_BOX, "", flags | .USE_SCROLLWHEEL};
+_text_box :: (text_box: *Text_Box, panel: *Panel, flags: Flags, tooltip: string, initial_text: string) -> clicked: bool, *Text_Box {
+    text_box.widget = .{panel, .TEXT_BOX, "", flags | .USE_SCROLLWHEEL};
     if !text_box.initialized {
         text_box.text = copy_string(initial_text);
         text_box.initialized = true;
@@ -85,7 +85,7 @@ _text_box :: (text_box: *Text_Box, location: *At_Location, flags: Flags, tooltip
     clicked := update_text_box(text_box);
     draw_text_box(text_box);
 
-    last_widget_location = location.*;
+    last_widget_panel = panel.*;
 
     return clicked, text_box;
 }

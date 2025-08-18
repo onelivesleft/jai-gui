@@ -714,47 +714,48 @@ draw_text_box :: (using text_box: *Text_Box) { }
 
 draw_window :: (mode: enum {BACKGROUND; FOREGROUND;}) {
     window := currently_drawing_window;
-    window.available_area = window.location;
     theme := ifx is_locked(window.flags) then locked_theme else themes[theme_index(window.flags)];
+
+    panel := at(window);
+    if window.flags & .CLOSE | .TITLE_BAR  panel = grow(panel, theme.window_decoration_size, .UP);
+    if window.flags & .SCROLLBARS          panel = grow(panel, theme.window_decoration_scrollbar_size, .RIGHT);
+
+    if mode == .BACKGROUND {
+        draw_box(panel, theme.window_background_color);
+        return;
+    }
 
     inherited_flags := window.flags & xx window_decoration_inherit_mask;
 
-    has_header_row := false;
-    title_bar_right_offset := 0;
-
-    if mode == .BACKGROUND
-        draw_box(at(0.0,0.0, 1.0,1.0), theme.window_background_color);
+    title_bar_row:, panel = split_top_bottom(panel, theme.window_decoration_size);
 
     if window.flags & .CLOSE {
-        has_header_row = true;
-        title_bar_right_offset -= theme.window_decoration_size;
-        if mode == .FOREGROUND
-            window_decoration(at(-theme.window_decoration_size,0, 1.0,theme.window_decoration_size), .CLOSE | inherited_flags);
+        title_bar_row=, close_button := split_left_right(title_bar_row, -theme.window_decoration_size);
+        window_decoration(close_button, .CLOSE | inherited_flags);
     }
 
     if window.flags & .TITLE_BAR {
-        has_header_row = true;
-        if mode == .FOREGROUND
-            window_decoration(at(0,0, ord(title_bar_right_offset,1.0),theme.window_decoration_size), .TITLE_BAR | inherited_flags);
+        window_decoration(title_bar_row, .TITLE_BAR | inherited_flags);
     }
 
+    if window.flags & .MOVE {
+        tl :: 10;
+        br := tl + theme.window_decoration_size;
+        window_decoration(at(window, tl,tl, br,br), .MOVE | inherited_flags);
+    }
+
+    if !(window.flags & (.SCROLLBARS | .RESIZE))  return;
+
+    _, tr, bl, br := split_quadrants(panel, -theme.window_decoration_scrollbar_size, -theme.window_decoration_scrollbar_size);
+
     if window.flags & .SCROLLBARS {
-        tl, tr, bl, br := split_quadrants(*window.available_area, -theme.window_decoration_scrollbar_size, -theme.window_decoration_scrollbar_size);
-        if has_header_row
-            tr.desired_box.tl.y.abs += theme.window_decoration_size;
-        window.available_area.desired_box.br.x.abs -= theme.window_decoration_scrollbar_size;
-        window.available_area.desired_box.br.y.abs -= theme.window_decoration_scrollbar_size;
-        if mode == .FOREGROUND {
-            window_decoration(bl, .SCROLLBAR_HORIZONTAL | inherited_flags);
-            window_decoration(tr, .SCROLLBAR_VERTICAL | inherited_flags);
-        }
+        window_decoration(bl, .SCROLLBAR_HORIZONTAL | inherited_flags);
+        window_decoration(tr, .SCROLLBAR_VERTICAL | inherited_flags);
     }
 
     if window.flags & .RESIZE {
+        window_decoration(br, .RESIZE | inherited_flags);
     }
-
-    if has_header_row
-        window.available_area.desired_box.tl.y.abs += theme.window_decoration_size;
 }
 
 
@@ -817,7 +818,7 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
         scrollbar := ifx flags & .SCROLLBAR_HORIZONTAL
                      then *currently_drawing_window._horizontal_scrollbar
                      else *currently_drawing_window._vertical_scrollbar;
-        scrollbar.location = window_decoration.location;
+        scrollbar.panel = window_decoration.panel;
         maybe_calculate_rect(scrollbar);
 
         Simp.set_shader_for_color();
@@ -833,14 +834,32 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     }
 
     if flags & .RESIZE {
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        with_scissor(window_decoration_rect, flags);
+        Simp.set_shader_for_color();
+
+        color := ifx was_clicked(window_decoration)
+                 then theme.window_decoration_background_clicked
+                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        texture := get_icon_texture(.RESIZE_BOTTOM_RIGHT);
+
+        p0, p1, p2, p3 := get_quad(window_decoration_rect);
+        Simp.set_shader_for_images(texture);
+        Simp.immediate_quad(p0, p1, p2, p3, theme.icon_color);
+        Simp.immediate_flush();
         return;
     }
 
     if flags & .MOVE {
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        with_scissor(window_decoration_rect, flags);
+        Simp.set_shader_for_color();
+        color := ifx was_clicked(window_decoration)
+                 then theme.window_decoration_background_clicked
+                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        draw_rect(window_decoration_rect, color);
         return;
     }
-
-
 }
 
 
@@ -929,8 +948,8 @@ clear_window :: () {
 }
 
 
-draw_box :: inline (location: *At_Location, color: Vector4) {
-    rect := calculate_rect(location);
+draw_box :: inline (panel: *Panel, color: Vector4) {
+    rect := calculate_rect(panel);
     draw_box(rect, color);
 }
 
@@ -939,8 +958,8 @@ draw_box :: (rect: Rect, color: Vector4) {
     draw_rect(rect, color);
 }
 
-draw_text :: inline (location: *At_Location, text: string, color: Vector4, size : s16 = 0, align := Text_Alignment.CENTER, font_style := Font_Style.SANS) -> text_width: float {
-    rect := calculate_rect(location);
+draw_text :: inline (panel: *Panel, text: string, color: Vector4, size : s16 = 0, align := Text_Alignment.CENTER, font_style := Font_Style.SANS) -> text_width: float {
+    rect := calculate_rect(panel);
     return draw_text(rect, text, color, size, align, font_style);
 }
 
@@ -952,8 +971,8 @@ draw_text :: (rect: Rect, text: string, color: Vector4, size : s16 = 0, align :=
     return text_width;
 }
 
-draw_icon :: inline (location: *At_Location, icon_id: Icon_Id, color: Vector4) {
-    rect := calculate_rect(location);
+draw_icon :: inline (panel: *Panel, icon_id: Icon_Id, color: Vector4) {
+    rect := calculate_rect(panel);
     draw_icon(rect, icon_id, color);
 }
 

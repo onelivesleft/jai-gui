@@ -2,11 +2,15 @@ Window :: struct {
     #as using widget: Widget;
     type = .WINDOW;
 
+    // The window's panel is the undecorated client area on the screen.  Decorations can be drawn
+    // outwith this area (and indeed usually are).  For example, the title bar will typically be drawn
+    // above the window's panel.  This gives the client an easy time, since they interact directly
+    // with the area they care about.
+    virtual_panel: *Panel;  // The region the client can draw to, handled by the windows scrollbars.
+
     is_open := true;
     key: u64;
     draw_proc: Window_Draw_Proc;
-    available_area: Panel;
-    usable_area: Panel;
     drawn_bounds: Rect;
 
     _vertical_scrollbar := Scrollbar.{orientation=.VERTICAL};
@@ -16,7 +20,7 @@ Window :: struct {
     icon_id: Icon_Id;
 }
 
-DEFAULT_WINDOW_FLAGS :: Flags.CAN_MOVE | .CAN_RESIZE | .USE_SCROLLWHEEL | .CLOSE | .TITLE_BAR | .LEFT;
+DEFAULT_WINDOW_FLAGS :: Flags.CAN_MOVE | .CAN_RESIZE | .USE_SCROLLWHEEL | .CLOSE | .RESIZE | .MOVE | .TITLE_BAR | .LEFT;
 
 Window_Draw_Proc :: #type (window: *Window);
 
@@ -45,12 +49,12 @@ Drag_Flags :: enum_flags {
     MOVE :: 15;
 }
 
-show_window :: (draw_proc: Window_Draw_Proc, text: string, initial_location: *At_Location, flags := DEFAULT_WINDOW_FLAGS, tooltip := "", initially_closed := false, $callsite := #caller_location) -> *Window{
-    return _show_window(0, draw_proc, initial_location, flags, text, Icon_Id.NONE, tooltip, initially_closed, callsite_key(callsite));
+window :: (draw_proc: Window_Draw_Proc, text: string, initial_panel: *Panel, flags := DEFAULT_WINDOW_FLAGS, tooltip := "", initially_closed := false, $callsite := #caller_location) -> *Window{
+    return _window(0, draw_proc, initial_panel, flags, text, Icon_Id.NONE, tooltip, initially_closed, callsite_key(callsite));
 }
 
-show_window :: (id: int, draw_proc: Window_Draw_Proc, text: string, initial_location: *At_Location, flags := DEFAULT_WINDOW_FLAGS, tooltip := "", initially_closed := false, $callsite := #caller_location) -> *Window {
-    return _show_window(id, draw_proc, initial_location, flags, text, Icon_Id.NONE, tooltip, initially_closed, callsite_key(callsite));
+window :: (id: int, draw_proc: Window_Draw_Proc, text: string, initial_panel: *Panel, flags := DEFAULT_WINDOW_FLAGS, tooltip := "", initially_closed := false, $callsite := #caller_location) -> *Window {
+    return _window(id, draw_proc, initial_panel, flags, text, Icon_Id.NONE, tooltip, initially_closed, callsite_key(callsite));
 }
 
 
@@ -94,7 +98,7 @@ window_data: Table(u64, Window);
 window_order: [..] u64;
 
 
-_show_window :: (id: int, draw_proc: Window_Draw_Proc, initial_location: *At_Location, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string, initially_closed: bool, callsite_key: u64) -> *Window {
+_window :: (id: int, draw_proc: Window_Draw_Proc, initial_panel: *Panel, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string, initially_closed: bool, callsite_key: u64) -> *Window {
     key := widget_key(id, null, callsite_key);
     window := find_or_add(*window_data, key);
 
@@ -103,7 +107,7 @@ _show_window :: (id: int, draw_proc: Window_Draw_Proc, initial_location: *At_Loc
         window.key = key;
 
         array_add(*window_order, key);
-        window.location = initial_location.*;
+        window.panel = initial_panel.*;
 
         if initially_closed  window.is_open = false;
     }
@@ -123,12 +127,7 @@ update_window :: (window: *Window) {
     if is_hot(window) {
         if was_clicked(window) {
             drag_flags := get_mouse_pointer_window_drag(window);
-            if drag_flags {
-                currently_dragging_window = window;
-                current_window_drag = drag_flags;
-                drag_start_mouse_position = mouse.position;
-                drag_start_window_box = window.desired_box;
-            }
+            if drag_flags  start_window_drag(window, drag_flags);
         }
     } else if is_warm(window) {
         drag_flags := get_mouse_pointer_window_drag(window);
@@ -136,18 +135,20 @@ update_window :: (window: *Window) {
     }
 }
 
-calculate_usable_area :: (using window: *Window) {
-    recalculate_rect(*available_area);
-    usable_area = .{ *available_area, box(0,0, 1.0,1.0), .{}, 0 };
+calculate_virtual_panel :: (using window: *Window) {
+    virtual_panel = at(window);
 
-    if !(flags & .SCROLLBARS)  return;
+    if !(flags & .SCROLLBARS) {
+        calculate_rect(virtual_panel);
+        return;
+    }
 
     vertical_position, horizontal_position: Ord;
     width := cast(int) drawn_bounds.w;
     height := cast(int) drawn_bounds.h;
 
-    if drawn_bounds.w > 0 && available_area.calculated_rect.w < drawn_bounds.w {
-        _horizontal_scrollbar.handle_size = available_area.calculated_rect.w / drawn_bounds.w;
+    if drawn_bounds.w > 0 && window.calculated_rect.w < drawn_bounds.w {
+        _horizontal_scrollbar.handle_size = window.calculated_rect.w / drawn_bounds.w;
         horizontal_position.rel = _horizontal_scrollbar.float_value;
         horizontal_position.abs = -lerp(0, width, _horizontal_scrollbar.float_value);
     }
@@ -155,8 +156,8 @@ calculate_usable_area :: (using window: *Window) {
         _horizontal_scrollbar.handle_size = 1.0;
     }
 
-    if  drawn_bounds.h > 0 && available_area.calculated_rect.h < drawn_bounds.h {
-        _vertical_scrollbar.handle_size = available_area.calculated_rect.h / drawn_bounds.h;
+    if  drawn_bounds.h > 0 && window.calculated_rect.h < drawn_bounds.h {
+        _vertical_scrollbar.handle_size = window.calculated_rect.h / drawn_bounds.h;
         vertical_position.rel = _vertical_scrollbar.float_value;
         vertical_position.abs = -lerp(0, height, _vertical_scrollbar.float_value);
     }
@@ -164,11 +165,19 @@ calculate_usable_area :: (using window: *Window) {
         _vertical_scrollbar.handle_size = 1.0;
     }
 
-    usable_area.desired_box = box(horizontal_position,vertical_position, horizontal_position+width, vertical_position+height);
-    recalculate_rect(*usable_area);
+    virtual_panel.desired_box = box(horizontal_position,vertical_position, horizontal_position+width, vertical_position+height);
+    calculate_rect(virtual_panel);
 }
 
-drag_window :: (window: *Window) {
+
+start_window_drag :: (window: *Window, drag_flags: Drag_Flags) {
+    currently_dragging_window = window;
+    current_window_drag = drag_flags;
+    drag_start_mouse_position = mouse.position;
+    drag_start_window_box = window.desired_box;
+}
+
+update_window_drag :: (window: *Window) {
     delta := mouse.position - drag_start_mouse_position;
     window.desired_box = drag_start_window_box;
     if current_window_drag == .MOVE {

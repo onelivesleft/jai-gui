@@ -11,20 +11,20 @@ Scrollable_Panel :: struct {
 }
 
 
-push_scrollable_panel :: (location: *At_Location, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel {
-    scrollable_panel := _scrollable_panel(0, location, flags, width, height, callsite_key(callsite));
+push_scrollable_panel :: (panel: *Panel, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel {
+    scrollable_panel := _scrollable_panel(0, panel, flags, width, height, callsite_key(callsite));
     assert(scrollable_panel.available_area.calculated_rect_frame_index == frame.index);
     return *scrollable_panel.available_area, scrollable_panel;
 }
 
-push_scrollable_panel :: (id: int, location: *At_Location, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel {
-    scrollable_panel := _scrollable_panel(id, location, flags, width, height, callsite_key(callsite));
+push_scrollable_panel :: (id: int, panel: *Panel, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel {
+    scrollable_panel := _scrollable_panel(id, panel, flags, width, height, callsite_key(callsite));
     assert(scrollable_panel.available_area.calculated_rect_frame_index == frame.index);
     return *scrollable_panel.available_area, scrollable_panel;
 }
 
-push_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, width: int, height: int, flags := Flags.NONE) -> available_area: *Panel, *Scrollable_Panel {
-    _scrollable_panel(scrollable_panel, location, flags, width, height);
+push_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, panel: *Panel, width: int, height: int, flags := Flags.NONE) -> available_area: *Panel, *Scrollable_Panel {
+    _scrollable_panel(scrollable_panel, panel, flags, width, height);
     assert(scrollable_panel.available_area.calculated_rect_frame_index == frame.index);
     return *scrollable_panel.available_area, scrollable_panel;
 }
@@ -34,22 +34,22 @@ pop_scrollable_panel :: () {
     pop_panel();
 }
 
-with_scrollable_panel :: (location: *At_Location, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel #expand {
-    widget := _scrollable_panel(0, location, flags, width, height, callsite_key(callsite));
+with_scrollable_panel :: (panel: *Panel, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel #expand {
+    widget := _scrollable_panel(0, panel, flags, width, height, callsite_key(callsite));
     assert(widget.available_area.calculated_rect_frame_index == frame.index);
     `defer pop_scrollable_panel();
     return *widget.available_area, widget;
 }
 
-with_scrollable_panel :: (id: int, location: *At_Location, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel #expand {
-    widget := _scrollable_panel(id, location, flags, width, height, callsite_key(callsite));
+with_scrollable_panel :: (id: int, panel: *Panel, width: int, height: int, flags := Flags.NONE, $callsite := #caller_location) -> available_area: *Panel, *Scrollable_Panel #expand {
+    widget := _scrollable_panel(id, panel, flags, width, height, callsite_key(callsite));
     `defer pop_scrollable_panel();
     assert(widget.available_area.calculated_rect_frame_index == frame.index);
     return *widget.available_area, widget;
 }
 
-with_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, width: int, height: int, flags := Flags.NONE) -> available_area: *Panel, *Scrollable_Panel #expand {
-    _scrollable_panel(scrollable_panel, location, flags, width, height);
+with_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, panel: *Panel, width: int, height: int, flags := Flags.NONE) -> available_area: *Panel, *Scrollable_Panel #expand {
+    _scrollable_panel(scrollable_panel, panel, flags, width, height);
     assert(scrollable_panel.available_area.calculated_rect_frame_index == frame.index);
     `defer pop_scrollable_panel();
     return *scrollable_panel.available_area, scrollable_panel;
@@ -78,21 +78,21 @@ use_scrollwheel :: (using scrollable_panel: *Scrollable_Panel) {
 scrollable_panel_data : Table(u64, Scrollable_Panel);
 
 
-_scrollable_panel :: inline (id: int, location: *At_Location, flags: Flags, width: int, height: int, callsite_key: u64) -> *Scrollable_Panel {
+_scrollable_panel :: inline (id: int, panel: *Panel, flags: Flags, width: int, height: int, callsite_key: u64) -> *Scrollable_Panel {
     key := widget_key(id, currently_drawing_window, callsite_key);
     scrollable_panel := find_or_add(*scrollable_panel_data, key);
-    return _scrollable_panel(scrollable_panel, location, flags, width, height);
+    return _scrollable_panel(scrollable_panel, panel, flags, width, height);
 }
 
-_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, location: *At_Location, flags: Flags, width: int, height: int) -> *Scrollable_Panel {
-    scrollable_panel.widget = .{location, .SCROLLABLE_PANEL, "", flags | .USE_SCROLLWHEEL};
+_scrollable_panel :: (scrollable_panel: *Scrollable_Panel, panel: *Panel, flags: Flags, width: int, height: int) -> *Scrollable_Panel {
+    scrollable_panel.widget = .{panel, .SCROLLABLE_PANEL, "", flags | .USE_SCROLLWHEEL};
     scrollable_panel.width = width;
     scrollable_panel.height = height;
 
     update_scrollable_panel(scrollable_panel);
     draw_scrollable_panel(scrollable_panel);
 
-    last_widget_location = location.*;
+    last_widget_panel = panel.*;
 
     return scrollable_panel;
 }

@@ -32,66 +32,66 @@ Float_Range :: struct {
 }
 
 
-horizontal_scrollbar :: (location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
-    value, widget := int_scrollbar(.HORIZONTAL, 0, location, flags, tooltip, initial_value, range, callsite_key(callsite));
+horizontal_scrollbar :: (panel: *Panel, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(.HORIZONTAL, 0, panel, flags, tooltip, initial_value, range, callsite_key(callsite));
     return value, widget;
 }
 
-horizontal_scrollbar :: (id: int, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
-    value, widget := int_scrollbar(.HORIZONTAL, id, location, flags, tooltip, initial_value, range, callsite_key(callsite));
+horizontal_scrollbar :: (id: int, panel: *Panel, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(.HORIZONTAL, id, panel, flags, tooltip, initial_value, range, callsite_key(callsite));
     return value, widget;
 }
 
-horizontal_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar {
-    value, widget := int_scrollbar(scrollbar, .HORIZONTAL, location, flags, tooltip, initial_value, range);
-    return value, widget;
-}
-
-
-horizontal_scrollbar :: (location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
-    value, widget := float_scrollbar(.HORIZONTAL, 0, location, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
-    return value, widget;
-}
-
-horizontal_scrollbar :: (id: int, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
-    value, widget := float_scrollbar(.HORIZONTAL, id, location, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
-    return value, widget;
-}
-
-horizontal_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar {
-    value, widget := float_scrollbar(scrollbar, .HORIZONTAL, location, flags, tooltip, initial_value, range, handle_size);
+horizontal_scrollbar :: (scrollbar: *Scrollbar, panel: *Panel, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(scrollbar, .HORIZONTAL, panel, flags, tooltip, initial_value, range);
     return value, widget;
 }
 
 
-vertical_scrollbar :: (location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
-    value, widget := int_scrollbar(.VERTICAL, 0, location, flags, tooltip, initial_value, range, callsite_key(callsite));
+horizontal_scrollbar :: (panel: *Panel, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(.HORIZONTAL, 0, panel, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
     return value, widget;
 }
 
-vertical_scrollbar :: (id: int, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
-    value, widget := int_scrollbar(.VERTICAL, id, location, flags, tooltip, initial_value, range, callsite_key(callsite));
+horizontal_scrollbar :: (id: int, panel: *Panel, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(.HORIZONTAL, id, panel, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
     return value, widget;
 }
 
-vertical_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar {
-    value, widget := int_scrollbar(scrollbar, .VERTICAL, location, flags, tooltip, initial_value, range);
+horizontal_scrollbar :: (scrollbar: *Scrollbar, panel: *Panel, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(scrollbar, .HORIZONTAL, panel, flags, tooltip, initial_value, range, handle_size);
     return value, widget;
 }
 
 
-vertical_scrollbar :: (location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
-    value, widget := float_scrollbar(.VERTICAL, 0, location, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
+vertical_scrollbar :: (panel: *Panel, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(.VERTICAL, 0, panel, flags, tooltip, initial_value, range, callsite_key(callsite));
     return value, widget;
 }
 
-vertical_scrollbar :: (id: int, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
-    value, widget := float_scrollbar(.VERTICAL, id, location, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
+vertical_scrollbar :: (id: int, panel: *Panel, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(.VERTICAL, id, panel, flags, tooltip, initial_value, range, callsite_key(callsite));
     return value, widget;
 }
 
-vertical_scrollbar :: (scrollbar: *Scrollbar, location: *At_Location, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar {
-    value, widget := float_scrollbar(scrollbar, .VERTICAL, location, flags, tooltip, initial_value, range, handle_size);
+vertical_scrollbar :: (scrollbar: *Scrollbar, panel: *Panel, initial_value: int, range: Int_Range, flags := Flags.NONE, tooltip := "") -> value: int, *Scrollbar {
+    value, widget := int_scrollbar(scrollbar, .VERTICAL, panel, flags, tooltip, initial_value, range);
+    return value, widget;
+}
+
+
+vertical_scrollbar :: (panel: *Panel, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(.VERTICAL, 0, panel, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
+    return value, widget;
+}
+
+vertical_scrollbar :: (id: int, panel: *Panel, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(.VERTICAL, id, panel, flags, tooltip, initial_value, range, handle_size, callsite_key(callsite));
+    return value, widget;
+}
+
+vertical_scrollbar :: (scrollbar: *Scrollbar, panel: *Panel, initial_value := 0.0, range := Float_Range.{}, handle_size := 0.1, flags := Flags.NONE, tooltip := "") -> value: float, *Scrollbar {
+    value, widget := float_scrollbar(scrollbar, .VERTICAL, panel, flags, tooltip, initial_value, range, handle_size);
     return value, widget;
 }
 
@@ -142,14 +142,14 @@ set_value :: (using scrollbar: *Scrollbar, value: $T)
 scrollbar_data : Table(u64, Scrollbar);
 
 
-int_scrollbar :: inline (orientation: Scrollbar.Orientation, id: int, location: *At_Location, flags: Flags, tooltip: string, initial_value: int, range: Int_Range, callsite_key: u64) -> value: int, *Scrollbar {
+int_scrollbar :: inline (orientation: Scrollbar.Orientation, id: int, panel: *Panel, flags: Flags, tooltip: string, initial_value: int, range: Int_Range, callsite_key: u64) -> value: int, *Scrollbar {
     key := widget_key(id, currently_drawing_window, callsite_key);
     scrollbar := find_or_add(*scrollbar_data, key);
-    value := int_scrollbar(scrollbar, orientation, location, flags, tooltip, initial_value, range);
+    value := int_scrollbar(scrollbar, orientation, panel, flags, tooltip, initial_value, range);
     return value, scrollbar;
 }
 
-int_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, location: *At_Location, flags: Flags, tooltip: string, initial_value: int, range: Int_Range) -> value: int, *Scrollbar {
+int_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, panel: *Panel, flags: Flags, tooltip: string, initial_value: int, range: Int_Range) -> value: int, *Scrollbar {
     value := ifx scrollbar.initialized then scrollbar.int_value else initial_value;
     _range := range;
     if _range.max < _range.min  _range.max = _range.min;
@@ -157,8 +157,8 @@ int_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, loc
     spread := cast(float)(_range.max - _range.min + 1);
     handle_move_step : float = 1.0 / spread;
     handle_size : float = max(theme.scrollbar_min_handle_size, handle_move_step);
-    scrollbar.* = .{ .{location, .SCROLLBAR, tooltip, flags | .USE_SCROLLWHEEL}, true, orientation, handle_move_step, handle_size, calculate_handle_position(value, _range), .INTEGER, _range, value};
-    last_widget_location = location.*;
+    scrollbar.* = .{ .{panel, .SCROLLBAR, tooltip, flags | .USE_SCROLLWHEEL}, true, orientation, handle_move_step, handle_size, calculate_handle_position(value, _range), .INTEGER, _range, value};
+    last_widget_panel = panel.*;
 
     prev_handle_position := scrollbar.handle_position;
     update_scrollbar(scrollbar);
@@ -170,24 +170,24 @@ int_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, loc
 }
 
 
-float_scrollbar :: inline (orientation: Scrollbar.Orientation, id: int, location: *At_Location, flags: Flags, tooltip: string, initial_value: float, range: Float_Range, handle_size: float, callsite_key: u64) -> value: float, *Scrollbar {
+float_scrollbar :: inline (orientation: Scrollbar.Orientation, id: int, panel: *Panel, flags: Flags, tooltip: string, initial_value: float, range: Float_Range, handle_size: float, callsite_key: u64) -> value: float, *Scrollbar {
     key := widget_key(id, currently_drawing_window, callsite_key);
     scrollbar := find_or_add(*scrollbar_data, key);
-    value := float_scrollbar(scrollbar, orientation, location, flags, tooltip, initial_value, range, handle_size);
+    value := float_scrollbar(scrollbar, orientation, panel, flags, tooltip, initial_value, range, handle_size);
     return value, scrollbar;
 }
 
-float_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, location: *At_Location, flags: Flags, tooltip: string, initial_value: float, range: Float_Range, handle_size: float) -> value: float, *Scrollbar {
+float_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, panel: *Panel, flags: Flags, tooltip: string, initial_value: float, range: Float_Range, handle_size: float) -> value: float, *Scrollbar {
     value := ifx scrollbar.initialized then scrollbar.float_value else initial_value;
     _range := range;
     Clamp(*_range.max, _range.min, _range.max);
     Clamp(*value, _range.min, _range.max);
     handle_move_step := handle_size;
     Clamp(*handle_size, theme.scrollbar_min_handle_size, handle_size);
-    scrollbar.* = .{ .{location, .SCROLLBAR, tooltip, flags | .USE_SCROLLWHEEL}, true, orientation, handle_move_step, handle_size, calculate_handle_position(value, _range), .FLOAT, .{}, 0};
+    scrollbar.* = .{ .{panel, .SCROLLBAR, tooltip, flags | .USE_SCROLLWHEEL}, true, orientation, handle_move_step, handle_size, calculate_handle_position(value, _range), .FLOAT, .{}, 0};
     scrollbar.float_range = _range;
     scrollbar.float_value = value;
-    last_widget_location = location.*;
+    last_widget_panel = panel.*;
 
     prev_handle_position := scrollbar.handle_position;
     update_scrollbar(scrollbar);

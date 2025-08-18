@@ -87,12 +87,13 @@ main :: () {
 
     while true {
         should_quit := gui_begin_frame();
+        if keyboard.escape && !focussed_widget  should_quit = true;
         if should_quit  break;
 
-        label_window :=  show_window(draw_label_window,  "Label",  at(0.55, 0.05,  0.95, 0.45), initially_closed=true);
-        icon_window :=   show_window(draw_icon_window,   "Icon",   at(0.05, 0.05,  0.25, 0.25), DEFAULT_WINDOW_FLAGS | .SCROLLBARS | .THEME_A, initially_closed=true);
-        button_window := show_window(draw_button_window, "Button", at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
-        keyboard_window := show_window(draw_keyboard_window, "Keyboard", at(0.25, 0.25,  0.75, 0.75), initially_closed=false);
+        label_window :=    window(draw_label_window,    "Label",    at(0.55, 0.05,  0.95, 0.45), initially_closed=true);
+        icon_window :=     window(draw_icon_window,     "Icon",     at(0.05, 0.05,  0.25, 0.25), DEFAULT_WINDOW_FLAGS | .SCROLLBARS | .THEME_A, initially_closed=true);
+        button_window :=   window(draw_button_window,   "Button",   at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
+        keyboard_window := window(draw_keyboard_window, "Keyboard", at(0.25, 0.25,  0.75, 0.75), initially_closed=false);
 
         for keyboard.keys  if it & .START  last_pressed_key_code = cast(Key_Code) it_index;
 
@@ -397,8 +398,8 @@ draw_keyboard_window :: (window: *Window) {
 
 // Custom key widget
 
-key_widget :: (key_code: Key_Code, text: string, icon_id: Icon_Id, location: *At_Location, $callsite := #caller_location) {
-    key_widget := widget(location, callsite=callsite);
+key_widget :: (key_code: Key_Code, text: string, icon_id: Icon_Id, panel: *Panel, $callsite := #caller_location) {
+    key_widget := widget(panel, callsite=callsite);
     Key_Widget_Data :: struct {
         from_color := Vector4.{0, 0, 0, 1.0};
         to_color := Vector4.{0, 0, 0, 1.0};
@@ -427,17 +428,17 @@ key_widget :: (key_code: Key_Code, text: string, icon_id: Icon_Id, location: *At
     else if is_warm(key_widget) then color = .{1.0, 0.0, 1.0, 0.75};
 
     Simp.set_shader_for_color();
-    draw_box(location, color);
-    if icon_id  draw_icon(location, icon_id, .{1.0, 1.0, 1.0, 1.0});
-    if text     draw_text(location, text, .{1.0, 1.0, 1.0, 1.0}, font_style=.FIXED);
+    draw_box(panel, color);
+    if icon_id  draw_icon(panel, icon_id, .{1.0, 1.0, 1.0, 1.0});
+    if text     draw_text(panel, text, .{1.0, 1.0, 1.0, 1.0}, font_style=.FIXED);
 }
 
-key_widget :: inline  (key_code: Key_Code, icon_id: Icon_Id, location: *At_Location, $callsite := #caller_location) {
-    key_widget(key_code, "", icon_id, location, callsite);
+key_widget :: inline  (key_code: Key_Code, icon_id: Icon_Id, panel: *Panel, $callsite := #caller_location) {
+    key_widget(key_code, "", icon_id, panel, callsite);
 }
 
-key_widget :: inline  (key_code: Key_Code, text: string, location: *At_Location, $callsite := #caller_location) {
-    key_widget(key_code, text, .NONE, location, callsite);
+key_widget :: inline  (key_code: Key_Code, text: string, panel: *Panel, $callsite := #caller_location) {
+    key_widget(key_code, text, .NONE, panel, callsite);
 }
 
 key_widget :: inline  (key_code: Key_Code, icon_id: Icon_Id, $callsite := #caller_location) {

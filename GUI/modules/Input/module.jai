@@ -269,7 +269,7 @@ left_shift_released_while_right_shift_held: bool;
 right_shift_released_while_left_shift_held: bool;
 input_application_has_focus := false;
 
-NUM_BUTTON_STATES :: 256;// #run enum_highest_value(Key_Code) + 1;
+NUM_BUTTON_STATES :: 256;
 
 Window_Resize_Record :: struct {
     window: Window_Type;
@@ -338,4 +338,3 @@ resizes_to_free: [..] Window_Resize_Record;
 
 #import "Basic";
 #import "Window_Type";
-
