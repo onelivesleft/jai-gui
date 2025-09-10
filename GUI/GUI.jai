@@ -43,14 +43,14 @@
 #load "widgets/checkbox.jai";
 #load "widgets/data_table.jai";
 #load "widgets/icon.jai";
+#load "widgets/input_box.jai";
+#load "widgets/input_line.jai";
 #load "widgets/label.jai";
 #load "widgets/scrollable_panel.jai";
 #load "widgets/scrollbar.jai";
-#load "widgets/text_box.jai";
-#load "widgets/text_input.jai";
 
 Widget_Types :: Type.[
-    Custom_Widget, Window, Window_Decoration, Button, Checkbox, Data_Table, Icon, Label, Scrollable_Panel, Scrollbar, Text_Input, Text_Box
+    Custom_Widget, Window, Window_Decoration, Button, Checkbox, Data_Table, Icon, Input_Box, Input_Line, Label, Scrollable_Panel, Scrollbar
 ];
 // @TODO Compile time check Widget_Types matches type enum in Widget
 
@@ -560,7 +560,11 @@ Keyboard :: struct {
     pa1: Key_State;
     oem_clear: Key_State;
 
-    typed_this_frame :: () -> string {
+    any_typing_this_frame :: () -> bool {
+        return characters_typed_this_frame.count > 0;
+    }
+
+    eat_typed_this_frame :: () -> string {
         s := characters_typed_this_frame;
         characters_typed_this_frame.count = 0;
         return s;
@@ -599,7 +603,11 @@ Keyboard :: struct {
     }
     append(*builder, #string __jai
 
-    typed_this_frame :: () -> string {
+    any_typing_this_frame :: () -> bool {
+        return characters_typed_this_frame.count > 0;
+    }
+
+    eat_typed_this_frame :: () -> string {
         s := characters_typed_this_frame;
         characters_typed_this_frame.count = 0;
         return s;
@@ -859,7 +867,7 @@ remove_focus :: (widget: *$T/Widget, reason := Lost_Focus_Reason.UNDETERMINED) {
     if focussed_widget != widget  return;
     widget_lost_focus_time(focussed_widget, frame.time);
     if focussed_widget.type == {
-        case .TEXT_INPUT; lost_focus(cast(*Text_Input)widget, reason);
+        case .INPUT_LINE; lost_focus(cast(*Input_Line) widget, reason);
     }
     focussed_widget = null;
 }

@@ -61,13 +61,13 @@ Theme :: struct {
     cursor_color := Vector4.{1.0, 1.0, 1.0, 1.0};
     selection_color := Vector4.{0.7, 0.7, 0.7, 1.0};
 
-    text_input_border_color       := Vector4.{0.55, 0.35, 0.35, 1.0};
-    text_input_background         := Vector4.{0.35, 0.25, 0.25, 1.0};
-    text_input_background_hot  := Vector4.{0.45, 0.35, 0.35, 1.0};
-    text_input_background_warm    := Vector4.{0.45, 0.35, 0.35, 1.0};
-    text_input_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
-    text_input_border := 2;
-    text_input_text_size : s16 = 16;
+    input_line_border_color       := Vector4.{0.55, 0.35, 0.35, 1.0};
+    input_line_background         := Vector4.{0.35, 0.25, 0.25, 1.0};
+    input_line_background_hot  := Vector4.{0.45, 0.35, 0.35, 1.0};
+    input_line_background_warm    := Vector4.{0.45, 0.35, 0.35, 1.0};
+    input_line_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
+    input_line_border := 2;
+    input_line_text_size : s16 = 16;
 
     scrollbar_groove_background         := Vector4.{0.35, 0.25, 0.25, 1.0};
     scrollbar_handle_background         := Vector4.{0.55, 0.35, 0.35, 1.0};
@@ -76,8 +76,8 @@ Theme :: struct {
     scrollbar_min_handle_size := 1.0 / 40;
     scrollbar_size := 20;
 
-    text_box_text_size : s16 = 16;
-    text_box_row_height := 20;
+    input_box_text_size : s16 = 16;
+    input_box_row_height := 20;
 
     data_table_background_warm    := Vector4.{0.75, 0.55, 0.55, 1.0};
     data_table_foreground_warm    := Vector4.{0.1, 0.1, 0.1, 1.0};
@@ -132,13 +132,13 @@ alternate_theme := Theme.{
     cursor_color = Vector4.{1.0, 1.0, 1.0, 1.0},
     selection_color = Vector4.{0.7, 0.7, 0.7, 1.0},
 
-    text_input_border_color =    Vector4.{0.55, 0.35, 0.35, 1.0},
-    text_input_background =      Vector4.{0.35, 0.25, 0.25, 1.0},
-    text_input_background_hot =  Vector4.{0.45, 0.35, 0.35, 1.0},
-    text_input_background_warm = Vector4.{0.45, 0.35, 0.35, 1.0},
-    text_input_foreground =      Vector4.{1.0, 1.0, 1.0, 1.0},
-    text_input_border = 2,
-    text_input_text_size = 16,
+    input_line_border_color =    Vector4.{0.55, 0.35, 0.35, 1.0},
+    input_line_background =      Vector4.{0.35, 0.25, 0.25, 1.0},
+    input_line_background_hot =  Vector4.{0.45, 0.35, 0.35, 1.0},
+    input_line_background_warm = Vector4.{0.45, 0.35, 0.35, 1.0},
+    input_line_foreground =      Vector4.{1.0, 1.0, 1.0, 1.0},
+    input_line_border = 2,
+    input_line_text_size = 16,
 
     scrollbar_groove_background =      Vector4.{0.25, 0.35, 0.25, 1.0},
     scrollbar_handle_background =      Vector4.{0.35, 0.55, 0.35, 1.0},
@@ -147,8 +147,8 @@ alternate_theme := Theme.{
     scrollbar_min_handle_size = 1.0 / 40,
     scrollbar_size = 20,
 
-    text_box_text_size = 16,
-    text_box_row_height = 20,
+    input_box_text_size = 16,
+    input_box_row_height = 20,
 
     data_table_background_warm = Vector4.{0.75, 0.55, 0.55, 1.0},
     data_table_foreground_warm = Vector4.{0.1, 0.1, 0.1, 1.0},
@@ -164,8 +164,8 @@ locked_theme := Theme.{
 
     label_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
 
-    text_input_border_color = Vector4.{0.4, 0.4, 0.4, 1.0},
-    text_input_background   = Vector4.{0.3, 0.3, 0.3, 1.0},
+    input_line_border_color = Vector4.{0.4, 0.4, 0.4, 1.0},
+    input_line_background   = Vector4.{0.3, 0.3, 0.3, 1.0},
 
     scrollbar_groove_background = Vector4.{0.3, 0.3, 0.3, 1.0},
     scrollbar_handle_background = Vector4.{0.4, 0.4, 0.4, 1.0},
@@ -466,9 +466,8 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
         inherited_flags := window.flags & xx window_decoration_inherit_mask;
 
         if window == warm_window || window == focussed_window {
-            outside := grow(panel, 1);
             color := ifx window == focussed_window then theme.window_outline_focussed else theme.window_outline_warm;
-            draw_outline(outside, color);
+            draw_outline(panel, color);
         }
 
         title_bar_row:, panel = split_top_bottom(panel, theme.window_decoration_size);
@@ -504,7 +503,7 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     switch_theme();
 
     if flags & .CLOSE {
-        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 0, 1);
         with_scissor(window_decoration_rect, flags);
         Simp.set_shader_for_color();
 
@@ -767,35 +766,35 @@ draw_checkbox :: (using checkbox: *Checkbox) {
     }
 }
 
-draw_text_input :: (using text_input: *Text_Input) {
+draw_input_line :: (using input_line: *Input_Line) {
     assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
-    text_input_rect := shrink(calculated_rect, 0, 0, 1, 1);
-    with_scissor(text_input_rect, flags);
+    input_line_rect := shrink(calculated_rect, 0, 0, 1, 1);
+    with_scissor(input_line_rect, flags);
     Simp.set_shader_for_color();
 
-    draw_rect(text_input_rect, theme.text_input_border_color);
-    color := warm_hot_else(text_input, theme.text_input_background_warm, theme.text_input_background_hot, theme.text_input_background);
-    text_input_rect = shrink(text_input_rect, theme.text_input_border);
-    draw_rect(text_input_rect, color);
+    draw_rect(input_line_rect, theme.input_line_border_color);
+    color := warm_hot_else(input_line, theme.input_line_background_warm, theme.input_line_background_hot, theme.input_line_background);
+    input_line_rect = shrink(input_line_rect, theme.input_line_border);
+    draw_rect(input_line_rect, color);
 
-    if !has_focus(text_input) {
+    if !has_focus(input_line) {
         if !text  return;
 
-        text_rect := shrink(text_input_rect, theme.padding);
+        text_rect := shrink(input_line_rect, theme.padding);
         with_scissor(text_rect, flags);
-        font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text, fit_width(text_rect, flags));
+        font, text_width := get_font(sans_font(flags), theme.input_line_text_size, text, fit_width(text_rect, flags));
 
         text_x, text_y := text_origin(left_align(flags), font, text_rect, text_width);
-        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.text_input_foreground);
+        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.input_line_foreground);
         return;
     }
 
-    text_rect := shrink(text_input_rect, theme.padding);
+    text_rect := shrink(input_line_rect, theme.padding);
     cursor_rect : Rect = ---;
-    font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text_edit.before_cursor, 0);
+    font, text_width := get_font(sans_font(flags), theme.input_line_text_size, text_edit.before_cursor, 0);
      {
         with_scissor(text_rect, flags);
         text_edit.cursor_x = ifx text_width < text_rect.w then text_width else text_rect.w / 2;
@@ -808,7 +807,7 @@ draw_text_input :: (using text_input: *Text_Input) {
         if has_selection {
             s := text_edit.as_string;
             s.count = text_edit.select_anchor;
-            _, selection_x := get_font(sans_font(flags), theme.text_input_text_size, s, 0);
+            _, selection_x := get_font(sans_font(flags), theme.input_line_text_size, s, 0);
             selection_x += text_x;
 
             selection_rect := right_rect;
@@ -823,8 +822,8 @@ draw_text_input :: (using text_input: *Text_Input) {
             draw_rect(selection_rect, theme.selection_color);
         }
 
-        font, text_width = get_font(sans_font(flags), theme.text_input_text_size, text_edit.as_string, 0);
-        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.text_input_foreground);
+        font, text_width = get_font(sans_font(flags), theme.input_line_text_size, text_edit.as_string, 0);
+        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.input_line_foreground);
     }
 
     cursor_rect.x -= 1;
@@ -869,7 +868,7 @@ draw_data_table :: (using data_table: *Data_Table) {
 
 draw_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) { }
 
-draw_text_box :: (using text_box: *Text_Box) { }
+draw_input_box :: (using input_box: *Input_Box) { }
 
 
 bite_text_line_for_width :: (text: string, default_font: Font_Style, size: s16, flags: Flags, width: int) -> line: string, remainder: string {

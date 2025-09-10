@@ -99,13 +99,11 @@ main :: () {
         label_window :=    window(draw_label_window,    "Label",    at(0.55, 0.05,  0.95, 0.45), initially_closed=true);
         icon_window :=     window(draw_icon_window,     "Icon",     at(0.05, 0.05,  0.25, 0.25), DEFAULT_WINDOW_FLAGS | .SCROLLBARS | .THEME_A, initially_closed=true);
         button_window :=   window(draw_button_window,   "Button",   at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
-        keyboard_window := window(draw_keyboard_window, "Keyboard", at(0.25, 0.25,  0.75, 0.75), initially_closed=false);
+        keyboard_window := window(draw_keyboard_window, "Keyboard", at(0.25, 0.25,  0.75, 0.75), initially_closed=true);
 
         array_reset(*on_screen_log);
 
         for keyboard.keys  if it & .START  last_pressed_key_code = cast(Key_Code) it_index;
-
-        Input.dump_held_keys();
 
         top, middle, bottom := split_top_middle_bottom(application_panel, 100, -100);
         left, right := split_left_right(middle, 0.5);
@@ -149,13 +147,13 @@ main :: () {
                 button(it, at(button_panel,  box(.COPY_DOWN)),  lorem[it % lorem.count], .LEFT | .SERIF);
         }
 
-        clicked=, _text_box := text_box(at(bottom, 0.5,0.0, 0.8,ord(1.0,-20)), lorem_text, .SMOOTH);
+        clicked=, _input_box := input_box(at(bottom, 0.5,0.0, 0.8,ord(1.0,-20)), lorem_text, .SMOOTH);
         if clicked {
-            using _text_box;
+            using _input_box;
             start_toast(labels[clicked_row_index - first_visible_row_index].text);
         }
 
-        text_input(shrink(at_top(left, height), 0.2, 0), "Hola");
+        input_line(shrink(at_top(left, height), 0.2, 0), "Hola");
         icon(at(.FILL_LEFT), .Z_WAVE, height, .RIGHT);
 
         s_min :: -3;
@@ -200,7 +198,7 @@ main :: () {
             size :: 32;
             icon_search_panel := at(left, -size*13-theme.scrollbar_size-20,ord(0.5,-100), ord(1.0,-20),ord(0.5,+100));
             top, bottom := split_top_bottom(icon_search_panel, size);
-            search_text, search_input := text_input(at_left(top, -size), "", .IMMEDIATE);
+            search_text, search_input := input_line(at_left(top, -size), "", .IMMEDIATE);
             if button(at_right(top, -size), .FILTER_REMOVE) {
                 set_text(search_input, "");
             }

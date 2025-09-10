@@ -9,7 +9,6 @@ is_key_held :: inline (vkey: u32) -> bool {
 }
 
 dump_held_keys :: () {
-    print("Held keys:\n");
     for key_down_table  print(" %: %\n", it_index, it);
 }
 
@@ -853,7 +852,6 @@ maybe_send_vkey_event :: (vkey: u64, key_down: bool, repeat := false, extended :
 }
 
 send_key_event :: (key_code: Key_Code, key_down: bool, repeat := false) {
-    print("Sending key event % % %\n", key_code, key_down, repeat);
     if key_code == .ALT     alt_state   = key_down;
     if key_code == .SHIFT   shift_state = key_down;
     if key_code == .CONTROL    ctrl_state  = key_down;  // @Cleanup: Look at what I do in the Braid code because this is bananas.

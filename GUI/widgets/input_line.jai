@@ -1,4 +1,4 @@
-Text_Input :: struct {
+Input_Line :: struct {
     #as using widget: Widget;
 
     initialized := false;
@@ -7,29 +7,29 @@ Text_Input :: struct {
 }
 
 
-text_input :: (panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Text_Input {
-    text, widget := _text_input(0, panel, flags, initial_text, tooltip, callsite_key(callsite));
+input_line :: (panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Input_Line {
+    text, widget := _input_line(0, panel, flags, initial_text, tooltip, callsite_key(callsite));
     return text, widget;
 }
 
-text_input :: (id: int, panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Text_Input {
-    text, widget := _text_input(id, panel, flags, initial_text, tooltip, callsite_key(callsite));
+input_line :: (id: int, panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> text: string, *Input_Line {
+    text, widget := _input_line(id, panel, flags, initial_text, tooltip, callsite_key(callsite));
     return text, widget;
 }
 
-text_input :: (text_input: *Text_Input, panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "") -> text: string, *Text_Input {
-    text, widget := _text_input(text_input, panel, flags, initial_text, tooltip);
+input_line :: (input_line: *Input_Line, panel: *Panel, initial_text: string, flags := Flags.NONE, tooltip := "") -> text: string, *Input_Line {
+    text, widget := _input_line(input_line, panel, flags, initial_text, tooltip);
     return text, widget;
 }
 
 
-select_all :: (text_input: *Text_Input) {
-    if text_edit.currently_editting == text_input
+select_all :: (input_line: *Input_Line) {
+    if text_edit.currently_editting == input_line
         set_text_edit_selection(0, text_edit.bytes.count);
 }
 
-copy_selection :: (text_input: *Text_Input) {
-    if text_edit.currently_editting != text_input
+copy_selection :: (input_line: *Input_Line) {
+    if text_edit.currently_editting != input_line
         return;
 
     using text_edit;
@@ -38,8 +38,8 @@ copy_selection :: (text_input: *Text_Input) {
         os_clipboard_set_text(string.{end - start, *bytes[start]});
 }
 
-cut_selection :: (text_input: *Text_Input) {
-    if text_edit.currently_editting != text_input
+cut_selection :: (input_line: *Input_Line) {
+    if text_edit.currently_editting != input_line
         return;
 
     using text_edit;
@@ -50,20 +50,20 @@ cut_selection :: (text_input: *Text_Input) {
     }
 }
 
-paste :: (text_input: *Text_Input) {
-    if text_edit.currently_editting != text_input
+paste :: (input_line: *Input_Line) {
+    if text_edit.currently_editting != input_line
         return;
 
     insert_text_edit(os_clipboard_get_text());
 }
 
-set_text :: (text_input: *Text_Input, text: string) {
-    if has_focus(text_input) && text_input.flags & .IMMEDIATE
-        set_text_edit(text_input, text);
+set_text :: (input_line: *Input_Line, text: string) {
+    if has_focus(input_line) && input_line.flags & .IMMEDIATE
+        set_text_edit(input_line, text);
     else {
-        if text_input.text  free(text_input.text);
-        text_input.text = copy_string(text);
-        set_changed(text_input);
+        if input_line.text  free(input_line.text);
+        input_line.text = copy_string(text);
+        set_changed(input_line);
     }
 }
 
@@ -71,40 +71,41 @@ set_text :: (text_input: *Text_Input, text: string) {
 #scope_module
 
 
-text_input_data: Table(u64, Text_Input);
+input_line_data: Table(u64, Input_Line);
 
 
-_text_input :: inline (id: int, panel: *Panel, flags: Flags, initial_text: string, tooltip: string, callsite_key: u64) -> text: string, *Text_Input {
+_input_line :: inline (id: int, panel: *Panel, flags: Flags, initial_text: string, tooltip: string, callsite_key: u64) -> text: string, *Input_Line {
     key := widget_key(id, currently_drawing_window, callsite_key);
-    text_input := find_or_add(*text_input_data, key);
-    text := _text_input(text_input, panel, flags, initial_text, tooltip);
-    return text, text_input;
+    input_line := find_or_add(*input_line_data, key);
+    text := _input_line(input_line, panel, flags, initial_text, tooltip);
+    return text, input_line;
 }
 
-_text_input :: (text_input: *Text_Input, panel: *Panel, flags: Flags, initial_text: string, tooltip: string) -> text: string, *Text_Input {
-    text := ifx text_input.initialized then text_input.text else copy_string(initial_text);
-    text_input.* = .{ .{panel, .TEXT_INPUT, tooltip, flags}, true, text };
+_input_line :: (input_line: *Input_Line, panel: *Panel, flags: Flags, initial_text: string, tooltip: string) -> text: string, *Input_Line {
+    text := ifx input_line.initialized then input_line.text else copy_string(initial_text);
+    input_line.* = .{ .{panel, .INPUT_LINE, tooltip, flags}, true, text };
     last_widget_panel = panel.*;
 
-    update_text_input(text_input);
-    draw_text_input(text_input);
+    update_input_line(input_line);
+    draw_input_line(input_line);
 
-    if has_focus(text_input) && flags & .IMMEDIATE
-        return text_edit.as_string, text_input;
+    if has_focus(input_line) && flags & .IMMEDIATE
+        return text_edit.as_string, input_line;
     else
-        return text_input.text, text_input;
+        return input_line.text, input_line;
 }
 
-update_text_input :: (using text_input: *Text_Input) {
-    was_hot := is_hot(text_input);
-    update_widget(text_input);
+update_input_line :: (using input_line: *Input_Line) {
+    was_hot := is_hot(input_line);
+    update_widget(input_line);
 
-    if has_focus(text_input) {
-        insert_text_edit(keyboard.typed_this_frame());
+    if has_focus(input_line) {
+        if keyboard.any_typing_this_frame()
+            insert_text_edit(keyboard.eat_typed_this_frame());
 
-        if was_clicked(keyboard.escape)     remove_focus(text_input, .CANCELLED);
-        if was_clicked(keyboard.enter)      remove_focus(text_input, .CONFIRMED);
-        if was_clicked(keyboard.tab)        remove_focus(text_input, .UNDETERMINED);
+        if was_clicked(keyboard.escape)     remove_focus(input_line, .CANCELLED);
+        if was_clicked(keyboard.enter)      remove_focus(input_line, .CONFIRMED);
+        if was_clicked(keyboard.tab)        remove_focus(input_line, .UNDETERMINED);
         if was_clicked(keyboard.left)       move_cursor(-1, xx keyboard.shift);
         if was_clicked(keyboard.right)      move_cursor(+1, xx keyboard.shift);
         if was_clicked(keyboard.backspace)  backspace();
@@ -113,25 +114,25 @@ update_text_input :: (using text_input: *Text_Input) {
         if was_clicked(keyboard.end)        set_text_edit_cursor(text_edit.bytes.count, xx keyboard.shift);
 
         if keyboard.control {
-            if was_clicked(keyboard.a)  select_all(text_input);
-            if was_clicked(keyboard.c)  copy_selection(text_input);
-            if was_clicked(keyboard.x)  cut_selection(text_input);
-            if was_clicked(keyboard.v)  paste(text_input);
+            if was_clicked(keyboard.a)  select_all(input_line);
+            if was_clicked(keyboard.c)  copy_selection(input_line);
+            if was_clicked(keyboard.x)  cut_selection(input_line);
+            if was_clicked(keyboard.v)  paste(input_line);
         }
     }
 
-    if is_hot(text_input) && !was_hot {
-        focus(text_input);
-        set_text_edit(text_input, text);
+    if is_hot(input_line) && !was_hot {
+        focus(input_line);
+        set_text_edit(input_line, text);
     }
 }
 
 
-lost_focus ::  (using text_input: *Text_Input, reason: Lost_Focus_Reason) {
+lost_focus ::  (using input_line: *Input_Line, reason: Lost_Focus_Reason) {
     if reason == .CONFIRMED || (reason == .UNDETERMINED && flags & .IMMEDIATE) {
         free(text);
         text = copy_string(text_edit.as_string);
-        set_changed(text_input);
+        set_changed(input_line);
     }
 }
 

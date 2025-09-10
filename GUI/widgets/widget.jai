@@ -11,11 +11,11 @@ Widget :: struct {
         CHECKBOX;
         DATA_TABLE;
         ICON;
+        INPUT_BOX;
+        INPUT_LINE;
         LABEL;
         SCROLLABLE_PANEL;
         SCROLLBAR;
-        TEXT_BOX;
-        TEXT_INPUT;
     }
 
     tooltip : string;
@@ -193,7 +193,7 @@ use_scrollwheel :: (using widget: *Widget) {
         case .DATA_TABLE;        use_scrollwheel(*(cast(*Data_Table(void))widget).scrollbar);
         case .SCROLLABLE_PANEL;  use_scrollwheel(cast(*Scrollable_Panel) widget);
         case .SCROLLBAR;         use_scrollwheel(cast(*Scrollbar) widget);
-        case .TEXT_BOX;          use_scrollwheel(*(cast(*Text_Box)widget).scrollbar);
+        case .INPUT_BOX;          use_scrollwheel(*(cast(*Input_Box)widget).scrollbar);
         case .WINDOW;            use_scrollwheel(cast(*Window) widget);
     }
 }
