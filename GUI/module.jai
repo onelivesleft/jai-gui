@@ -9,8 +9,14 @@
 );
 
 #load "GUI.jai";
+use_better_skin :: false;
 
-#load "default_skin.jai";
+#if use_better_skin {
+    #load "fancy_skin.jai";
+}
+else {
+    #load "default_skin.jai";
+}
 
 #load "icons.jai";
 #load "positioning.jai";

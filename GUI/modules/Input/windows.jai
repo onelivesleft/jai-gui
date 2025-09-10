@@ -9,7 +9,8 @@ is_key_held :: inline (vkey: u32) -> bool {
 }
 
 dump_held_keys :: () {
-    for key_down_table  print("%: %\n", it_index, it);
+    print("Held keys:\n");
+    for key_down_table  print(" %: %\n", it_index, it);
 }
 
 #scope_export
@@ -54,6 +55,8 @@ get_key_code :: (wParam: WPARAM, extended := false) -> Key_Code {
     if wParam == VK_RBUTTON
         return MOUSE_BUTTON_RIGHT;
 
+    if wParam == VK_CAPITAL  return xx 20;
+
     if wParam == VK_SPACE   return xx 32;
 
     // @Incomplete: Convert this to if wParam == { ... }. Or even a lookup table of some kind.
@@ -81,6 +84,8 @@ get_key_code :: (wParam: WPARAM, extended := false) -> Key_Code {
         return SHIFT;
     if wParam == VK_CONTROL
         return C;
+    if wParam == VK_APPS
+        return APPLICATION;
     if wParam == VK_BACK
         return BACKSPACE;
     if wParam == VK_DELETE
@@ -279,7 +284,7 @@ MyWindowProc :: (hwnd: HWND, message: u32,
                 for key_down, vkey: key_down_table {
                     state := GetAsyncKeyState(cast,trunc(s32) vkey);
                     if !(state & 0x8000) {
-                        send_key_event(get_key_code(vkey), false);
+                        send_key_event(cast(Key_Code)vkey, false);
                         remove;
                     }
                 }
@@ -828,25 +833,27 @@ set_key_down_state :: (vkey : u32, is_down: bool) -> was_down:bool {
 
 
 maybe_send_vkey_event :: (vkey: u64, key_down: bool, repeat := false, extended := false, is_left_right_key_code := false, left_right_key_code := Key_Code.UNKNOWN) {
-    //was_down := set_key_down_state(cast,trunc(u32) vkey, key_down);
-    //if !key_down && !was_down {
-    //    // redundant key_up event
-    //    return;
-    //}
+    actual_key_code := left_right_key_code;
+    if !is_left_right_key_code then actual_key_code = get_key_code(vkey, extended);
 
-    //if key_down && repeat && !was_down {
-    //    // key was pressed while we didn't have focus so the first
-    //    // event we see is incorrectly labeled as a repeat.
-    //    repeat = false;
-    //}
 
-    if is_left_right_key_code
-        send_key_event(left_right_key_code, key_down, repeat);
-    else
-        send_key_event(get_key_code(vkey, extended), key_down, repeat);
+    was_down := set_key_down_state(cast,trunc(u32) actual_key_code, key_down);
+    if !key_down && !was_down {
+        // redundant key_up event
+        return;
+    }
+
+    if key_down && repeat && !was_down {
+        // key was pressed while we didn't have focus so the first
+        // event we see is incorrectly labeled as a repeat.
+        repeat = false;
+    }
+
+    send_key_event(actual_key_code, key_down, repeat);
 }
 
 send_key_event :: (key_code: Key_Code, key_down: bool, repeat := false) {
+    print("Sending key event % % %\n", key_code, key_down, repeat);
     if key_code == .ALT     alt_state   = key_down;
     if key_code == .SHIFT   shift_state = key_down;
     if key_code == .CONTROL    ctrl_state  = key_down;  // @Cleanup: Look at what I do in the Braid code because this is bananas.

@@ -26,6 +26,7 @@ Window_Draw_Proc :: #type (window: *Window);
 
 focussed_window: *Window;
 clicked_window: *Window;
+warm_window: *Window;
 currently_drawing_window: *Window;
 currently_dragging_window: *Window;
 

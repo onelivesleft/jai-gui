@@ -16,7 +16,9 @@ Theme :: struct {
 
     background_color := Vector4.{0.2, 0.2, 0.2, 1.0};
 
-    window_background_color := Vector4.{0.0, 0.0, 0.0, 0.5};
+    window_background_color := Vector4.{0.3, 0.3, 0.3, 0.7};
+    window_outline_focussed := Vector4.{0.65, 0.65, 0.85, 1.0};
+    window_outline_warm :=     Vector4.{0.45, 0.45, 0.65, 1.0};
 
     window_decoration_background         := Vector4.{0.35, 0.35, 0.55, 1.0};
     window_decoration_background_clicked := Vector4.{0.65, 0.65, 0.85, 1.0};
@@ -87,7 +89,9 @@ alternate_theme := Theme.{
 
     background_color = Vector4.{0.2, 0.2, 0.2, 1.0},
 
-    window_background_color = Vector4.{1.0, 1.0, 1.0, 0.25},
+    window_background_color = Vector4.{0.4, 0.3, 0.3, 0.7},
+    window_outline_focussed = Vector4.{0.65, 0.65, 0.85, 1.0},
+    window_outline_warm =     Vector4.{0.45, 0.45, 0.65, 1.0},
 
     window_decoration_background         = Vector4.{0.35, 0.55, 0.55, 1.0},
     window_decoration_background_clicked = Vector4.{0.65, 0.85, 0.85, 1.0},
@@ -443,6 +447,161 @@ init_skin :: () {
     Simp.bitmap_load_from_memory(*icon_bitmap_atlas, xx icon_bitmap_atlas_bytes);
 }
 
+
+application_window_resize :: (new_width: int, new_height: int, old_width: int, old_height: int) { }
+
+
+draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
+    window := currently_drawing_window;
+    theme := ifx is_locked(window.flags) then locked_theme else themes[theme_index(window.flags)];
+
+    panel := at(window);
+    if window.flags & .CLOSE | .TITLE_BAR  panel = grow(panel, theme.window_decoration_size, .UP);
+    if window.flags & .SCROLLBARS          panel = grow(panel, theme.window_decoration_scrollbar_size, .RIGHT);
+
+    #if mode == .BACKGROUND {
+        draw_box(panel, theme.window_background_color);
+    }
+    else #if mode == .FOREGROUND {
+        inherited_flags := window.flags & xx window_decoration_inherit_mask;
+
+        if window == warm_window || window == focussed_window {
+            outside := grow(panel, 1);
+            color := ifx window == focussed_window then theme.window_outline_focussed else theme.window_outline_warm;
+            draw_outline(outside, color);
+        }
+
+        title_bar_row:, panel = split_top_bottom(panel, theme.window_decoration_size);
+
+        if window.flags & .CLOSE {
+            title_bar_row=, close_button := split_left_right(title_bar_row, -theme.window_decoration_size);
+            window_decoration(close_button, .CLOSE | inherited_flags);
+        }
+
+        if window.flags & .TITLE_BAR {
+            window_decoration(title_bar_row, .TITLE_BAR | inherited_flags);
+        }
+
+        if !(window.flags & (.SCROLLBARS | .RESIZE))  return;
+
+        _, tr, bl, br := split_quadrants(panel, -theme.window_decoration_scrollbar_size, -theme.window_decoration_scrollbar_size);
+
+        if window.flags & .SCROLLBARS {
+            window_decoration(bl, .SCROLLBAR_HORIZONTAL | inherited_flags);
+            window_decoration(tr, .SCROLLBAR_VERTICAL | inherited_flags);
+        }
+
+        if window.flags & .RESIZE {
+            window_decoration(br, .RESIZE | inherited_flags);
+        }
+    }
+}
+
+
+draw_window_decoration :: (using window_decoration: *Window_Decoration) {
+    assert(calculated_rect_frame_index == frame.index);
+
+    switch_theme();
+
+    if flags & .CLOSE {
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        with_scissor(window_decoration_rect, flags);
+        Simp.set_shader_for_color();
+
+        color := ifx was_clicked(window_decoration)
+                 then theme.window_decoration_background_clicked
+                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        draw_rect(window_decoration_rect, color);
+
+        texture := get_icon_texture(.CLOSE_OUTLINE);
+
+        advance := window_decoration_rect.h - theme.padding;
+        icon_rect := shrink(window_decoration_rect, theme.padding);
+        if !(flags & .ICON_ON_RIGHT)
+            window_decoration_rect.x += advance;
+        window_decoration_rect.w -= advance;
+
+        if flags & .ICON_ON_RIGHT
+            icon_rect.x += icon_rect.w - icon_rect.h;
+        else
+            icon_rect.x += (icon_rect.h - icon_rect.w) / 2;
+        icon_rect.w = icon_rect.h;
+
+        p0, p1, p2, p3 := get_quad(icon_rect);
+        Simp.set_shader_for_images(texture);
+        Simp.immediate_quad(p0, p1, p2, p3, theme.icon_color);
+        Simp.immediate_flush();
+        return;
+    }
+
+    if flags & .TITLE_BAR {
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        with_scissor(window_decoration_rect, flags);
+        Simp.set_shader_for_color();
+
+        color := warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        draw_rect(window_decoration_rect, color);
+
+        if currently_drawing_window.text {
+            text_rect := shrink(window_decoration_rect, theme.padding);
+            font, text_width := get_font(sans_font(flags), theme.window_decoration_text_size, currently_drawing_window.text, fit_width(text_rect, flags));
+
+            text_x, text_y := text_origin(center_align(flags), font, text_rect, text_width);
+            Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.window_decoration_foreground);
+        }
+
+        return;
+    }
+
+    if flags & (.SCROLLBAR_HORIZONTAL | .SCROLLBAR_VERTICAL) {
+        scrollbar := ifx flags & .SCROLLBAR_HORIZONTAL
+                     then *currently_drawing_window._horizontal_scrollbar
+                     else *currently_drawing_window._vertical_scrollbar;
+        scrollbar.panel = window_decoration.panel;
+        maybe_calculate_rect(scrollbar);
+
+        Simp.set_shader_for_color();
+        with_scissor(scrollbar.calculated_rect, flags);
+
+        draw_rect(scrollbar.calculated_rect, theme.window_decoration_scrollbar_groove_background);
+
+        _, handle_rect, _ : = get_scrollbar_rects(scrollbar);
+        color := hot_warm_else(scrollbar, theme.window_decoration_scrollbar_handle_background_hot, theme.window_decoration_scrollbar_handle_background_warm, theme.window_decoration_scrollbar_handle_background);
+        draw_rect(shrink(handle_rect, 1), color);
+
+        return;
+    }
+
+    if flags & .RESIZE {
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        with_scissor(window_decoration_rect, flags);
+        Simp.set_shader_for_color();
+
+        color := ifx was_clicked(window_decoration)
+                 then theme.window_decoration_background_clicked
+                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        texture := get_icon_texture(.RESIZE_BOTTOM_RIGHT);
+
+        p0, p1, p2, p3 := get_quad(window_decoration_rect);
+        Simp.set_shader_for_images(texture);
+        Simp.immediate_quad(p0, p1, p2, p3, theme.icon_color);
+        Simp.immediate_flush();
+        return;
+    }
+
+    if flags & .MOVE {
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        with_scissor(window_decoration_rect, flags);
+        Simp.set_shader_for_color();
+        color := ifx was_clicked(window_decoration)
+                 then theme.window_decoration_background_clicked
+                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        draw_rect(window_decoration_rect, color);
+        return;
+    }
+}
+
+
 draw_tooltip :: (using widget: *Widget) {
     assert(calculated_rect_frame_index == frame.index);
 
@@ -712,156 +871,6 @@ draw_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) { }
 
 draw_text_box :: (using text_box: *Text_Box) { }
 
-draw_window :: (mode: enum {BACKGROUND; FOREGROUND;}) {
-    window := currently_drawing_window;
-    theme := ifx is_locked(window.flags) then locked_theme else themes[theme_index(window.flags)];
-
-    panel := at(window);
-    if window.flags & .CLOSE | .TITLE_BAR  panel = grow(panel, theme.window_decoration_size, .UP);
-    if window.flags & .SCROLLBARS          panel = grow(panel, theme.window_decoration_scrollbar_size, .RIGHT);
-
-    if mode == .BACKGROUND {
-        draw_box(panel, theme.window_background_color);
-        return;
-    }
-
-    inherited_flags := window.flags & xx window_decoration_inherit_mask;
-
-    title_bar_row:, panel = split_top_bottom(panel, theme.window_decoration_size);
-
-    if window.flags & .CLOSE {
-        title_bar_row=, close_button := split_left_right(title_bar_row, -theme.window_decoration_size);
-        window_decoration(close_button, .CLOSE | inherited_flags);
-    }
-
-    if window.flags & .TITLE_BAR {
-        window_decoration(title_bar_row, .TITLE_BAR | inherited_flags);
-    }
-
-    if window.flags & .MOVE {
-        tl :: 10;
-        br := tl + theme.window_decoration_size;
-        window_decoration(at(window, tl,tl, br,br), .MOVE | inherited_flags);
-    }
-
-    if !(window.flags & (.SCROLLBARS | .RESIZE))  return;
-
-    _, tr, bl, br := split_quadrants(panel, -theme.window_decoration_scrollbar_size, -theme.window_decoration_scrollbar_size);
-
-    if window.flags & .SCROLLBARS {
-        window_decoration(bl, .SCROLLBAR_HORIZONTAL | inherited_flags);
-        window_decoration(tr, .SCROLLBAR_VERTICAL | inherited_flags);
-    }
-
-    if window.flags & .RESIZE {
-        window_decoration(br, .RESIZE | inherited_flags);
-    }
-}
-
-
-draw_window_decoration :: (using window_decoration: *Window_Decoration) {
-    assert(calculated_rect_frame_index == frame.index);
-
-    switch_theme();
-
-    if flags & .CLOSE {
-        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
-        with_scissor(window_decoration_rect, flags);
-        Simp.set_shader_for_color();
-
-        color := ifx was_clicked(window_decoration)
-                 then theme.window_decoration_background_clicked
-                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
-        draw_rect(window_decoration_rect, color);
-
-        texture := get_icon_texture(.CLOSE_OUTLINE);
-
-        advance := window_decoration_rect.h - theme.padding;
-        icon_rect := shrink(window_decoration_rect, theme.padding);
-        if !(flags & .ICON_ON_RIGHT)
-            window_decoration_rect.x += advance;
-        window_decoration_rect.w -= advance;
-
-        if flags & .ICON_ON_RIGHT
-            icon_rect.x += icon_rect.w - icon_rect.h;
-        else
-            icon_rect.x += (icon_rect.h - icon_rect.w) / 2;
-        icon_rect.w = icon_rect.h;
-
-        p0, p1, p2, p3 := get_quad(icon_rect);
-        Simp.set_shader_for_images(texture);
-        Simp.immediate_quad(p0, p1, p2, p3, theme.icon_color);
-        Simp.immediate_flush();
-        return;
-    }
-
-    if flags & .TITLE_BAR {
-        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
-        with_scissor(window_decoration_rect, flags);
-        Simp.set_shader_for_color();
-
-        color := warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
-        draw_rect(window_decoration_rect, color);
-
-        if currently_drawing_window.text {
-            text_rect := shrink(window_decoration_rect, theme.padding);
-            font, text_width := get_font(sans_font(flags), theme.window_decoration_text_size, currently_drawing_window.text, fit_width(text_rect, flags));
-
-            text_x, text_y := text_origin(center_align(flags), font, text_rect, text_width);
-            Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.window_decoration_foreground);
-        }
-
-        return;
-    }
-
-    if flags & (.SCROLLBAR_HORIZONTAL | .SCROLLBAR_VERTICAL) {
-        scrollbar := ifx flags & .SCROLLBAR_HORIZONTAL
-                     then *currently_drawing_window._horizontal_scrollbar
-                     else *currently_drawing_window._vertical_scrollbar;
-        scrollbar.panel = window_decoration.panel;
-        maybe_calculate_rect(scrollbar);
-
-        Simp.set_shader_for_color();
-        with_scissor(scrollbar.calculated_rect, flags);
-
-        draw_rect(scrollbar.calculated_rect, theme.window_decoration_scrollbar_groove_background);
-
-        _, handle_rect, _ : = get_scrollbar_rects(scrollbar);
-        color := hot_warm_else(scrollbar, theme.window_decoration_scrollbar_handle_background_hot, theme.window_decoration_scrollbar_handle_background_warm, theme.window_decoration_scrollbar_handle_background);
-        draw_rect(shrink(handle_rect, 1), color);
-
-        return;
-    }
-
-    if flags & .RESIZE {
-        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
-        with_scissor(window_decoration_rect, flags);
-        Simp.set_shader_for_color();
-
-        color := ifx was_clicked(window_decoration)
-                 then theme.window_decoration_background_clicked
-                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
-        texture := get_icon_texture(.RESIZE_BOTTOM_RIGHT);
-
-        p0, p1, p2, p3 := get_quad(window_decoration_rect);
-        Simp.set_shader_for_images(texture);
-        Simp.immediate_quad(p0, p1, p2, p3, theme.icon_color);
-        Simp.immediate_flush();
-        return;
-    }
-
-    if flags & .MOVE {
-        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
-        with_scissor(window_decoration_rect, flags);
-        Simp.set_shader_for_color();
-        color := ifx was_clicked(window_decoration)
-                 then theme.window_decoration_background_clicked
-                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
-        draw_rect(window_decoration_rect, color);
-        return;
-    }
-}
-
 
 bite_text_line_for_width :: (text: string, default_font: Font_Style, size: s16, flags: Flags, width: int) -> line: string, remainder: string {
     if !text  return "", "";
@@ -904,10 +913,15 @@ widget_lost_warm_time ::       (widget: *Widget, time: float64) { }
 widget_became_hot_time ::      (widget: *Widget, time: float64) { }
 widget_lost_hot_time ::        (widget: *Widget, time: float64) { }
 widget_became_focussed_time :: (widget: *Widget, time: float64) { }
-widget_lost_focussed_time ::   (widget: *Widget, time: float64) { }
+widget_lost_focus_time ::   (widget: *Widget, time: float64) { }
 widget_was_clicked_time ::     (widget: *Widget, time: float64) { }
 widget_was_released_time ::    (widget: *Widget, time: float64) { }
 widget_was_changed_time ::     (widget: *Widget, time: float64) { }
+
+window_became_warm_time ::     (window: *Window, time: float64) { }
+window_lost_warm_time ::       (window: *Window, time: float64) { }
+window_became_focussed_time :: (window: *Window, time: float64) { }
+window_lost_focus_time ::   (window: *Window, time: float64) { }
 
 
 #scope_export
@@ -956,6 +970,19 @@ draw_box :: inline (panel: *Panel, color: Vector4) {
 draw_box :: (rect: Rect, color: Vector4) {
     Simp.set_shader_for_color(true);
     draw_rect(rect, color);
+}
+
+draw_outline :: inline (panel: *Panel, color: Vector4) {
+    rect := calculate_rect(panel);
+    draw_outline(rect, color);
+}
+
+draw_outline :: (rect: Rect, color: Vector4) {
+    Simp.set_shader_for_color(true);
+    draw_rect(.{rect.x, rect.y, rect.w, 1}, color);
+    draw_rect(.{rect.x + rect.w, rect.y, 1, rect.h}, color);
+    draw_rect(.{rect.x, rect.y + rect.h, rect.w, 1}, color);
+    draw_rect(.{rect.x, rect.y, 1, rect.h}, color);
 }
 
 draw_text :: inline (panel: *Panel, text: string, color: Vector4, size : s16 = 0, align := Text_Alignment.CENTER, font_style := Font_Style.SANS) -> text_width: float {

@@ -47,7 +47,7 @@ Key_Code :: enum u8 {
     SHIFT :: 0x10;
     CONTROL :: 0x11;
     ALT :: 0x12;
-    CAPITAL :: 0x14;
+    CAPSLOCK :: 0x14;
     KANA :: 0x15;
     IME_ON :: 0x16;
     JUNJA :: 0x17;
@@ -198,6 +198,7 @@ Key_Code :: enum u8 {
     MOUSE_BUTTON_X1 :: 0xeb;
     MOUSE_BUTTON_X2 :: 0xec;
     PRINTSCREEN :: 0xed;
+    APPLICATION :: 0xee;
     ATTN :: 0xf6;
     CRSEL :: 0xf7;
     EXSEL :: 0xf8;

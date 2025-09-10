@@ -28,6 +28,7 @@ Custom_Widget :: struct {
     #as using widget: Widget;
     type = .CUSTOM_WIDGET;
 
+    data_type: Type;
     data: *void;
 }
 
@@ -41,6 +42,22 @@ widget :: (id: int, panel: *Panel, flags := Flags.NONE, tooltip := "", $callsite
 
 widget :: (widget: *Custom_Widget, panel: *Panel, flags := Flags.NONE, tooltip := "") -> *Custom_Widget {
     return _widget(widget, panel, flags, tooltip);
+}
+
+
+widget :: ($custom_data_type: Type, panel: *Panel, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget, data: *custom_data_type, was_allocated: bool {
+    custom_widget, data, was_allocated := _widget(0, panel, flags, tooltip, callsite_key(callsite), custom_data_type);
+    return custom_widget, data, was_allocated;
+}
+
+widget :: ($custom_data_type: Type, id: int, panel: *Panel, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget, data: *custom_data_type, was_allocated: bool {
+    custom_widget, data, was_allocated := _widget(id, panel, flags, tooltip, callsite_key(callsite), custom_data_type);
+    return custom_widget, data, was_allocated;
+}
+
+widget :: ($custom_data_type: Type, widget: *Custom_Widget, panel: *Panel, flags := Flags.NONE, tooltip := "") -> *Custom_Widget, data: *custom_data_type, was_allocated: bool {
+    custom_widget, data, was_allocated := _widget(widget, panel, flags, tooltip, custom_data_type);
+    return custom_widget, data, was_allocated;
 }
 
 
@@ -63,6 +80,30 @@ _widget :: (widget: *Custom_Widget, panel: *Panel, flags: Flags, tooltip: string
     update_widget(widget);
 
     return widget;
+}
+
+
+_widget :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, callsite_key: u64, $custom_data_type: Type) -> *Custom_Widget, data: *custom_data_type, was_allocated: bool {
+    key := widget_key(id, currently_drawing_window, callsite_key);
+    widget := find_or_add(*custom_widget_data, key);
+    custom_widget, data, was_allocated := _widget(widget, panel, flags, tooltip, custom_data_type);
+    return custom_widget, data, was_allocated;
+}
+
+_widget :: (widget: *Custom_Widget, panel: *Panel, flags: Flags, tooltip: string, $custom_data_type: Type) -> *Custom_Widget, data: *custom_data_type, was_allocated: bool {
+    widget.widget = .{ panel, .CUSTOM_WIDGET, tooltip, flags };
+    widget.data_type = custom_data_type;
+    last_widget_panel = panel.*;
+    was_allocated := false;
+    if !widget.data {
+        widget.data = New(custom_data_type);
+        was_allocated = true;
+    }
+    data := cast(*custom_data_type) widget.data;
+
+    update_widget(widget);
+
+    return widget, data, was_allocated;
 }
 
 
@@ -136,9 +177,11 @@ update_widget :: (using widget: *Widget) {
 
     if is_warm(widget) {
         if !is_mouse_over {
-            set_warm(widget, false);
+            set_warm_widget(widget, false);
         }
         else if mouse.left_button_start {
+            if focussed_window != currently_drawing_window
+                focus_window(currently_drawing_window);
             set_hot(widget, true);
             set_clicked(widget);
         }

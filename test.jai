@@ -14,8 +14,9 @@ word_count_ptr : [..] *Word_Count;
 
 found_icons : [..] Icon_Id;
 icon_names : [..] string;
-max_found_buttons :: 256;
+max_found_buttons :: 8000;
 buttons : [max_found_buttons] Button;
+icon_scrollable_panel: *Scrollable_Panel;
 
 toast_text: string;
 toast_pos: Vector2;
@@ -24,6 +25,11 @@ toast_start_time: Frame_Time;
 toast_duration : Frame_Time : 2.0;
 toast_gravity :: 200.0;
 toast_up_speed :: 200.0;
+
+on_screen_log: [..] string;
+log :: (format_string: string, args: .. Any) {
+    array_add(*on_screen_log, tprint(format_string, ..args));
+}
 
 
 main_pointer: *u64;
@@ -95,7 +101,11 @@ main :: () {
         button_window :=   window(draw_button_window,   "Button",   at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
         keyboard_window := window(draw_keyboard_window, "Keyboard", at(0.25, 0.25,  0.75, 0.75), initially_closed=false);
 
+        array_reset(*on_screen_log);
+
         for keyboard.keys  if it & .START  last_pressed_key_code = cast(Key_Code) it_index;
+
+        Input.dump_held_keys();
 
         top, middle, bottom := split_top_middle_bottom(application_panel, 100, -100);
         left, right := split_left_right(middle, 0.5);
@@ -220,21 +230,31 @@ main :: () {
                     }
                 }
             }
-            panel_width : int = xx icon_search_panel.calculated_rect.w - theme.scrollbar_size;
-            icons_per_row : int = panel_width / size;
-            panel_height : int = min(max_found_buttons, found_icons.count) / icons_per_row;
-            panel, scrollable_panel := push_scrollable_panel(at(bottom), panel_width, size * panel_height);
-                for found_icons {
-                    if it_index >= max_found_buttons  break;
-                    row := it_index / icons_per_row;
-                    col := it_index % icons_per_row;
-                    _button := *buttons[it_index];
-                    if button(_button, at(panel, col*size,row*size, (col+1)*size,(row+1)*size), it, tooltip=icon_names[it]) {
-                        start_toast(sprint(".%", it));
+            virtual_width : int = xx icon_search_panel.calculated_rect.w - theme.scrollbar_size;
+            icons_per_row : int = virtual_width / size;
+            total_row_count : int = min(max_found_buttons, found_icons.count) / icons_per_row + 1;
+            virtual_height := total_row_count * size;
+            panel_location := at(bottom);
+            calculate_rect(panel_location);
+            visible_row_count := cast(int)(panel_location.calculated_rect.h / size) + 2;
+            scrollable_row_count := total_row_count - visible_row_count + 1;
+            drawn_count := 0;
+            panel, icon_scrollable_panel := push_scrollable_panel(panel_location, virtual_width, virtual_height);
+                first_row := cast(int)(icon_scrollable_panel._vertical_scrollbar.float_value * scrollable_row_count);
+                first_icon := clamp(first_row * icons_per_row, 0, found_icons.count - 1);
+                last_icon := clamp(first_icon + visible_row_count * icons_per_row, first_icon, found_icons.count - 1);
+                if found_icons  for index: first_icon .. last_icon {
+                    icon := found_icons[index];
+                    drawn_count += 1;
+                    row := index / icons_per_row;
+                    col := index % icons_per_row;
+                    _button := *buttons[index];
+                    if button(_button, at(panel, col*size,row*size, (col+1)*size,(row+1)*size), icon, tooltip=icon_names[icon]) {
+                        start_toast(sprint(".%", icon));
                         os_clipboard_set_text(toast_text);
                     }
                 }
-                if reset_scroll  scrollable_panel._vertical_scrollbar.float_value = 0;
+                if reset_scroll  icon_scrollable_panel._vertical_scrollbar.float_value = 0;
             pop_scrollable_panel();
         }
 
@@ -298,10 +318,20 @@ main :: () {
 
         gui_draw_windows();
 
-        label(at(60,1.0, 50,-110), tprint("Last pressed key: % 0x%", last_pressed_key_code, cast(*void) last_pressed_key_code), flags=.FIXED);
-        label(at(60,1.0, 50,-80),  tprint("Usable Area: %", icon_window.desired_box), flags=.FIXED);
-        label(at(60,1.0, 50,-50),  tprint("Warm: %", warm_widget), flags=.FIXED);
-        label(at(60,1.0, 50,-20),  tprint("Hot:  %", hot_widget), flags=.FIXED);
+        log("Last pressed key: % 0x%", last_pressed_key_code, cast(*void) last_pressed_key_code);
+        log("Usable Area: %", icon_window.desired_box);
+        log("Warm: %", warm_widget);
+        log("Hot:  %", hot_widget);
+        log("Focussed Window: %", focussed_window);
+        log("Warm Window:     %", warm_window);
+        {
+            step :: 30;
+            y := -20;
+            for on_screen_log {
+                label(at(60,1.0, 50,y), it, flags=.FIXED);
+                y -= step;
+            }
+        }
     }
 }
 
@@ -325,7 +355,33 @@ draw_button_window :: (window: *Window) {
 }
 
 draw_keyboard_window :: (window: *Window) {
-    key_widget(.BACKQUOTE, "`", at(10,10, 42,42));
+    left_edge := 10;
+    top_edge :: 10;
+    size :: 32;
+    spacing :: 2;
+    with_spacing(spacing);
+
+    row_top := top_edge;
+    next_row :: () #expand { row_top += size + spacing; }
+
+    key_widget(.ESCAPE, "ESC", at(left_edge,row_top, left_edge+size,row_top+size));
+    key_widget(.F1, "F1", at(left_edge+1*size+spacing+1*size/2,row_top, left_edge+2*size+spacing+1*size/2,row_top+size));
+    key_widget(.F2, "F2");
+    key_widget(.F3, "F3");
+    key_widget(.F4, "F4");
+    key_widget(.F5, "F5", at(left_edge+5*size+spacing+2*size/2,row_top, left_edge+6*size+spacing+2*size/2,row_top+size));
+    key_widget(.F6, "F6");
+    key_widget(.F7, "F7");
+    key_widget(.F8, "F8");
+    key_widget(.F9, "F9", at(left_edge+9*size+spacing+3*size/2,row_top, left_edge+10*size+spacing+3*size/2,row_top+size));
+    key_widget(.F10, "F10");
+    key_widget(.F11, "F11");
+    key_widget(.F12, "F12");
+
+    next_row();
+    row_top += spacing * 2;
+
+    key_widget(.BACKQUOTE, "`", at(left_edge,row_top, left_edge+size,row_top+size));
     key_widget(._1, .NUMERIC_1);
     key_widget(._2, .NUMERIC_2);
     key_widget(._3, .NUMERIC_3);
@@ -338,10 +394,13 @@ draw_keyboard_window :: (window: *Window) {
     key_widget(._0, .NUMERIC_0);
     key_widget(.MINUS, .MINUS);
     key_widget(.EQUALS, .EQUAL);
-    key_widget(.BACKSPACE, .BACKSPACE);
 
-    key_widget(.TAB, .KEYBOARD_TAB, at(10,44, 58,74));
-    key_widget(.Q, .ALPHA_Q, at(58,44, 90,74));
+    backspace := at(.COPY_RIGHT);
+
+    next_row();
+
+    key_widget(.TAB, .KEYBOARD_TAB, at(left_edge,row_top, left_edge+size+14,row_top+size));
+    key_widget(.Q, .ALPHA_Q, at(left_edge+size+14+spacing,row_top, left_edge+2*size+14+spacing,row_top+size));
     key_widget(.W, .ALPHA_W);
     key_widget(.E, .ALPHA_E);
     key_widget(.R, .ALPHA_R);
@@ -354,10 +413,14 @@ draw_keyboard_window :: (window: *Window) {
     key_widget(.LEFT_BRACKET, "[");
     key_widget(.RIGHT_BRACKET, "]");
 
-    key_widget(.ENTER, .KEYBOARD_RETURN);
+    left_of_return := at(.COPY_RIGHT);
+    left_of_return.desired_box.br.x -= 22;
+    key_widget(.ENTER, "", left_of_return);
 
-    //key_widget(.CAPSLOCK, .KEYBOARD_CAPS, at(10,44, 58,74)); //@TODO
-    key_widget(.A, .ALPHA_A, at(58,76, 90,106));
+    next_row();
+
+    key_widget(.CAPSLOCK, .KEYBOARD_CAPS, at(left_edge,row_top, left_edge+size+24,row_top+size)); //@TODO
+    key_widget(.A, .ALPHA_A, at(left_edge+size+24+spacing,row_top, left_edge+2*size+24+spacing,row_top+size));
     key_widget(.S, .ALPHA_S);
     key_widget(.D, .ALPHA_D);
     key_widget(.F, .ALPHA_F);
@@ -367,12 +430,21 @@ draw_keyboard_window :: (window: *Window) {
     key_widget(.K, .ALPHA_K);
     key_widget(.L, .ALPHA_L);
     key_widget(.SEMICOLON, ";");
-
     key_widget(.QUOTE, "'");
     key_widget(.HASH, "#");
 
-    key_widget(.LEFT_SHIFT, .APPLE_KEYBOARD_SHIFT, at(10,108, 58,138));
-    key_widget(.BACKSLASH, "\\", at(58,108, 90,138));
+    right_of_return := at(.COPY_RIGHT);
+    right_of_return.desired_box.tl.y -= 34;
+    right_of_main := right_of_return.desired_box.br.x;
+    key_widget(.ENTER, .KEYBOARD_RETURN, right_of_return);
+
+    backspace.desired_box.br.x = right_of_main;
+    key_widget(.BACKSPACE, .BACKSPACE, backspace);
+
+    next_row();
+
+    key_widget(.LEFT_SHIFT, .APPLE_KEYBOARD_SHIFT, at(left_edge,row_top, left_edge+size+14,row_top+size));
+    key_widget(.BACKSLASH, "\\", at(left_edge+size+14+spacing,row_top, left_edge+2*size+14,row_top+size));
     key_widget(.Z, .ALPHA_Z);
     key_widget(.X, .ALPHA_X);
     key_widget(.C, .ALPHA_C);
@@ -383,30 +455,77 @@ draw_keyboard_window :: (window: *Window) {
     key_widget(.COMMA, ",");
     key_widget(.PERIOD, ".");
     key_widget(.SLASH, "/");
-    key_widget(.RIGHT_SHIFT, .APPLE_KEYBOARD_SHIFT);
 
-    key_widget(.LEFT_CONTROL, "CTRL", at(10,140, 58,170));
-    key_widget(.LEFT_ALT, "ALT");
-    key_widget(.SPACE, " ");
-    key_widget(.RIGHT_ALT, "ALT");
-    key_widget(.RIGHT_CONTROL, "CTRL");
+    right_shift := at(.COPY_RIGHT);
+    right_shift.desired_box.br.x = right_of_main;
+    key_widget(.RIGHT_SHIFT, .APPLE_KEYBOARD_SHIFT, right_shift);
 
-    key_widget(.SHIFT, "Shift", at(100,192, 200,224));
+    next_row();
+
+    key_widget(.LEFT_CONTROL, "CTRL", at(left_edge,row_top, left_edge+size+16,row_top+size));
+    left_alt := at(.COPY_RIGHT);
+    right_ctrl := copy(left_alt);
+    key_widget(.LEFT_ALT, "ALT", left_alt);
+    left_of_space := at(.COPY_RIGHT);
+
+    delta := right_shift.desired_box.br.x - right_ctrl.desired_box.br.x;
+    right_ctrl.desired_box.tl.x += delta;
+    right_ctrl.desired_box.br.x += delta;
+    key_widget(.RIGHT_CONTROL, "CTRL", right_ctrl);
+    key_widget(.APPLICATION, "APP", at(.COPY_LEFT));
+    key_widget(.RIGHT_ALT, "ALT", at(.COPY_LEFT));
+
+    space := at(.COPY_LEFT);
+    space.desired_box.tl.x = left_of_space.desired_box.tl.x;
+    key_widget(.SPACE, " ", space);
+
+    //key_widget
+
+    next_row();
+    next_row();
+
+    key_widget(.SHIFT, "Shift", at(100,row_top, 200,row_top+size));
     key_widget(.CONTROL, "Ctrl");
     key_widget(.ALT, "Alt");
+
+
+    row_top = top_edge;
+    left_edge = right_of_main.abs + size / 2;
+
+    key_widget(.PRINT, .FIT_TO_SCREEN, at(left_edge,row_top, left_edge+size,row_top+size));
+    key_widget(.SCROLLLOCK, .ARROW_VERTICAL_LOCK);
+    key_widget(.PAUSE, .PAUSE);
+
+    next_row();
+    row_top += spacing * 2;
+
+    key_widget(.INSERT, "INS", at(left_edge,row_top, left_edge+size,row_top+size));
+    key_widget(.HOME, "HOME");
+    key_widget(.PAGEUP, "PGUP");
+    next_row();
+    key_widget(.DELETE, "DEL", at(left_edge,row_top, left_edge+size,row_top+size));
+    key_widget(.END, "END");
+    key_widget(.PAGEDOWN, "PGDN");
+    next_row();
+    next_row();
+    key_widget(.UP, .ARROW_UP_THIN, at(left_edge+size+spacing,row_top, left_edge+2*size+spacing,row_top+size));
+    next_row();
+    key_widget(.LEFT, .ARROW_LEFT_THIN, at(left_edge,row_top, left_edge+size,row_top+size));
+    key_widget(.DOWN, .ARROW_DOWN_THIN);
+    key_widget(.RIGHT, .ARROW_RIGHT_THIN);
+
 }
 
 // Custom key widget
 
 key_widget :: (key_code: Key_Code, text: string, icon_id: Icon_Id, panel: *Panel, $callsite := #caller_location) {
-    key_widget := widget(panel, callsite=callsite);
     Key_Widget_Data :: struct {
         from_color := Vector4.{0, 0, 0, 1.0};
         to_color := Vector4.{0, 0, 0, 1.0};
         time: Frame_Time;
     }
-    if !key_widget.data  key_widget.data = New(Key_Widget_Data);
-    key_widget_data := cast(*Key_Widget_Data) key_widget.data;
+
+    key_widget, key_widget_data := widget(Key_Widget_Data, panel, callsite=callsite);
 
     key_state := keyboard.keys[key_code];
     fade_duration :: 0.2;
@@ -429,8 +548,11 @@ key_widget :: (key_code: Key_Code, text: string, icon_id: Icon_Id, panel: *Panel
 
     Simp.set_shader_for_color();
     draw_box(panel, color);
+    size := cast(int) min(panel.calculated_rect.w, panel.calculated_rect.h) / 2;
+    panel = at(panel, ord(0.5,-size),ord(0.5,-size), ord(0.5,+size),ord(0.5,+size));
     if icon_id  draw_icon(panel, icon_id, .{1.0, 1.0, 1.0, 1.0});
-    if text     draw_text(panel, text, .{1.0, 1.0, 1.0, 1.0}, font_style=.FIXED);
+    text_size : s16 = cast,trunc(s16) ifx text.count > 2 then 14 else 16;
+    if text     draw_text(panel, text, .{1.0, 1.0, 1.0, 1.0}, text_size, font_style=.FIXED);
 }
 
 key_widget :: inline  (key_code: Key_Code, icon_id: Icon_Id, panel: *Panel, $callsite := #caller_location) {

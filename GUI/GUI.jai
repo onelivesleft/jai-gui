@@ -1,7 +1,9 @@
 // @TODO
-// [ ] Investigate reworking positioning so it doesn't use pointers+macros
+
+// [x] Investigate reworking positioning so it doesn't use pointers+macros
 // [x] Simplify (click on down, checkbox live)
 // [x] Click on down instead of up
+// [ ] skin module parameter
 // [.] Windows!
 //  [x] skin draw_window
 //  [x] Record bounds of widgets drawn in windows, to know how to size window interior.
@@ -11,14 +13,19 @@
 //   [ ] Min/Max sizes.
 //   [x] Mouse pointers
 //  [x] What will be do about window gadgets?
-//  [ ] Render window to its own buffer.
+//  [x] Render window to its own buffer.
 //  [x] Content scrolling / sizing.
+//  [ ] Active window, warm window
 // [ ] text_box input.  rename text_input and text_box?  Maybe just have one call, with a flag to specify multiline (will still be two widgets behind the scenes).
-// [ ] Keyboard
+// [x] Keyboard
 //  [x] start/held/end for clicks/keypresses?
 //  [x] Get Input to recognise most keys (e.g. left/right shift/ctrl/alt)
-//  [ ] Remove Input.events from user layer
+//  [x] Remove Input.events from user layer
+// [x] Alt/Ctrl on-screen keyboard identities?
+// [x] Release all keys when we alt-tab back
+// [x] Custom widgets: nicer call convention to wrap creating custom data on heap (see key_widget)
 
+// [ ] Should we allow the user to force two widgets to have the same identity? (Return on-screen keyboard unite parts)
 // [x] Fix scrollwheel erronously scrolling things below other things.
 // [x] Remove was_clicked_time et al from Widgets; add hook to skin instead.
 // [ ] radio buttons
@@ -71,11 +78,6 @@ frame: struct {
 
 application_window : Window_Creation.Window_Type;
 
-window_back_buffer : struct {
-    fbo: GLuint;
-    texture: GLuint;
-    active := true;
-}
 
 gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *Panel, *Window_Creation.Window_Type {
     assert(widget_allocator.proc == null, "You should only call gui_create_window once!");
@@ -99,8 +101,6 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 
     allocate_text_edit(1024);
 
-    set_application_window_size(window_width, window_height);
-
     #if OS == .WINDOWS {
         if window_x == -1 {
             using Windows :: #import "Windows";
@@ -120,26 +120,7 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
     application_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y);
 
     Simp.set_render_target(application_window);
-
-    setup_window_back_buffer :: () #expand {
-        using window_back_buffer;
-        glGenFramebuffers(1, *fbo);
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-        glGenTextures(1, *texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, xx window_width, xx window_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, null);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-        if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
-            print("Error setting up window back buffer.\n");
-            active = false;
-            return;
-        }
-    }
-    setup_window_back_buffer();
+    set_application_window_size(window_width, window_height);
 
     array_reset(*placement_spacing);
     array_add(*placement_spacing, .{0, 0});
@@ -166,10 +147,18 @@ gui_begin_frame :: () -> should_quit: bool {
 
     if next_warm_widget {
         if warm_widget != next_warm_widget
-            set_warm(next_warm_widget, true);
+            set_warm_widget(next_warm_widget, true);
     }
     else if warm_widget {
-        set_warm(warm_widget, false);
+        set_warm_widget(warm_widget, false);
+    }
+
+    if next_warm_window {
+        if warm_window != next_warm_window
+            set_warm_window(next_warm_window, true);
+    }
+    else if warm_window {
+        set_warm_window(warm_window, false);
     }
 
     if scrollwheel_widget  use_scrollwheel(scrollwheel_widget);
@@ -183,7 +172,11 @@ gui_begin_frame :: () -> should_quit: bool {
 
     Simp.swap_buffers(application_window);
 
-    if !frame.no_sleep && hot_widget_frame_index != frame.index && warm_widget_frame_index != frame.index && !clicked_widget && !released_widget && !changed_widget {
+    if !frame.no_sleep
+    && hot_widget_frame_index != frame.index
+    && warm_widget_frame_index != frame.index
+    && warm_window_frame_index != frame.index
+    && !clicked_widget && !released_widget && !changed_widget {
         // Nothing immediate happened so sleep a little
         dt := seconds_since_init() - frame.time;
         ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
@@ -205,6 +198,7 @@ gui_begin_frame :: () -> should_quit: bool {
     released_widget = null;
     changed_widget = null;
     next_warm_widget = null;
+    next_warm_window = null;
     next_scrollwheel_widget = null;
 
     Input.update_window_events();
@@ -302,14 +296,9 @@ gui_draw_windows :: () {
         assert(!was_added, "Didn't find the window in the window_data table, but it should be there!");
 
         if window.flags & .SHOW && window.is_open {
-            if window_back_buffer.active {
-                glBindFramebuffer(GL_FRAMEBUFFER, window_back_buffer.fbo);
-                glClearColor(0, 0, 0, 0);
-                glClear(GL_COLOR_BUFFER_BIT);
-            }
-
             currently_drawing_window = window;
             update_widget(window);
+
             draw_window(.BACKGROUND);
 
             {
@@ -325,46 +314,6 @@ gui_draw_windows :: () {
             update_window(window);
             draw_window(.FOREGROUND);
 
-            if window_back_buffer.active {
-                glBindFramebuffer(GL_READ_FRAMEBUFFER, window_back_buffer.fbo);
-                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0); // Default framebuffer
-                width : float = xx application_panel.calculated_rect.w;
-                height : float = xx application_panel.calculated_rect.h;
-                glEnable(GL_BLEND);
-                gl_vec4 :: (rect: Rect) -> Vector4 {
-                    return .{rect.x, application_panel.calculated_rect.h - rect.y - rect.h, rect.x + rect.w, application_panel.calculated_rect.h - rect.y};
-                }
-
-                get_quad :: (r: Rect, snap_coordinates := false) -> (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2) {
-                    using v4 := gl_vec4(r);
-                    p0 := Vector2.{x, y};
-                    p1 := Vector2.{z, y};
-                    p2 := Vector2.{z, w};
-                    p3 := Vector2.{x, w};
-
-                    if snap_coordinates {
-                        p0.x = floor(p0.x + .5);
-                        p0.y = floor(p0.y + .5);
-                        p1.x = floor(p1.x + .5);
-                        p1.y = floor(p1.y + .5);
-                        p2.x = floor(p2.x + .5);
-                        p2.y = floor(p2.y + .5);
-                        p3.x = floor(p3.x + .5);
-                        p3.y = floor(p3.y + .5);
-                    }
-
-                    return p0, p1, p2, p3;
-                }
-
-                p0, p1, p2, p3 := get_quad(.{0, 0, width, height});
-                Simp.immediate_set_shader(*Simp.shader_sprite_left_handed);
-                Simp.set_projection();
-
-                glBindTexture(GL_TEXTURE_2D, window_back_buffer.texture);
-                Simp.immediate_quad(p0, p1, p2, p3, .{1,1,1,0.5});
-                Simp.immediate_flush();
-            }
-
             if clicked_window == window  bring_to_front_window = clicked_window;
         }
         window.flags |= ~.SHOW;
@@ -379,6 +328,13 @@ gui_draw_windows :: () {
         update_window_drag(currently_dragging_window);
 
     currently_drawing_window = null;
+
+    // If mouse was clicked on the background (i.e. no window) then set window focus to nothing.
+    if mouse.left_button_start && hot_widget_frame_index != frame.index && focussed_window
+        focus_window(null);
+
+    if !next_warm_window && warm_window
+        request_window_warmth(null);
 }
 
 gui_no_sleep_this_frame :: () {
@@ -429,7 +385,7 @@ Keyboard :: struct {
     control: Key_State;
     alt: Key_State;
     __pad4: [1] Key_State;
-    capital: Key_State;
+    capslock: Key_State;
     kana: Key_State;
     ime_on: Key_State;
     junja: Key_State;
@@ -592,7 +548,8 @@ Keyboard :: struct {
     mouse_button_x1: Key_State;
     mouse_button_x2: Key_State;
     printscreen: Key_State;
-    __pad17: [8] Key_State;
+    application: Key_State;
+    __pad17: [7] Key_State;
     attn: Key_State;
     crsel: Key_State;
     exsel: Key_State;
@@ -793,12 +750,14 @@ window_decoration_inherit_mask :: text_align_mask | font_style_mask | theme_inde
 
 prev_frame_time: float64;
 next_warm_widget: *Widget;
+next_warm_window: *Window;
 next_scrollwheel_widget: *Widget;
 tooltip_widget: *Widget;
 prev_tooltip_widget: *Widget;
 became_tooltip_widget_time: float64;
 hot_widget_frame_index: int;
 warm_widget_frame_index: int;
+warm_window_frame_index: int;
 
 is_warm :: inline (widget: *Widget) -> bool {
     return widget == warm_widget;
@@ -827,6 +786,11 @@ was_changed :: inline (widget: *Widget) -> bool {
 request_warmth :: (widget: *Widget) {
     // warm_widget will be set at end of frame, to the last thing that called this.
     next_warm_widget = widget;
+    request_window_warmth(currently_drawing_window);
+}
+
+request_window_warmth :: (window: *Window) {
+    next_warm_window = window;
 }
 
 request_scrollwheel :: (widget: *Widget) {
@@ -834,8 +798,8 @@ request_scrollwheel :: (widget: *Widget) {
     next_scrollwheel_widget = widget;
 }
 
-set_warm :: (widget: *Widget, warm: bool) {
-    if warm {
+set_warm_widget :: (widget: *Widget, become_warm: bool) {
+    if become_warm {
         if warm_widget && warm_widget != widget
             widget_lost_warm_time(warm_widget, frame.time);
         warm_widget = widget;
@@ -849,6 +813,20 @@ set_warm :: (widget: *Widget, warm: bool) {
     }
 }
 
+set_warm_window :: (window: *Window, become_warm: bool) {
+    if become_warm {
+        if warm_window && warm_window != window
+            window_lost_warm_time(warm_window, frame.time);
+        warm_window = window;
+        window_became_warm_time(window, frame.time);
+        warm_window_frame_index = frame.index;
+    }
+    else if warm_window == window {
+        window_lost_warm_time(window, frame.time);
+        warm_window = null;
+        warm_window_frame_index = frame.index;
+    }
+}
 
 set_hot :: (widget: *Widget, hot: bool) {
     if hot {
@@ -879,11 +857,24 @@ focus :: (widget: *$T/Widget) {
 
 remove_focus :: (widget: *$T/Widget, reason := Lost_Focus_Reason.UNDETERMINED) {
     if focussed_widget != widget  return;
-    widget_lost_focussed_time(focussed_widget, frame.time);
+    widget_lost_focus_time(focussed_widget, frame.time);
     if focussed_widget.type == {
         case .TEXT_INPUT; lost_focus(cast(*Text_Input)widget, reason);
     }
     focussed_widget = null;
+}
+
+focus_window :: (window: *Window) {
+    if focussed_window && focussed_window != window
+        remove_window_focus(focussed_window);
+    focussed_window = window;
+    window_became_focussed_time(focussed_window, frame.time);
+}
+
+remove_window_focus :: (window: *Window, reason := Lost_Focus_Reason.UNDETERMINED) {
+    if focussed_window != window  return;
+    window_lost_focus_time(focussed_window, frame.time);
+    focussed_window = null;
 }
 
 set_clicked :: (widget: *Widget) {
@@ -968,10 +959,13 @@ add_margin_to_drawn_widget_bounds :: (spacing: int) {
 should_quit := false;
 application_panel: Panel;
 
-set_application_window_size :: (window_width: int, window_height: int) {
+set_application_window_size :: (new_width: int, new_height: int) {
+    old_width := application_panel.desired_box.brx.abs;
+    old_height := application_panel.desired_box.bry.abs;
     application_panel.parent = null;
-    application_panel.desired_box = box(0, 0, window_width, window_height);
-    application_panel.calculated_rect = .{ 0, 0, xx window_width, xx window_height };
+    application_panel.desired_box = box(0, 0, new_width, new_height);
+    application_panel.calculated_rect = .{ 0, 0, xx new_width, xx new_height };
+    application_window_resize(new_width, new_height, old_width, old_height);
 }
 
 next :: (index: *int, $reserve := 1) -> Code #expand {

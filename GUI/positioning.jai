@@ -45,6 +45,11 @@ Panel :: struct {
 
 is_implicit_ord :: inline (T) => (T == Ord || (cast(*Type_Info)T).type == .INTEGER || (cast(*Type_Info)T).type == .FLOAT);
 
+copy :: (panel: *Panel) -> *Panel {
+    copy := New(Panel, false,, temp);
+    copy.* = panel.*;
+    return copy;
+}
 
 at :: (parent: *Panel) -> *Panel  {
     panel := New(Panel, false,, temp);
