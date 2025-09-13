@@ -65,13 +65,14 @@ main :: () {
 
     while true {
         should_quit := gui_begin_frame();
-        should_quit |= was_clicked(keyboard.escape) && !focussed_widget;
-        if should_quit  break;
 
         label_window :=    window(draw_label_window,    "Label",    at(0.55, 0.05,  0.95, 0.45), initially_closed=true);
         icon_window :=     window(draw_icon_window,     "Icon",     at(0.05, 0.05,  0.25, 0.25), DEFAULT_WINDOW_FLAGS | .SCROLLBARS | .THEME_A, initially_closed=true);
         button_window :=   window(draw_button_window,   "Button",   at(0.55, 0.55,  0.95, 0.95), initially_closed=true);
         keyboard_window := window(draw_keyboard_window, "Keyboard", at(0.25, 0.25,  0.75, 0.75), initially_closed=true);
+
+        should_quit |= was_clicked(keyboard.escape) && !focussed_widget && !keyboard_window.is_open;
+        if should_quit  break;
 
         array_reset(*on_screen_log);
 
@@ -263,7 +264,14 @@ main :: () {
             right_value, right_scrollbar := vertical_scrollbar(at(.MIRROR_HORIZONTAL), 1, .{s_min, s_max}, maybe_lock,
                                                                "Watch it jump between values");
             label(at(box(left_scrollbar, .COPY_RIGHT)), tprint("% % %", left_value, left_scrollbar.handle_size, left_scrollbar.handle_position));
-            label(at(box(right_scrollbar, .COPY_LEFT)), right_value, Flags.RIGHT);
+            right_label_panel := at(box(right_scrollbar, .COPY_LEFT));
+            label(right_label_panel, right_value, Flags.RIGHT);
+            window_opacity_panel := shrink(at(.COPY_LEFT), 0, 0.25);
+            opacity, opacity_scrollbar := vertical_scrollbar(window_opacity_panel, flags=maybe_lock, "Window Opacity");
+            opacity = 1.0 - opacity;
+            if was_changed(opacity_scrollbar)
+                gui_application_window_set_opacity(opacity);
+
         pop_spacing();
 
         upper, lower := split_top_bottom(left_panel, 0.66);

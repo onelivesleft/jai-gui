@@ -50,7 +50,7 @@ Drag_Flags :: enum_flags {
     MOVE :: 15;
 }
 
-window :: (draw_proc: Window_Draw_Proc, text: string, initial_panel: *Panel, flags := DEFAULT_WINDOW_FLAGS, tooltip := "", initially_closed := false, $callsite := #caller_location) -> *Window{
+window :: (draw_proc: Window_Draw_Proc, text: string, initial_panel: *Panel, flags := DEFAULT_WINDOW_FLAGS, tooltip := "", initially_closed := false, $callsite := #caller_location) -> *Window {
     return _window(0, draw_proc, initial_panel, flags, text, Icon_Id.NONE, tooltip, initially_closed, callsite_key(callsite));
 }
 

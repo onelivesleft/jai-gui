@@ -80,9 +80,13 @@ frame: struct {
     no_sleep: bool;
 }
 
-application_window: Window_Creation.Window_Type;
-application_window_style: u32;
-application_window_hidden_at_startup := true;
+application: struct {
+    os_window: Window_Creation.Window_Type;
+    flags: Application_Window_Flags;
+    style: u32;
+    hidden_for_startup := true;
+    last_set_opacity : u8 = 255;
+}
 
 Application_Window_Flags :: enum_flags {
     HAS_OS_DECORATIONS :: 1;
@@ -98,16 +102,16 @@ Application_Window_Flags :: enum_flags {
     DEFAULT :: HAS_OS_DECORATIONS|HAS_SYSTEM_MENU|HAS_TITLE_BAR|HAS_MAXIMIZE|HAS_MINIMIZE|CAN_RESIZE;
 }
 
-gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1, flags := Application_Window_Flags.DEFAULT) -> *Panel, *Window_Creation.Window_Type {
+gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1, flags := Application_Window_Flags.DEFAULT, opacity := 1.0) -> *Panel, *Window_Creation.Window_Type {
     assert(widget_allocator.proc == null, "You should only call gui_create_window once!");
 
     #if OS == .WINDOWS {
         timeBeginPeriod(1);
         // The following would tell windows that we don't look at the system DPI, and so windows should automatically scale
         // for us.  However, that's the default behaviour, so...
-        //  user32   :: #system_library "user32";
-        //  SetThreadDpiAwarenessContext :: (awareness: DPI_AWARENESS_CONTEXT) -> BOOL #foreign user32;
-        //  SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);
+        //    user32   :: #system_library "user32";
+        //    SetThreadDpiAwarenessContext :: (awareness: DPI_AWARENESS_CONTEXT) -> BOOL #foreign user32;
+        //    SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_UNAWARE);  // DPI_AWARENESS_CONTEXT_SYSTEM_AWARE if you want to handle DPI
     }
 
     widget_allocator.proc = flat_pool_allocator_proc;
@@ -134,21 +138,24 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
         }
     }
 
-    application_window_style = 0;
-    if flags & .HAS_TITLE_BAR    application_window_style |= WS_CAPTION;
-    if flags & .HAS_SYSTEM_MENU  application_window_style |= WS_SYSMENU;
-    if flags & .HAS_MAXIMIZE     application_window_style |= WS_MAXIMIZEBOX;
-    if flags & .HAS_MINIMIZE     application_window_style |= WS_MINIMIZEBOX;
-    if flags * .START_MAXIMIZED  application_window_style |= WS_MAXIMIZE;
-    if flags * .START_MINIMIZED  application_window_style |= WS_MINIMIZE;
+    application.flags = flags;
+    application.style = 0;
+    if flags & .HAS_TITLE_BAR    application.style |= WS_CAPTION;
+    if flags & .HAS_SYSTEM_MENU  application.style |= WS_SYSMENU;
+    if flags & .HAS_MAXIMIZE     application.style |= WS_MAXIMIZEBOX;
+    if flags & .HAS_MINIMIZE     application.style |= WS_MINIMIZEBOX;
+    if flags * .START_MAXIMIZED  application.style |= WS_MAXIMIZE;
+    if flags * .START_MINIMIZED  application.style |= WS_MINIMIZE;
 
-    if flags & .CAN_RESIZE       application_window_style |= WS_THICKFRAME;
-    else                         application_window_style |= WS_BORDER;
+    if flags & .CAN_RESIZE       application.style |= WS_THICKFRAME;
+    else                         application.style |= WS_BORDER;
 
-    application_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y, application_window_style);
+    application.os_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y, application.style);
     Input.window_remove_all_decorations = !(flags & .HAS_OS_DECORATIONS);
 
-    Simp.set_render_target(application_window);
+    gui_application_window_set_opacity(opacity);
+
+    Simp.set_render_target(application.os_window);
     register_application_window_size(window_width, window_height);
 
     array_reset(*placement_spacing);
@@ -156,21 +163,22 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 
     array_reset(*placement_panel);
 
-    return *application_panel, *application_window;
+    return *application_panel, *application.os_window;
 }
 
 gui_begin_frame :: () -> should_quit: bool {
 
     // We hide the application window for a couple of frames, so everything looks good when it's shown
-    if application_window_hidden_at_startup && frame.index > 1 {
-        application_window_hidden_at_startup = false;
+    if application.hidden_for_startup && frame.index > 1 {
+        application.hidden_for_startup = false;
+        width := cast(s32) application_panel.calculated_rect.w;
+        height := cast(s32) application_panel.calculated_rect.h;
+
         user32 :: #system_library "user32";
-        //if Input.window_remove_all_decorations
-        application_window_style |= WS_VISIBLE;
-        SetWindowLongW(application_window, GWL_STYLE, cast(s32) application_window_style);
-        SetWindowPos(application_window, null, 0, 0, 0, 0, SWP_NOZORDER|SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_FRAMECHANGED);
         ShowWindow :: (hwnd: *void, show: s32) #foreign user32;
-        ShowWindow(application_window, 1);
+        ShowWindow(application.os_window, 1);
+        //SetWindowLongW(application.os_window, GWL_STYLE, cast(s32) application_window_style);
+        SetWindowPos(application.os_window, null, -1, -1, width, height, SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE|SWP_FRAMECHANGED);
     }
 
     // First, clean up the previous frame.
@@ -211,7 +219,7 @@ gui_begin_frame :: () -> should_quit: bool {
     if tooltip_widget && tooltip_widget.tooltip && frame.time - became_tooltip_widget_time > theme.tooltip_delay
         draw_tooltip(tooltip_widget);
 
-    Simp.swap_buffers(application_window);
+    Simp.swap_buffers(application.os_window);
 
     if !frame.no_sleep
     && hot_widget_frame_index != frame.index
@@ -254,7 +262,7 @@ gui_begin_frame :: () -> should_quit: bool {
     for Input.get_window_resizes() {
         Simp.update_window(it.window);
 
-        if it.window == application_window
+        if it.window == application.os_window
             register_application_window_size(it.width, it.height);
     }
 
@@ -302,10 +310,10 @@ gui_begin_frame :: () -> should_quit: bool {
     combine_keys(*keyboard.control, keyboard.left_control, keyboard.right_control);
     combine_keys(*keyboard.alt, keyboard.left_alt, keyboard.right_alt);
 
-    Simp.update_window(application_window);
+    Simp.update_window(application.os_window);
     clear_window();
 
-    mouse_x, mouse_y := Window_Creation.get_mouse_pointer_position(application_window, false);
+    mouse_x, mouse_y := Window_Creation.get_mouse_pointer_position(application.os_window, false);
     mouse.x = xx mouse_x;
     mouse.y = xx mouse_y;
 
@@ -334,6 +342,35 @@ gui_begin_frame :: () -> should_quit: bool {
     }
 
     return should_quit;
+}
+
+gui_application_window_set_opacity :: (opacity: float, min_opacity := 0.1) {
+    // WARNING! If you set the opacity too low you will make it very hard for the user to interact with your program!
+    // Leave the min_opacity alone unless you really mean it.
+
+    clamped := clamp(opacity, min_opacity, 1.0);
+    a := cast(u8) clamp(clamped * 256, 0, 255);
+    if application.last_set_opacity == a
+        return;
+
+    if a < 255 {
+        if application.last_set_opacity == 255 {
+            extended_style := GetWindowLongW(application.os_window, GWL_EXSTYLE);
+            extended_style |= WS_EX_LAYERED;
+            SetWindowLongW(application.os_window, GWL_EXSTYLE, extended_style);
+        }
+        LWA_ALPHA :: 2;
+        user32 :: #system_library "user32";
+        SetLayeredWindowAttributes :: (hwnd: *void, crKey: u32, bAlpha: u8, dwFlags: u32) -> bool #foreign user32;
+        SetLayeredWindowAttributes(application.os_window, 0, a, LWA_ALPHA);
+    }
+    else { // We must have been translucent to get here, so just remove the style that enables opacity.
+        extended_style := GetWindowLongW(application.os_window, GWL_EXSTYLE);
+        extended_style &= ~cast(s32)WS_EX_LAYERED;
+        SetWindowLongW(application.os_window, GWL_EXSTYLE, extended_style);
+    }
+
+    application.last_set_opacity = a;
 }
 
 gui_draw_windows :: () {
@@ -1031,6 +1068,10 @@ application_panel := Panel.{*root_panel, BOX_FILLED, .{}, 0};
 register_application_window_size :: (new_width: int, new_height: int) {
     old_width := root_panel.desired_box.brx.abs;
     old_height := root_panel.desired_box.bry.abs;
+    if new_width == old_width && new_height == old_height
+        return;
+
+    print("new size: % %\n", new_width, new_height);
     root_panel.parent = null;
     root_panel.desired_box = box(0, 0, new_width, new_height);
     root_panel.calculated_rect = .{ 0, 0, xx new_width, xx new_height };
