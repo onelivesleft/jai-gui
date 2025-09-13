@@ -16,30 +16,25 @@ Theme :: struct {
 
     background_color := Vector4.{0.2, 0.2, 0.2, 1.0};
 
-    window_background_color := Vector4.{0.3, 0.3, 0.3, 0.7};
-    window_outline_focussed := Vector4.{0.65, 0.65, 0.85, 1.0};
-    window_outline_warm :=     Vector4.{0.45, 0.45, 0.65, 1.0};
+    window_opacity :=          0.8;
+    window_opacity_warm :=     0.9;
+    window_opacity_focussed := 1.0;
+    window_background_color := Vector4.{0.3, 0.3, 0.3, 1.0};
 
-    window_decoration_background :=         Vector4.{0.35, 0.35, 0.55, 1.0};
+    window_decoration_background         := Vector4.{0.35, 0.35, 0.55, 1.0};
     window_decoration_background_clicked := Vector4.{0.65, 0.65, 0.85, 1.0};
-    window_decoration_background_hot :=     Vector4.{0.55, 0.55, 0.75, 1.0};
-    window_decoration_background_warm :=    Vector4.{0.45, 0.45, 0.65, 1.0};
-    window_decoration_foreground :=         Vector4.{1.0, 1.0, 1.0, 1.0};
-    window_decoration_scrollbar_groove_background :=      Vector4.{0.35, 0.25, 0.25, 1.0};
-    window_decoration_scrollbar_handle_background :=      Vector4.{0.55, 0.35, 0.35, 1.0};
-    window_decoration_scrollbar_handle_background_hot :=  Vector4.{0.75, 0.55, 0.55, 1.0};
+    window_decoration_background_hot     := Vector4.{0.55, 0.55, 0.75, 1.0};
+    window_decoration_background_warm    := Vector4.{0.45, 0.45, 0.65, 1.0};
+    window_decoration_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
+    window_decoration_scrollbar_groove_background      := Vector4.{0.35, 0.25, 0.25, 1.0};
+    window_decoration_scrollbar_handle_background      := Vector4.{0.55, 0.35, 0.35, 1.0};
+    window_decoration_scrollbar_handle_background_hot  := Vector4.{0.75, 0.55, 0.55, 1.0};
     window_decoration_scrollbar_handle_background_warm := Vector4.{0.65, 0.45, 0.45, 1.0};
     window_decoration_scrollbar_size : s16 = 16;
     window_decoration_size : s16 = 32;
     window_decoration_text_size : s16 = 16;
 
-    application_window_decoration_background :=         Vector4.{0.35, 0.55, 0.55, 1.0};
-    application_window_decoration_background_clicked := Vector4.{0.65, 0.85, 0.85, 1.0};
-    application_window_decoration_background_hot :=     Vector4.{0.55, 0.75, 0.75, 1.0};
-    application_window_decoration_background_warm :=    Vector4.{0.45, 0.65, 0.65, 1.0};
-    application_window_decoration_size : s16 = 32;
-
-    tooltip_background :=   Vector4.{1.0, 1.0, 1.0, 1.0};
+    tooltip_background   := Vector4.{1.0, 1.0, 1.0, 1.0};
     tooltip_border_color := Vector4.{0.0, 0.0, 0.0, 1.0};
     tooltip_foreground   := Vector4.{0.0, 0.0, 0.0, 1.0};
     tooltip_border := 2;
@@ -54,11 +49,11 @@ Theme :: struct {
     icon_color := Vector4.{1.0, 1.0, 1.0, 1.0};
     icon_size := 64;
 
-    button_background :=         Vector4.{0.55, 0.35, 0.35, 1.0};
+    button_background         := Vector4.{0.55, 0.35, 0.35, 1.0};
     button_background_clicked := Vector4.{0.85, 0.65, 0.65, 1.0};
-    button_background_hot :=     Vector4.{0.75, 0.55, 0.55, 1.0};
-    button_background_warm :=    Vector4.{0.65, 0.45, 0.45, 1.0};
-    button_foreground :=         Vector4.{1.0, 1.0, 1.0, 1.0};
+    button_background_hot     := Vector4.{0.75, 0.55, 0.55, 1.0};
+    button_background_warm    := Vector4.{0.65, 0.45, 0.45, 1.0};
+    button_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
     button_text_size : s16 = 16;
 
     checkbox_border := 2;
@@ -67,28 +62,26 @@ Theme :: struct {
     cursor_color := Vector4.{1.0, 1.0, 1.0, 1.0};
     selection_color := Vector4.{0.7, 0.7, 0.7, 1.0};
 
-    input_line_border_color :=         Vector4.{0.55, 0.35, 0.35, 1.0};
-    input_line_background :=           Vector4.{0.35, 0.25, 0.25, 1.0};
-    input_line_background_read_only := Vector4.{0.15, 0.10, 0.10, 1.0};
-    input_line_background_hot :=       Vector4.{0.45, 0.35, 0.35, 1.0};
-    input_line_background_warm :=      Vector4.{0.45, 0.35, 0.35, 1.0};
-    input_line_foreground :=           Vector4.{1.0, 1.0, 1.0, 1.0};
-    input_line_foreground_read_only := Vector4.{1.0, 1.0, 1.0, 0.75};
-    input_line_border := 2;
-    input_line_text_size : s16 = 16;
+    text_input_border_color       := Vector4.{0.55, 0.35, 0.35, 1.0};
+    text_input_background         := Vector4.{0.35, 0.25, 0.25, 1.0};
+    text_input_background_hot  := Vector4.{0.45, 0.35, 0.35, 1.0};
+    text_input_background_warm    := Vector4.{0.45, 0.35, 0.35, 1.0};
+    text_input_foreground         := Vector4.{1.0, 1.0, 1.0, 1.0};
+    text_input_border := 2;
+    text_input_text_size : s16 = 16;
 
-    scrollbar_groove_background :=      Vector4.{0.35, 0.25, 0.25, 1.0};
-    scrollbar_handle_background :=      Vector4.{0.55, 0.35, 0.35, 1.0};
-    scrollbar_handle_background_hot :=  Vector4.{0.75, 0.55, 0.55, 1.0};
-    scrollbar_handle_background_warm := Vector4.{0.65, 0.45, 0.45, 1.0};
+    scrollbar_groove_background         := Vector4.{0.35, 0.25, 0.25, 1.0};
+    scrollbar_handle_background         := Vector4.{0.55, 0.35, 0.35, 1.0};
+    scrollbar_handle_background_hot  := Vector4.{0.75, 0.55, 0.55, 1.0};
+    scrollbar_handle_background_warm    := Vector4.{0.65, 0.45, 0.45, 1.0};
     scrollbar_min_handle_size := 1.0 / 40;
     scrollbar_size := 20;
 
-    input_box_text_size : s16 = 16;
-    input_box_row_height := 20;
+    text_box_text_size : s16 = 16;
+    text_box_row_height := 20;
 
-    data_table_background_warm := Vector4.{0.75, 0.55, 0.55, 1.0};
-    data_table_foreground_warm := Vector4.{0.1, 0.1, 0.1, 1.0};
+    data_table_background_warm    := Vector4.{0.75, 0.55, 0.55, 1.0};
+    data_table_foreground_warm    := Vector4.{0.1, 0.1, 0.1, 1.0};
     data_table_row_height := 30;
 }
 
@@ -97,9 +90,10 @@ alternate_theme := Theme.{
 
     background_color = Vector4.{0.2, 0.2, 0.2, 1.0},
 
-    window_background_color = Vector4.{0.4, 0.3, 0.3, 0.7},
-    window_outline_focussed = Vector4.{0.65, 0.65, 0.85, 1.0},
-    window_outline_warm =     Vector4.{0.45, 0.45, 0.65, 1.0},
+    window_opacity =          0.8,
+    window_opacity_warm =     0.9,
+    window_opacity_focussed = 1.0,
+    window_background_color = Vector4.{0.4, 0.3, 0.3, 1.0},
 
     window_decoration_background         = Vector4.{0.35, 0.55, 0.55, 1.0},
     window_decoration_background_clicked = Vector4.{0.65, 0.85, 0.85, 1.0},
@@ -113,12 +107,6 @@ alternate_theme := Theme.{
     window_decoration_scrollbar_size = 16,
     window_decoration_size = 32,
     window_decoration_text_size = 16,
-
-    application_window_decoration_background =         Vector4.{0.35, 0.55, 0.55, 1.0},
-    application_window_decoration_background_clicked = Vector4.{0.65, 0.85, 0.85, 1.0},
-    application_window_decoration_background_hot =     Vector4.{0.55, 0.75, 0.75, 1.0},
-    application_window_decoration_background_warm =    Vector4.{0.45, 0.65, 0.65, 1.0},
-    application_window_decoration_size = 32,
 
     tooltip_background = Vector4.{0.55, 0.35, 0.35, 1.0},
     tooltip_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
@@ -146,15 +134,13 @@ alternate_theme := Theme.{
     cursor_color = Vector4.{1.0, 1.0, 1.0, 1.0},
     selection_color = Vector4.{0.7, 0.7, 0.7, 1.0},
 
-    input_line_border_color =         Vector4.{0.55, 0.35, 0.35, 1.0},
-    input_line_background =           Vector4.{0.35, 0.25, 0.25, 1.0},
-    input_line_background_read_only = Vector4.{0.15, 0.10, 0.10, 1.0},
-    input_line_background_hot =       Vector4.{0.45, 0.35, 0.35, 1.0},
-    input_line_background_warm =      Vector4.{0.45, 0.35, 0.35, 1.0},
-    input_line_foreground =           Vector4.{1.0, 1.0, 1.0, 1.0},
-    input_line_foreground_read_only = Vector4.{1.0, 1.0, 1.0, 0.75},
-    input_line_border = 2,
-    input_line_text_size = 16,
+    text_input_border_color =    Vector4.{0.55, 0.35, 0.35, 1.0},
+    text_input_background =      Vector4.{0.35, 0.25, 0.25, 1.0},
+    text_input_background_hot =  Vector4.{0.45, 0.35, 0.35, 1.0},
+    text_input_background_warm = Vector4.{0.45, 0.35, 0.35, 1.0},
+    text_input_foreground =      Vector4.{1.0, 1.0, 1.0, 1.0},
+    text_input_border = 2,
+    text_input_text_size = 16,
 
     scrollbar_groove_background =      Vector4.{0.25, 0.35, 0.25, 1.0},
     scrollbar_handle_background =      Vector4.{0.35, 0.55, 0.35, 1.0},
@@ -163,8 +149,8 @@ alternate_theme := Theme.{
     scrollbar_min_handle_size = 1.0 / 40,
     scrollbar_size = 20,
 
-    input_box_text_size = 16,
-    input_box_row_height = 20,
+    text_box_text_size = 16,
+    text_box_row_height = 20,
 
     data_table_background_warm = Vector4.{0.75, 0.55, 0.55, 1.0},
     data_table_foreground_warm = Vector4.{0.1, 0.1, 0.1, 1.0},
@@ -180,8 +166,8 @@ locked_theme := Theme.{
 
     label_foreground = Vector4.{1.0, 1.0, 1.0, 1.0},
 
-    input_line_border_color = Vector4.{0.4, 0.4, 0.4, 1.0},
-    input_line_background   = Vector4.{0.3, 0.3, 0.3, 1.0},
+    text_input_border_color = Vector4.{0.4, 0.4, 0.4, 1.0},
+    text_input_background   = Vector4.{0.3, 0.3, 0.3, 1.0},
 
     scrollbar_groove_background = Vector4.{0.3, 0.3, 0.3, 1.0},
     scrollbar_handle_background = Vector4.{0.4, 0.4, 0.4, 1.0},
@@ -319,38 +305,6 @@ text_origin :: (alignment: Text_Alignment, font: *Font, r: Rect, text_width: flo
     return x, y;
 }
 
-convert_to_simp_point :: (point: Vector2) -> Vector2 {
-    result : Vector2 = ---;
-    result.x = point.x;
-    result.y = application_panel.calculated_rect.h - point.y;
-    return result;
-}
-
-find_glyph_index_in_simp_temporary_glyphs :: (font: *Simp.Dynamic_Font, point: Vector2) -> glyph_index: int {
-    // Returns character index for edge nearest point.
-    // So, left side of first char = index 0, right side of first char == lef size of second char == 1, etc.
-    // If point is entirely left of text returns -1, if entirely right of text returns count+1 (since
-    // right edge of last character will be count).
-
-    // @TODO binary search
-
-    simp_point := convert_to_simp_point(point);
-    if !font.current_quads || simp_point.x < font.current_quads[0].p0.x
-        return -1;
-
-    for font.current_quads {
-        bottom_left := it.p0;
-        top_right := it.p2;
-        mid_point := (bottom_left.x + top_right.x) / 2;
-        if mid_point > simp_point.x
-            return it_index;
-    }
-
-    last_quad := font.current_quads[font.current_quads.count - 1];
-    if last_quad.p2.x >= simp_point.x  return font.current_quads.count;
-
-    return font.current_quads.count + 1;
-}
 
 gl_vec4 :: (rect: Rect) -> Vector4 {
     return .{rect.x, application_panel.calculated_rect.h - rect.y - rect.h, rect.x + rect.w, application_panel.calculated_rect.h - rect.y};
@@ -496,8 +450,40 @@ init_skin :: () {
 }
 
 
-application_window_resize :: (new_width: int, new_height: int, old_width: int, old_height: int) { }
+window_back_buffer : struct {
+    fbo: GLuint;
+    texture: GLuint;
+    active := true;
+}
 
+application_window_resize :: (new_width: int, new_height: int, old_width: int, old_height: int) {
+    window_width := cast,trunc(u32) new_width;
+    window_height := cast,trunc(u32) new_height;
+
+    if window_back_buffer.fbo {
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glDeleteFramebuffers(1, *window_back_buffer.fbo);
+        glDeleteTextures(1, *window_back_buffer.texture);
+    }
+
+    window_back_buffer.active = true;
+
+    glGenFramebuffers(1, *window_back_buffer.fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, window_back_buffer.fbo);
+
+    glGenTextures(1, *window_back_buffer.texture);
+    glBindTexture(GL_TEXTURE_2D, window_back_buffer.texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, window_width, window_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, null);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, window_back_buffer.texture, 0);
+
+    if glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE {
+        print("Error setting up window back buffer.\n");
+        window_back_buffer.active = false;
+        return;
+    }
+}
 
 draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
     window := currently_drawing_window;
@@ -508,15 +494,37 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
     if window.flags & .SCROLLBARS          panel = grow(panel, theme.window_decoration_scrollbar_size, .RIGHT);
 
     #if mode == .BACKGROUND {
+        if window_back_buffer.active {
+            glBindFramebuffer(GL_FRAMEBUFFER, window_back_buffer.fbo);
+            glClearColor(0, 0, 0, 0);
+            glClear(GL_COLOR_BUFFER_BIT);
+        }
+
         draw_box(panel, theme.window_background_color);
     }
     else #if mode == .FOREGROUND {
-        inherited_flags := window.flags & xx window_decoration_inherit_mask;
+        defer {
+            if window_back_buffer.active {
+                glBindFramebuffer(GL_READ_FRAMEBUFFER, window_back_buffer.fbo);
+                glBindFramebuffer(GL_DRAW_FRAMEBUFFER, 0);
+                width : float = xx application_panel.calculated_rect.w;
+                height : float = xx application_panel.calculated_rect.h;
+                glEnable(GL_BLEND);
 
-        if window == warm_window || window == focussed_window {
-            color := ifx window == focussed_window then theme.window_outline_focussed else theme.window_outline_warm;
-            draw_outline(panel, color);
+                p0, p1, p2, p3 := get_quad(.{0, 0, width, height});
+                Simp.immediate_set_shader(*Simp.shader_sprite_left_handed);
+                Simp.set_projection();
+
+                glBindTexture(GL_TEXTURE_2D, window_back_buffer.texture);
+                alpha := ifx window == focussed_window then theme.window_opacity_focussed
+                    else ifx window == warm_window then     theme.window_opacity_warm
+                    else                                    theme.window_opacity;
+                Simp.immediate_quad(p0, p1, p2, p3, .{1,1,1,alpha});
+                Simp.immediate_flush();
+            }
         }
+
+        inherited_flags := window.flags & xx window_decoration_inherit_mask;
 
         title_bar_row:, panel = split_top_bottom(panel, theme.window_decoration_size);
 
@@ -527,6 +535,12 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
 
         if window.flags & .TITLE_BAR {
             window_decoration(title_bar_row, .TITLE_BAR | inherited_flags);
+        }
+
+        if window.flags & .MOVE {
+            tl :: 10;
+            br := tl + theme.window_decoration_size;
+            window_decoration(at(window, tl,tl, br,br), .MOVE | inherited_flags);
         }
 
         if !(window.flags & (.SCROLLBARS | .RESIZE))  return;
@@ -544,15 +558,16 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
     }
 }
 
+
 draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
     if flags & .CLOSE {
-        window_decoration_rect := shrink(calculated_rect, 0, 0, 0, 1);
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
         with_scissor(window_decoration_rect, flags);
-        Simp.set_shader_for_color(true);
+        Simp.set_shader_for_color();
 
         color := ifx was_clicked(window_decoration)
                  then theme.window_decoration_background_clicked
@@ -583,7 +598,7 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     if flags & .TITLE_BAR {
         window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
         with_scissor(window_decoration_rect, flags);
-        Simp.set_shader_for_color(true);
+        Simp.set_shader_for_color();
 
         color := warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
         draw_rect(window_decoration_rect, color);
@@ -606,7 +621,7 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
         scrollbar.panel = window_decoration.panel;
         maybe_calculate_rect(scrollbar);
 
-        Simp.set_shader_for_color(true);
+        Simp.set_shader_for_color();
         with_scissor(scrollbar.calculated_rect, flags);
 
         draw_rect(scrollbar.calculated_rect, theme.window_decoration_scrollbar_groove_background);
@@ -621,7 +636,7 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     if flags & .RESIZE {
         window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
         with_scissor(window_decoration_rect, flags);
-        Simp.set_shader_for_color(true);
+        Simp.set_shader_for_color();
 
         color := ifx was_clicked(window_decoration)
                  then theme.window_decoration_background_clicked
@@ -638,7 +653,7 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     if flags & .MOVE {
         window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
         with_scissor(window_decoration_rect, flags);
-        Simp.set_shader_for_color(true);
+        Simp.set_shader_for_color();
         color := ifx was_clicked(window_decoration)
                  then theme.window_decoration_background_clicked
                  else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
@@ -647,19 +662,6 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     }
 }
 
-draw_application_window_decoration :: (using application_window_decoration: *Application_Window_Decoration) {
-    assert(calculated_rect_frame_index == frame.index);
-
-    switch_theme();
-
-    application_window_decoration_rect := calculated_rect;
-    with_scissor(application_window_decoration_rect, flags);
-    Simp.set_shader_for_color(true);
-    color := ifx was_clicked(application_window_decoration)
-             then theme.application_window_decoration_background_clicked
-             else warm_hot_else(application_window_decoration, theme.application_window_decoration_background_hot, theme.application_window_decoration_background_warm, theme.application_window_decoration_background);
-    draw_rect(application_window_decoration_rect, color);
-}
 
 draw_tooltip :: (using widget: *Widget) {
     assert(calculated_rect_frame_index == frame.index);
@@ -675,7 +677,7 @@ draw_tooltip :: (using widget: *Widget) {
     if tooltip_rect.y + tooltip_rect.h > application_panel.calculated_rect.h
         tooltip_rect.y -= tooltip_rect.h;
 
-    Simp.set_shader_for_color(true);
+    Simp.set_shader_for_color();
     with_scissor(tooltip_rect);
     draw_rect(tooltip_rect, theme.tooltip_border_color);
     tooltip_rect = shrink(tooltip_rect, theme.tooltip_border);
@@ -694,7 +696,7 @@ draw_button :: (using button: *Button) {
 
     button_rect := shrink(calculated_rect, 0, 0, 1, 1);
     with_scissor(button_rect, flags);
-    Simp.set_shader_for_color(true);
+    Simp.set_shader_for_color();
 
     color := ifx was_clicked(button)
              then theme.button_background_clicked
@@ -783,7 +785,7 @@ draw_scrollbar :: (using scrollbar: *Scrollbar) {
 
     switch_theme();
 
-    Simp.set_shader_for_color(true);
+    Simp.set_shader_for_color();
     with_scissor(calculated_rect, flags);
 
     draw_rect(calculated_rect, theme.scrollbar_groove_background);
@@ -800,7 +802,7 @@ draw_checkbox :: (using checkbox: *Checkbox) {
 
     checkbox_rect := shrink(calculated_rect, 0, 0, 1, 1);
     with_scissor(checkbox_rect, flags);
-    Simp.set_shader_for_color(true);
+    Simp.set_shader_for_color();
 
     color := warm_hot_else(checkbox, theme.button_background_warm, theme.button_background_hot, theme.button_background);
     box_rect, text_rect : Rect = ---;
@@ -826,40 +828,36 @@ draw_checkbox :: (using checkbox: *Checkbox) {
     }
 }
 
-draw_input_line :: (using input_line: *Input_Line, $query_character_index := false, query_point := Vector2.{}) -> character_index: int {
+draw_text_input :: (using text_input: *Text_Input) {
     assert(calculated_rect_frame_index == frame.index);
 
     switch_theme();
 
-    border_rect := shrink(calculated_rect, 0, 0, 1, 1);
-    input_line_rect := shrink(border_rect, theme.input_line_border);
-    with_scissor(border_rect, flags);
+    text_input_rect := shrink(calculated_rect, 0, 0, 1, 1);
+    with_scissor(text_input_rect, flags);
+    Simp.set_shader_for_color();
 
-    character_index: int;
+    draw_rect(text_input_rect, theme.text_input_border_color);
+    color := warm_hot_else(text_input, theme.text_input_background_warm, theme.text_input_background_hot, theme.text_input_background);
+    text_input_rect = shrink(text_input_rect, theme.text_input_border);
+    draw_rect(text_input_rect, color);
 
-    Simp.set_shader_for_color(true);
-    draw_rect(border_rect, theme.input_line_border_color);
-    color := warm_hot_else(input_line, theme.input_line_background_warm, theme.input_line_background_hot, ifx flags & .READ_ONLY then theme.input_line_background_read_only else theme.input_line_background);
-    draw_rect(input_line_rect, color);
+    if !has_focus(text_input) {
+        if !text  return;
 
-    if !has_focus(input_line) {
-        if !text  return 0;
-
-        text_rect := shrink(input_line_rect, theme.padding);
+        text_rect := shrink(text_input_rect, theme.padding);
         with_scissor(text_rect, flags);
-        font, text_width := get_font(sans_font(flags), theme.input_line_text_size, text, fit_width(text_rect, flags));
+        font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text, fit_width(text_rect, flags));
 
         text_x, text_y := text_origin(left_align(flags), font, text_rect, text_width);
-        Simp.draw_prepared_text(font, xx text_x, xx text_y, ifx flags.READ_ONLY then theme.input_line_foreground_read_only else theme.input_line_foreground);
-        #if query_character_index
-            character_index = find_glyph_index_in_simp_temporary_glyphs(font, query_point);
-        return character_index;
+        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.text_input_foreground);
+        return;
     }
 
-    text_rect := shrink(input_line_rect, theme.padding);
+    text_rect := shrink(text_input_rect, theme.padding);
     cursor_rect : Rect = ---;
-    font, text_width := get_font(sans_font(flags), theme.input_line_text_size, text_edit.before_cursor, 0);
-    {
+    font, text_width := get_font(sans_font(flags), theme.text_input_text_size, text_edit.before_cursor, 0);
+     {
         with_scissor(text_rect, flags);
         text_edit.cursor_x = ifx text_width < text_rect.w then text_width else text_rect.w / 2;
 
@@ -871,7 +869,7 @@ draw_input_line :: (using input_line: *Input_Line, $query_character_index := fal
         if has_selection {
             s := text_edit.as_string;
             s.count = text_edit.select_anchor;
-            _, selection_x := get_font(sans_font(flags), theme.input_line_text_size, s, 0);
+            _, selection_x := get_font(sans_font(flags), theme.text_input_text_size, s, 0);
             selection_x += text_x;
 
             selection_rect := right_rect;
@@ -882,24 +880,18 @@ draw_input_line :: (using input_line: *Input_Line, $query_character_index := fal
                 selection_rect.x = selection_x;
                 selection_rect.w = right_rect.x - selection_x;
             }
-            Simp.set_shader_for_color(true);
+            Simp.set_shader_for_color();
             draw_rect(selection_rect, theme.selection_color);
         }
 
-        font, text_width = get_font(sans_font(flags), theme.input_line_text_size, text_edit.as_string, 0);
-        Simp.draw_prepared_text(font, xx text_x, xx text_y, ifx flags.READ_ONLY then theme.input_line_foreground_read_only else theme.input_line_foreground);
-        #if query_character_index
-            character_index = find_glyph_index_in_simp_temporary_glyphs(font, query_point);
+        font, text_width = get_font(sans_font(flags), theme.text_input_text_size, text_edit.as_string, 0);
+        Simp.draw_prepared_text(font, xx text_x, xx text_y, theme.text_input_foreground);
     }
 
-    if !query_character_index { // If we're querying character index we don't know where the cursor is.
-        cursor_rect.x -= 1;
-        cursor_rect.w = 2;
-        Simp.set_shader_for_color(true);
-        draw_rect(cursor_rect, theme.cursor_color);
-    }
-
-    return character_index;
+    cursor_rect.x -= 1;
+    cursor_rect.w = 2;
+    Simp.set_shader_for_color();
+    draw_rect(cursor_rect, theme.cursor_color);
 }
 
 draw_data_table :: (using data_table: *Data_Table) {
@@ -914,7 +906,7 @@ draw_data_table :: (using data_table: *Data_Table) {
         last_label_on_row := first_label_on_row + visible_columns - 1;
         row_rect := first_label_on_row.calculated_rect;
         row_rect.w = last_label_on_row.calculated_rect.x + last_label_on_row.calculated_rect.w - first_label_on_row.calculated_rect.x;
-        Simp.set_shader_for_color(true);
+        Simp.set_shader_for_color();
         draw_rect(row_rect, color);
 
         label := first_label_on_row;
@@ -938,7 +930,7 @@ draw_data_table :: (using data_table: *Data_Table) {
 
 draw_scrollable_panel :: (using scrollable_panel: *Scrollable_Panel) { }
 
-draw_input_box :: (using input_box: *Input_Box) { }
+draw_text_box :: (using text_box: *Text_Box) { }
 
 
 bite_text_line_for_width :: (text: string, default_font: Font_Style, size: s16, flags: Flags, width: int) -> line: string, remainder: string {
@@ -1039,19 +1031,6 @@ draw_box :: inline (panel: *Panel, color: Vector4) {
 draw_box :: (rect: Rect, color: Vector4) {
     Simp.set_shader_for_color(true);
     draw_rect(rect, color);
-}
-
-draw_outline :: inline (panel: *Panel, color: Vector4) {
-    rect := calculate_rect(panel);
-    draw_outline(rect, color);
-}
-
-draw_outline :: (rect: Rect, color: Vector4) {
-    Simp.set_shader_for_color(true);
-    draw_rect(.{rect.x, rect.y, rect.w, 1}, color);
-    draw_rect(.{rect.x + rect.w, rect.y, 1, rect.h}, color);
-    draw_rect(.{rect.x, rect.y + rect.h, rect.w, 1}, color);
-    draw_rect(.{rect.x, rect.y, 1, rect.h}, color);
 }
 
 draw_text :: inline (panel: *Panel, text: string, color: Vector4, size : s16 = 0, align := Text_Alignment.CENTER, font_style := Font_Style.SANS) -> text_width: float {

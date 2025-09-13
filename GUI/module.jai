@@ -1,4 +1,6 @@
 #module_parameters (
+    BACKGROUND_DRAGS_OS_WINDOW := false,
+
     FONT_SANS  := "Montreal-Regular.ttf",
     FONT_SERIF := "CharisSIL-R.ttf",
     FONT_FIXED := "FantasqueSansMono-Regular.ttf",
@@ -31,7 +33,8 @@ else {
 #import "Sort";
 #import "String";
 
-Window_Creation :: #import "Window_Creation";
 Simp :: #import "Simp";
 #import "GL";
 Input :: #import,dir "modules/Input";
+Window_Creation :: #import,dir "modules/Window_Creation";
+#if OS == .WINDOWS  #import "Windows";

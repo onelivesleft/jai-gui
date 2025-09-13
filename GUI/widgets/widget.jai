@@ -6,6 +6,7 @@ Widget :: struct {
         CUSTOM_WIDGET;
         WINDOW;
         WINDOW_DECORATION;
+        APPLICATION_WINDOW_DECORATION;
 
         BUTTON;
         CHECKBOX;

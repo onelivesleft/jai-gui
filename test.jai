@@ -1,4 +1,7 @@
-#import "GUI";
+CUSTOM_OS_WINDOW :: false;
+
+
+#import "GUI"(BACKGROUND_DRAGS_OS_WINDOW=CUSTOM_OS_WINDOW);
 #import "Basic";
 #import "Clipboard";
 #import "Math";
@@ -26,50 +29,19 @@ toast_duration : Frame_Time : 2.0;
 toast_gravity :: 200.0;
 toast_up_speed :: 200.0;
 
-on_screen_log: [..] string;
-log :: (format_string: string, args: .. Any) {
-    array_add(*on_screen_log, tprint(format_string, ..args));
-}
-
-
-main_pointer: *u64;
-
-// @TODO remove these
-print_call_stack :: () #expand {
-    base_pointer: *u64;
-    print("---\n");
-    foo: u64;
-    #asm {
-        rbp: gpr === bp;
-        mov foo, rbp;
-    }
-    base_pointer = xx foo;
-    while base_pointer && base_pointer != main_pointer {
-        print("%\n", base_pointer);
-        base_pointer = xx base_pointer.*;
-    }
-}
-
-get_rbp :: inline () -> *u64 {
-    rbp: *u64;
-    #asm {
-        mov di: gpr === di, *rbp;
-    }
-    #bytes .[72, 137, 47]; // mov [rdi], rbp
-    return rbp;
-}
-
-
 main :: () {
-    //print("main rbp = 0x%\n", get_rbp());
-    application_panel, application_window_handle := gui_create_application_window("GUI Test", 1280, 896, 3100, 40);
+    application_window_flags := Application_Window_Flags.DEFAULT;
+    #if CUSTOM_OS_WINDOW {
+        application_window_flags &= ~.HAS_OS_DECORATIONS;
+    }
+    application_panel, application_window_handle := gui_create_application_window("GUI Test", 1280, 896, 3100, 40, application_window_flags);
 
     show_wheel := true;
     maybe_lock : Flags;
 
     prev_warm_widget : *Widget;
 
-        generate_word_count();
+    generate_word_count();
     for * word_count  array_add(*word_count_ptr, it);
 
     icon_id := Icon_Id.ABACUS;
@@ -93,7 +65,7 @@ main :: () {
 
     while true {
         should_quit := gui_begin_frame();
-        if keyboard.escape && !focussed_widget  should_quit = true;
+        should_quit |= was_clicked(keyboard.escape) && !focussed_widget;
         if should_quit  break;
 
         label_window :=    window(draw_label_window,    "Label",    at(0.55, 0.05,  0.95, 0.45), initially_closed=true);
@@ -105,12 +77,39 @@ main :: () {
 
         for keyboard.keys  if it & .START  last_pressed_key_code = cast(Key_Code) it_index;
 
-        top, middle, bottom := split_top_middle_bottom(application_panel, 100, -100);
-        left, right := split_left_right(middle, 0.5);
+        #if CUSTOM_OS_WINDOW {
+            application_window_decoration_size :: 8;
+            {
+                s :: application_window_decoration_size;
+                application_window_decoration(at(application_panel, s*2,0, -s*2,s), .TITLE_BAR);
+
+                application_window_decoration(at(application_panel, 0,0, s,s), .RESIZE_NW);
+                application_window_decoration(at(application_panel, -s,0, 1.0,s), .RESIZE_NE);
+                application_window_decoration(at(application_panel, 0,-s, s,1.0), .RESIZE_SW);
+                application_window_decoration(at(application_panel, -s,-s, 1.0,1.0), .RESIZE_SE);
+
+                application_window_decoration(at(application_panel, 0,s*2, s/2,-s*2), .RESIZE_W);
+                application_window_decoration(at(application_panel, -s/2,s*2, 1.0,-s*2), .RESIZE_E);
+                application_window_decoration(at(application_panel, s*2,-s/2, -s*2,1.0), .RESIZE_S);
+
+                application_window_decoration(at(application_panel, s*2,s*2, s*3,s*3), .CLOSE);
+                application_window_decoration(at(application_panel, s*4,s*2, s*5,s*3), .MAXIMIZE);
+                application_window_decoration(at(application_panel, s*6,s*2, s*7,s*3), .MINIMIZE);
+            }
+
+            inner_application_panel := shrink(application_panel, application_window_decoration_size);
+            push_panel(inner_application_panel);
+            header, main_panel, footer := split_top_middle_bottom(inner_application_panel, 100, -100);
+        }
+        else {
+            header, main_panel, footer := split_top_middle_bottom(application_panel, 100, -100);
+        }
+
+        left_panel, right_panel := split_left_right(main_panel, 0.5);
 
         height :: 32;
 
-        clicked, icon_button := button(at(top, 0.25,20, ord(0.25,height),20+height), icon_id);
+        clicked, icon_button := button(at(header, 0.25,20, ord(0.25,height),20+height), icon_id);
         if clicked {
             icon_id += 1;
         }
@@ -126,34 +125,34 @@ main :: () {
             label(at(.COPY_RIGHT), tprint("% %", w, h));
         }
 
-        show_table := checkbox(at(top, 0.5,height, ord(0.5,200),height*2), "Show Wordcount");
+        show_table := checkbox(at(header, 0.5,height, ord(0.5,200),height*2), "Show Wordcount");
         {
             with_spacing(1);
-            checkbox(at(top, 0.7,height, ord(0.7,height),height*2), .TAG, *label_window.is_open);
-            checkbox(at(.COPY_RIGHT),                               .EMOTICON_POOP, *icon_window.is_open);
-            checkbox(at(.COPY_RIGHT),                               .BUTTON_POINTER, *button_window.is_open);
-            checkbox(at(.COPY_RIGHT),                               .KEYBOARD, *keyboard_window.is_open);
+            checkbox(at(header, 0.7,height, ord(0.7,height),height*2), .TAG, *label_window.is_open);
+            checkbox(at(.COPY_RIGHT),                                  .EMOTICON_POOP, *icon_window.is_open);
+            checkbox(at(.COPY_RIGHT),                                  .BUTTON_POINTER, *button_window.is_open);
+            checkbox(at(.COPY_RIGHT),                                  .KEYBOARD, *keyboard_window.is_open);
         }
 
         if show_table {
-            table_panel, _ := split_left_right(right, 0.7);
+            table_panel, _ := split_left_right(right_panel, 0.7);
             clicked, table := data_table(at_top(table_panel, -50), word_count_ptr);
         }
         else {
             button_count :: 20;
-            button_panel, _ := split_left_right(right, 0.7);
+            button_panel, _ := split_left_right(right_panel, 0.7);
             begin_placing(at_top(button_panel, height));
             for 0 .. button_count - 1
                 button(it, at(button_panel,  box(.COPY_DOWN)),  lorem[it % lorem.count], .LEFT | .SERIF);
         }
 
-        clicked=, _input_box := input_box(at(bottom, 0.5,0.0, 0.8,ord(1.0,-20)), lorem_text, .SMOOTH);
+        clicked=, _input_box := input_box(at(footer, 0.5,0.0, 0.8,ord(1.0,-20)), lorem_text, .SMOOTH);
         if clicked {
             using _input_box;
             start_toast(labels[clicked_row_index - first_visible_row_index].text);
         }
 
-        input_line(shrink(at_top(left, height), 0.2, 0), "Hola");
+        input_line(shrink(at_top(left_panel, height), 0.2, 0), "Hola", .READ_ONLY);
         icon(at(.FILL_LEFT), .Z_WAVE, height, .RIGHT);
 
         s_min :: -3;
@@ -165,7 +164,7 @@ main :: () {
         quadrant_button_flags : Flags;
 
         {
-            with_panel(left);
+            with_panel(left_panel);
             with_spacing(4);
 
             value, scrollbar := vertical_scrollbar(at(100,50, 120,200), 0.0, .{0.0, 0.2}, tooltip = "A vertical scrollbar" );
@@ -196,11 +195,12 @@ main :: () {
 
         {
             size :: 32;
-            icon_search_panel := at(left, -size*13-theme.scrollbar_size-20,ord(0.5,-100), ord(1.0,-20),ord(0.5,+100));
+            icon_search_panel := at(left_panel, -size*13-theme.scrollbar_size-20,ord(0.5,-100), ord(1.0,-20),ord(0.5,+100));
             top, bottom := split_top_bottom(icon_search_panel, size);
             search_text, search_input := input_line(at_left(top, -size), "", .IMMEDIATE);
             if button(at_right(top, -size), .FILTER_REMOVE) {
                 set_text(search_input, "");
+                focus(search_input);
             }
             reset_scroll := false;
             if search_text != previous_search_text || search_criteria_changed {
@@ -266,16 +266,16 @@ main :: () {
             label(at(box(right_scrollbar, .COPY_LEFT)), right_value, Flags.RIGHT);
         pop_spacing();
 
-        upper, lower := split_top_bottom(left, 0.66);
+        upper, lower := split_top_bottom(left_panel, 0.66);
 
         quadrant_button_panel := push_scrollable_panel(shrink(lower, 0.1, 0), 1000, 100, maybe_lock | .FIT);
             draw_box(peek_panel(), .{0.5, 0.3, 0.2, 0.1});
             tl, tr, bl, br := split_quadrants(quadrant_button_panel, 0.5, 0.5);
             quadrant_button_flags |= maybe_lock;
-            button(shrink(tl, 0.1), "Uno", .DICE_1, quadrant_button_flags | .LEFT, "One");
-            button(shrink(tr, 0.1), "Dos", .DICE_2, quadrant_button_flags, "Two");
+            button(shrink(tl, 0.1), "Uno",  .DICE_1, quadrant_button_flags | .LEFT, "One");
+            button(shrink(tr, 0.1), "Dos",  .DICE_2, quadrant_button_flags, "Two");
             button(shrink(bl, 0.1), "Tres", .DICE_3, quadrant_button_flags | .ICON_ON_RIGHT, "Three");
-            button(shrink(br, 0.1), "Mas", .DICE_4, quadrant_button_flags | .ICON_ON_RIGHT | .RIGHT, "More");
+            button(shrink(br, 0.1), "Mas",  .DICE_4, quadrant_button_flags | .ICON_ON_RIGHT | .RIGHT, "More");
         pop_scrollable_panel();
 
         if label(at(-300,-30, -100,1.0), "Scroll Wheel:", Flags.RIGHT | .INTERACTS, "Get it back")
@@ -646,4 +646,11 @@ lorem :: #insert -> string {
         ];
     jai);
     return builder_to_string(*builder);
+}
+
+
+on_screen_log: [..] string;
+
+log :: (format_string: string, args: .. Any) {
+    array_add(*on_screen_log, tprint(format_string, ..args));
 }

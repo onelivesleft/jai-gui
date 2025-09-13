@@ -42,10 +42,10 @@ Drag_Flags :: enum_flags {
     RESIZE_S :: 4;
     RESIZE_W :: 8;
 
-    RESIZE_NW :: RESIZE_N | RESIZE_W;
-    RESIZE_NE :: RESIZE_N | RESIZE_E;
-    RESIZE_SW :: RESIZE_S | RESIZE_W;
-    RESIZE_SE :: RESIZE_S | RESIZE_E;
+    RESIZE_NW :: RESIZE_N|RESIZE_W;
+    RESIZE_NE :: RESIZE_N|RESIZE_E;
+    RESIZE_SW :: RESIZE_S|RESIZE_W;
+    RESIZE_SE :: RESIZE_S|RESIZE_E;
 
     MOVE :: 15;
 }
@@ -217,6 +217,12 @@ get_mouse_pointer_window_drag :: (window: *Window) -> Drag_Flags {
     return ifx window.flags & .CAN_RESIZE then drag_flags;
 }
 
+drag_flags_mask : u64 : (1 << 26) | (1 << 27) | (1 << 28) | (1 << 29);
+
+drag_flags_from_flags :: (flags: Flags) -> Drag_Flags {
+    drag_flags : Drag_Flags = xx ((drag_flags_mask & xx flags) >> 26);
+    return drag_flags;
+}
 
 // Pointer_Image copied from GetRect
 

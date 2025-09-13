@@ -19,9 +19,22 @@ draw_frame: () -> ();
 update_window_size: (s64, s64) -> ();
 simp: **Immediate_State;
 
+window_remove_all_decorations := false;
+
 window_region_override : enum {
-    NONE;
-    TITLE_BAR;
+    NONE :: 0;
+    TITLE_BAR :: Windows_Hit_Test_Result.HTCAPTION;
+    RESIZE_N :: Windows_Hit_Test_Result.HTTOP;
+    RESIZE_E :: Windows_Hit_Test_Result.HTRIGHT;
+    RESIZE_S :: Windows_Hit_Test_Result.HTBOTTOM;
+    RESIZE_W :: Windows_Hit_Test_Result.HTLEFT;
+    RESIZE_NE :: Windows_Hit_Test_Result.HTTOPRIGHT;
+    RESIZE_SE :: Windows_Hit_Test_Result.HTBOTTOMRIGHT;
+    RESIZE_NW :: Windows_Hit_Test_Result.HTTOPLEFT;
+    RESIZE_SW :: Windows_Hit_Test_Result.HTBOTTOMLEFT;
+    CLOSE :: Windows_Hit_Test_Result.HTCLOSE;
+    MAXIMIZE :: Windows_Hit_Test_Result.HTMAXBUTTON;
+    MINIMIZE :: Windows_Hit_Test_Result.HTMINBUTTON;
 }
 
 //
@@ -208,8 +221,7 @@ get_vk :: (key: Key_Code) -> VK: u64 {
 #add_context _windows_windowproc :: MyWindowProc;
 
 
-MyWindowProc :: (hwnd: HWND, message: u32,
-                 wParam: WPARAM, lParam: LPARAM) -> s64 #c_call {
+MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s64 #c_call {
     new_context: Context;
     new_context.allocator = Context.default_allocator;
     new_context.logger    = Context.{}.logger;
@@ -217,9 +229,9 @@ MyWindowProc :: (hwnd: HWND, message: u32,
     push_context new_context {
         using Key_Code;
 
-  	    if message == {
+          if message == {
 //          case WM_ERASEBKGND; return 1;
-          case WM_SYSCOMMAND;
+            case WM_SYSCOMMAND;
 /*
             if (wParam & 0xfff0) == SC_KEYMENU {
                 print("LPARAM %\n", lParam);
@@ -229,34 +241,45 @@ MyWindowProc :: (hwnd: HWND, message: u32,
                 return 0;
             }
 */
-	        return DefWindowProcW(hwnd, message, wParam, lParam);
+            return DefWindowProcW(hwnd, message, wParam, lParam);
 
-          case WM_NCHITTEST;
+            case WM_NCHITTEST;
             hit := DefWindowProcW(hwnd, message, wParam, lParam);
             if window_region_override {
                 HTCLIENT :: 1;
-                HTCAPTION :: 2;
-                HTSYSMENU :: 3;
-                HTSIZE :: 4;
-                HTTOPRIGHT :: 14;
-                if hit == HTCLIENT {
-                    if window_region_override == {
-                        case .TITLE_BAR;  hit = HTCAPTION;
-                    }
-                }
+                if hit == HTCLIENT
+                    hit = cast(s64) window_region_override;
             }
             return hit;
 
+            case WM_NCCALCSIZE;
+            if window_remove_all_decorations
+                return 0;
+            else
+                return DefWindowProcW(hwnd, message, wParam, lParam);
 
-          case WM_NCRBUTTONUP;
+            case WM_NCLBUTTONDOWN;
+            result := 0;
+            if wParam == xx Windows_Hit_Test_Result.HTMINBUTTON {
+                ShowWindow(hwnd, SW_MINIMIZE);
+            }
+            else if wParam == xx Windows_Hit_Test_Result.HTMAXBUTTON {
+                wp: WINDOWPLACEMENT;
+                GetWindowPlacement(hwnd, *wp);
+                ShowWindow(hwnd, cast(s32) ifx wp.showCmd == SW_MAXIMIZE then SW_RESTORE else SW_MAXIMIZE);
+            }
+            else if wParam == xx Windows_Hit_Test_Result.HTCLOSE {
+                PostMessageW(hwnd, WM_QUIT, null, null);
+            }
+            else {
+                result = DefWindowProcW(hwnd, message, wParam, lParam);
+            }
+            return result;
+
+            case WM_NCRBUTTONUP;
             if window_region_override {
                 TPM_LEFTALIGN :: 0x0000;
                 TPM_RETURNCMD :: 0x0100;
-
-                user32 :: #system_library "user32";
-                GetSystemMenu :: (hwnd: HWND, bRevert: bool) -> HWND #foreign user32;
-                TrackPopupMenuEx :: (hmenu: HWND, fuFlagsL: u32, x: s32, y: s32, hwnd: HWND, lptpm: HWND) -> HWND #foreign user32;
-                PostMessageW :: (hwnd: HWND, Msg: u32, wParam: HWND, lParam: HWND) -> HWND #foreign user32;
 
                 y : s32 = cast(s32)((lParam >> 16) & 0xFFFF);
                 x : s32 = cast(s32)((lParam)       & 0xFFFF);
@@ -266,7 +289,7 @@ MyWindowProc :: (hwnd: HWND, message: u32,
                     PostMessageW(hwnd, WM_SYSCOMMAND, command, null);
             }
 
-          case WM_ACTIVATEAPP;
+            case WM_ACTIVATEAPP;
             if wParam {  // We are being activated.
 
                 // We do our best to provide the application with reliable key states without brute force sampling every key.
@@ -288,37 +311,33 @@ MyWindowProc :: (hwnd: HWND, message: u32,
                     }
                 }
             }
-	        return DefWindowProcW(hwnd, message, wParam, lParam);
+            return DefWindowProcW(hwnd, message, wParam, lParam);
 
-          case WM_SYSKEYDOWN; #through;
-          case WM_KEYDOWN;
-
+            case WM_SYSKEYDOWN; #through;
+            case WM_KEYDOWN;
             extended := ((cast(u16)((cast(u32)lParam >> 16) & 0xffff)) & 0x0100 == 0x0100);  // (HIWORD(lParam) & KF_EXTENDED) == KF_EXTENDED
             repeat := ((cast (s32) lParam) & 0x40000000) != 0;
             is_left_right, left_right_key_code := left_right_key_version(wParam, lParam);
             maybe_send_vkey_event(wParam, true, repeat, extended, is_left_right, left_right_key_code);
 
-          case WM_SYSKEYUP; #through;
-          case WM_KEYUP;
-
+            case WM_SYSKEYUP; #through;
+            case WM_KEYUP;
             extended := ((cast(u16)((cast(u32)lParam >> 16) & 0xffff)) & 0x0100 == 0x0100);  // (HIWORD(lParam) & KF_EXTENDED) == KF_EXTENDED
             is_left_right, left_right_key_code := left_right_key_version(wParam, lParam);
             maybe_send_vkey_event(wParam, false, false, extended, is_left_right, left_right_key_code);
 
-          case WM_SYSCHAR;
-              // This is here to prevent beeps when a Alt key combo is pressed. If we don't return 0, windows helpfully emits a beep sound to
-              // indicate the user that the key wasn't handled.
+            case WM_SYSCHAR;
+            // This is here to prevent beeps when a Alt key combo is pressed. If we don't return 0, windows helpfully emits a beep sound to
+            // indicate the user that the key wasn't handled.
 
-          case WM_CHAR;
+            case WM_CHAR;
             keycode := wParam;
-
             // @Hack to allow AltGr shortcuts for AZERTY and QWERTZ layout...
             altgr_keycode := keycode == #char "~" || keycode == #char "#" || keycode == #char "{" || keycode == #char "[" ||
                              keycode == #char "|" || keycode == #char "`" || keycode == #char "^" || keycode == #char "\\" ||
                              keycode == #char "@" || keycode == #char "]" || keycode == #char "}" || keycode == #char ";" ||
                              keycode == #char "<" || keycode == #char ">" || keycode == #char "$" || keycode == #char "&" ||
                              keycode == #char "*";
-
             if (keycode > 31 && keycode < 127 && !(ctrl_state || alt_state)) || (altgr_keycode && alt_state) || keycode > 255 {
                 // Control characters generate key codes < 32, but these are redundant
                 // with KEYDOWN events and are also ambiguous (ctrl-m generates 13, but
@@ -326,41 +345,41 @@ MyWindowProc :: (hwnd: HWND, message: u32,
                 event: Event;
                 event.type = .TEXT_INPUT;
                 event.utf32 = xx keycode;
-
                 array_add(*events_this_frame, event);
             }
 
-          case WM_SETFOCUS;
+            case WM_SETFOCUS;
             input_application_has_focus = true;
-          case WM_KILLFOCUS;
-            input_application_has_focus = false;
-          case WM_PAINT;
-		    ValidateRect(hwnd, null);
-	        return DefWindowProcW(hwnd, message, wParam, lParam);
 
-          case WM_LBUTTONDOWN; #through;
-          case WM_LBUTTONUP;
+            case WM_KILLFOCUS;
+            input_application_has_focus = false;
+
+            case WM_PAINT;
+            ValidateRect(hwnd, null);
+            return DefWindowProcW(hwnd, message, wParam, lParam);
+
+            case WM_LBUTTONDOWN; #through;
+            case WM_LBUTTONUP;
             maybe_send_vkey_event(VK_LBUTTON, message == WM_LBUTTONDOWN);
             if message == WM_LBUTTONDOWN SetCapture(hwnd); else ReleaseCapture();
 
-          case WM_RBUTTONDOWN; #through;
-          case WM_RBUTTONUP;
+            case WM_RBUTTONDOWN; #through;
+            case WM_RBUTTONUP;
             maybe_send_vkey_event(VK_RBUTTON, message == WM_RBUTTONDOWN);
             if message == WM_RBUTTONDOWN SetCapture(hwnd); else ReleaseCapture();
 
 
-         case WM_MBUTTONDOWN; #through;
-         case WM_MBUTTONUP;
+            case WM_MBUTTONDOWN; #through;
+            case WM_MBUTTONUP;
             maybe_send_vkey_event(VK_MBUTTON, message == WM_MBUTTONDOWN);
             if message == WM_MBUTTONDOWN SetCapture(hwnd); else ReleaseCapture();
 
 
-         case WM_XBUTTONDOWN; #through;
-         case WM_XBUTTONUP;
+            case WM_XBUTTONDOWN; #through;
+            case WM_XBUTTONUP;
             event: Event;
             event.type = Event_Type.KEYBOARD;
             event.key_code = ifx wParam < 1 << 17 then MOUSE_BUTTON_X1 else MOUSE_BUTTON_X2;
-
             pressed := false;
             if message == WM_XBUTTONDOWN {
                 pressed = true;
@@ -368,13 +387,11 @@ MyWindowProc :: (hwnd: HWND, message: u32,
             } else {
                 input_button_states[event.key_code] |= .END;  // Because we shadowed that by Key_Code.END.
             }
-
             event.key_pressed = xx pressed;
-
             array_add(*events_this_frame, event);
 
 
-          case WM_MOUSEMOVE;
+            case WM_MOUSEMOVE;
             // We don't have mouse move events yet, but we'll record the delta.
 
 
@@ -388,17 +405,16 @@ MyWindowProc :: (hwnd: HWND, message: u32,
             last_mouse_event_x = x;
             last_mouse_event_y = y;
 */
-          case WM_MOUSEWHEEL;
+            case WM_MOUSEWHEEL;
             event: Event;
             event.type = .MOUSE_WHEEL;
             event.typical_wheel_delta = WHEEL_DELTA;
             event.wheel_delta = xx cast,trunc(s16)(wParam >> 16);
             array_add(*events_this_frame, event);
-
             mouse_delta_z += event.wheel_delta;
 
-          case WM_CLOSE; #through;
-          case WM_QUIT;
+            case WM_CLOSE; #through;
+            case WM_QUIT;
             event: Event;
             event.type = .QUIT;
             array_add(*events_this_frame, event);
@@ -407,9 +423,8 @@ MyWindowProc :: (hwnd: HWND, message: u32,
             // while we might want to show a confirmation dialog when there are unsaved files
             // return DefWindowProcW(hwnd, message, wParam, lParam);
 
-          case WM_INPUT;
+            case WM_INPUT;
             extra := GetMessageExtraInfo();
-
             if (extra & 0x82) == 0x82 {
                 // @Hack: Ignore touch input! There is no documentation of this
                 // that I can see. This is just what I needed to do to filter
@@ -418,9 +433,9 @@ MyWindowProc :: (hwnd: HWND, message: u32,
             } else {
                 process_raw_input(cast(HRAWINPUT)lParam);
             }
-
             DefWindowProcW(hwnd, message, wParam, lParam);  // This is required for some reason.    // @@ Why?
-          case WM_SIZE;
+
+            case WM_SIZE;
             if wParam == {
               case SIZE_MAXIMIZED;
                 window_minimized = false;
@@ -432,65 +447,77 @@ MyWindowProc :: (hwnd: HWND, message: u32,
                   window_minimized = true;
             }
             return 0;
-          case WM_MOVE;
+
+            case WM_MOVE;
             add_move_record(hwnd);
             return 0;
-          case WM_EXITSIZEMOVE;
+
+            case WM_EXITSIZEMOVE;
             add_resize_record(hwnd);
             return 0;
-          case WM_DPICHANGED;
+
+            case WM_DPICHANGED;
             y_dpi := (wParam >> 16) & 0xFFFF;
             x_dpi := (wParam)       & 0xFFFF;
-
             rect := cast(*RECT) lParam;
-
             w := rect.right - rect.left;
             h := rect.bottom - rect.top;
-
             SetWindowPos(hwnd, HWND_TOPMOST, rect.left, rect.top, w, h, SWP_NOACTIVATE|SWP_NOZORDER);
             return 0;
-          case WM_DROPFILES;
- 	  	    drop := cast(HDROP) wParam;
- 	 	    // If "0xFFFFFFFF" as the second parameter: return the count of files dropped.
- 	 	    file_paths_count := DragQueryFileW(drop, 0xFFFFFFFF, null, 0);
-            assert(file_paths_count > 0);
 
+            case WM_DROPFILES;
+            drop := cast(HDROP) wParam;
+            // If "0xFFFFFFFF" as the second parameter: return the count of files dropped.
+            file_paths_count := DragQueryFileW(drop, 0xFFFFFFFF, null, 0);
+            assert(file_paths_count > 0);
             files: [..] string;
             array_reserve(*files, file_paths_count);
+            for i: 0..file_paths_count-1 {
+                // If null as the third parameter: return the length of the path, not counting the trailing '\0'.
+                file_name_wide_count := DragQueryFileW(drop, i, null, 0) + 2;
+                assert(file_name_wide_count > 0);
 
- 	 	    for i: 0..file_paths_count-1 {
- 	 	        // If null as the third parameter: return the length of the path, not counting the trailing '\0'.
- 	 	        file_name_wide_count := DragQueryFileW(drop, i, null, 0) + 2;
- 	 	        assert(file_name_wide_count > 0);
+                file_name_wide := cast(*u16) alloc(file_name_wide_count * size_of(u16));
+                ok := DragQueryFileW(drop, i, file_name_wide, file_name_wide_count);
+                assert(ok > 0); // means success
 
- 	  	        file_name_wide := cast(*u16) alloc(file_name_wide_count * size_of(u16));
- 	 	        ok := DragQueryFileW(drop, i, file_name_wide, file_name_wide_count);
- 	 	        assert(ok > 0); // means success
-
- 	  	        file_name := wide_to_utf8_new(file_name_wide);
- 	 	        array_add(*files, file_name);
- 	 	    }
-
- 	 	    DragFinish(drop);
-
- 	  	    event: Event;
- 	 	    event.type  = .DRAG_AND_DROP_FILES;
+                file_name := wide_to_utf8_new(file_name_wide);
+                array_add(*files, file_name);
+            }
+            DragFinish(drop);
+            event: Event;
+            event.type  = .DRAG_AND_DROP_FILES;
             event.files = files;
- 	 	    array_add(*events_this_frame, event);
+            array_add(*events_this_frame, event);
             return 0;
 
-          case WM_SETCURSOR;
+            case WM_SETCURSOR;
             if windows_ignore_setcursor_messages return 0;
-	        else return DefWindowProcW(hwnd, message, wParam, lParam);
+            else return DefWindowProcW(hwnd, message, wParam, lParam);
 
-          case;
-	        return DefWindowProcW(hwnd, message, wParam, lParam);
-	    }
+            case;
+            return DefWindowProcW(hwnd, message, wParam, lParam);
+        }
 
         return 0;
     }
 }
 
+user32 :: #system_library "user32";
+GetWindowPlacement :: (hwnd: HWND, wp: *WINDOWPLACEMENT) -> bool #foreign user32;
+GetSystemMenu :: (hwnd: HWND, bRevert: bool) -> HWND #foreign user32;
+TrackPopupMenuEx :: (hmenu: HWND, fuFlagsL: u32, x: s32, y: s32, hwnd: HWND, lptpm: HWND) -> HWND #foreign user32;
+PostMessageW :: (hwnd: HWND, Msg: u32, wParam: HWND, lParam: HWND) -> HWND #foreign user32;
+
+WINDOWPLACEMENT :: struct {
+  length: u32;
+  flags: u32;
+  showCmd: u32;
+  ptMinPosition: POINT;
+  ptMaxPosition: POINT;
+  rcNormalPosition: RECT;
+  rcDevice: RECT;
+}
 
 left_right_key_version :: (vk: WPARAM, lParam: LPARAM) -> is_left_right: bool, new_key_code: Key_Code {
     user32 :: #system_library "user32";
@@ -644,7 +671,7 @@ process_raw_input :: (handle: HRAWINPUT) {
         this_allocation_is_not_a_leak(raw_input_buffer.data); // :ScanGlobalData
     }
 
-	written_bytes := GetRawInputData(handle, RID_INPUT, raw_input_buffer.data, *dwSize, size_of(RAWINPUTHEADER));
+    written_bytes := GetRawInputData(handle, RID_INPUT, raw_input_buffer.data, *dwSize, size_of(RAWINPUTHEADER));
     assert(written_bytes <= dwSize);        // note that GetRawInputData() is allowed to request a buffer size and then write less bytes than the size
 
     raw := cast(*RAWINPUT) raw_input_buffer.data;
@@ -880,4 +907,33 @@ send_key_event :: (key_code: Key_Code, key_down: bool, repeat := false) {
     else {
         input_button_states[key_code] |= .END;
     }
+}
+
+Windows_Hit_Test_Result :: enum {
+    HTERROR :: -2;       // On the screen background or on a dividing line between windows (same as HTNOWHERE, except that the DefWindowProc function produces a system beep to indicate an error).
+    HTTRANSPARENT :: -1; // In a window currently covered by another window in the same thread (the message will be sent to underlying windows in the same thread until one of them returns a code that is not HTTRANSPARENT).
+    HTNOWHERE :: 0;      // On the screen background or on a dividing line between windows.
+    HTCLIENT :: 1;       // In a client area.
+    HTCAPTION :: 2;      // In a title bar.
+    HTSYSMENU :: 3;      // In a window menu or in a Close button in a child window.
+    HTSIZE :: 4;         // In a size box (same as HTGROWBOX).
+    HTGROWBOX :: 4;      // In a size box (same as HTSIZE).
+    HTHSCROLL :: 6;      // In a horizontal scroll bar.
+    HTMENU :: 5;         // In a menu.
+    HTVSCROLL :: 7;      // In the vertical scroll bar.
+    HTMINBUTTON :: 8;    // In a Minimize button.
+    HTREDUCE :: 8;       // In a Minimize button.
+    HTZOOM :: 9;         // In a Maximize button.
+    HTMAXBUTTON :: 9;    // In a Maximize button.
+    HTLEFT :: 10;        // In the left border of a resizable window (the user can click the mouse to resize the window horizontally).
+    HTRIGHT :: 11;       // In the right border of a resizable window (the user can click the mouse to resize the window horizontally).
+    HTTOP :: 12;         // In the upper-horizontal border of a window.
+    HTTOPLEFT :: 13;     // In the upper-left corner of a window border.
+    HTTOPRIGHT :: 14;    // In the upper-right corner of a window border.
+    HTBOTTOM :: 15;      // In the lower-horizontal border of a resizable window (the user can click the mouse to resize the window vertically).
+    HTBOTTOMLEFT :: 16;  // In the lower-left corner of a border of a resizable window (the user can click the mouse to resize the window diagonally).
+    HTBOTTOMRIGHT :: 17; // In the lower-right corner of a border of a resizable window (the user can click the mouse to resize the window diagonally).
+    HTBORDER :: 18;      // In the border of a window that does not have a sizing border.
+    HTCLOSE :: 20;       // In a Close button.
+    HTHELP :: 21;        // In a Help button.
 }

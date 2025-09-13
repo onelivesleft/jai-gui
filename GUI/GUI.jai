@@ -1,5 +1,7 @@
 // @TODO
 
+// [x] Let user make and manage a window with no OS decorations.
+
 // [x] Investigate reworking positioning so it doesn't use pointers+macros
 // [x] Simplify (click on down, checkbox live)
 // [x] Click on down instead of up
@@ -16,7 +18,7 @@
 //  [x] Render window to its own buffer.
 //  [x] Content scrolling / sizing.
 //  [ ] Active window, warm window
-// [ ] text_box input.  rename text_input and text_box?  Maybe just have one call, with a flag to specify multiline (will still be two widgets behind the scenes).
+// [.] text_box input.  rename text_input and text_box?  Maybe just have one call, with a flag to specify multiline (will still be two widgets behind the scenes).
 // [x] Keyboard
 //  [x] start/held/end for clicks/keypresses?
 //  [x] Get Input to recognise most keys (e.g. left/right shift/ctrl/alt)
@@ -38,6 +40,7 @@
 #load "widgets/widget.jai";
 #load "widgets/window.jai";
 #load "widgets/window_decoration.jai";
+#load "widgets/application_window_decoration.jai";
 
 #load "widgets/button.jai";
 #load "widgets/checkbox.jai";
@@ -50,9 +53,10 @@
 #load "widgets/scrollbar.jai";
 
 Widget_Types :: Type.[
-    Custom_Widget, Window, Window_Decoration, Button, Checkbox, Data_Table, Icon, Input_Box, Input_Line, Label, Scrollable_Panel, Scrollbar
+    Custom_Widget, Window, Window_Decoration, Application_Window_Decoration, Button, Checkbox, Data_Table, Icon, Input_Box, Input_Line, Label, Scrollable_Panel, Scrollbar
 ];
-// @TODO Compile time check Widget_Types matches type enum in Widget
+
+#run { assert(enum_names(type_of(Widget.type)).count == Widget_Types.count); }
 
 widget_allocator_pool: Flat_Pool;
 widget_allocator: Allocator;
@@ -76,14 +80,28 @@ frame: struct {
     no_sleep: bool;
 }
 
-application_window : Window_Creation.Window_Type;
+application_window: Window_Creation.Window_Type;
+application_window_style: u32;
+application_window_hidden_at_startup := true;
 
+Application_Window_Flags :: enum_flags {
+    HAS_OS_DECORATIONS :: 1;
+    HAS_SYSTEM_MENU :: 2;
+    HAS_TITLE_BAR :: 4;
+    HAS_MAXIMIZE :: 8 | HAS_SYSTEM_MENU; // Requires system menu to work
+    HAS_MINIMIZE :: 16 | HAS_SYSTEM_MENU; // Requires system menu to work
+    CAN_RESIZE :: 32;
 
-gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1) -> *Panel, *Window_Creation.Window_Type {
+    START_MAXIMIZED;
+    START_MINIMIZED;
+
+    DEFAULT :: HAS_OS_DECORATIONS|HAS_SYSTEM_MENU|HAS_TITLE_BAR|HAS_MAXIMIZE|HAS_MINIMIZE|CAN_RESIZE;
+}
+
+gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1, flags := Application_Window_Flags.DEFAULT) -> *Panel, *Window_Creation.Window_Type {
     assert(widget_allocator.proc == null, "You should only call gui_create_window once!");
 
     #if OS == .WINDOWS {
-        using Windows :: #import "Windows";
         timeBeginPeriod(1);
         // The following would tell windows that we don't look at the system DPI, and so windows should automatically scale
         // for us.  However, that's the default behaviour, so...
@@ -103,7 +121,6 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 
     #if OS == .WINDOWS {
         if window_x == -1 {
-            using Windows :: #import "Windows";
             mouse_position: POINT;
             if GetCursorPos(*mouse_position) {
                 monitor := MonitorFromPoint(mouse_position, MONITOR_DEFAULTTONEAREST);
@@ -117,10 +134,22 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
         }
     }
 
-    application_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y);
+    application_window_style = 0;
+    if flags & .HAS_TITLE_BAR    application_window_style |= WS_CAPTION;
+    if flags & .HAS_SYSTEM_MENU  application_window_style |= WS_SYSMENU;
+    if flags & .HAS_MAXIMIZE     application_window_style |= WS_MAXIMIZEBOX;
+    if flags & .HAS_MINIMIZE     application_window_style |= WS_MINIMIZEBOX;
+    if flags * .START_MAXIMIZED  application_window_style |= WS_MAXIMIZE;
+    if flags * .START_MINIMIZED  application_window_style |= WS_MINIMIZE;
+
+    if flags & .CAN_RESIZE       application_window_style |= WS_THICKFRAME;
+    else                         application_window_style |= WS_BORDER;
+
+    application_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y, application_window_style);
+    Input.window_remove_all_decorations = !(flags & .HAS_OS_DECORATIONS);
 
     Simp.set_render_target(application_window);
-    set_application_window_size(window_width, window_height);
+    register_application_window_size(window_width, window_height);
 
     array_reset(*placement_spacing);
     array_add(*placement_spacing, .{0, 0});
@@ -131,6 +160,18 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 }
 
 gui_begin_frame :: () -> should_quit: bool {
+
+    // We hide the application window for a couple of frames, so everything looks good when it's shown
+    if application_window_hidden_at_startup && frame.index > 1 {
+        application_window_hidden_at_startup = false;
+        user32 :: #system_library "user32";
+        //if Input.window_remove_all_decorations
+        application_window_style |= WS_VISIBLE;
+        SetWindowLongW(application_window, GWL_STYLE, cast(s32) application_window_style);
+        SetWindowPos(application_window, null, 0, 0, 0, 0, SWP_NOZORDER|SWP_NOMOVE|SWP_NOSIZE|SWP_NOACTIVATE|SWP_FRAMECHANGED);
+        ShowWindow :: (hwnd: *void, show: s32) #foreign user32;
+        ShowWindow(application_window, 1);
+    }
 
     // First, clean up the previous frame.
 
@@ -201,13 +242,20 @@ gui_begin_frame :: () -> should_quit: bool {
     next_warm_window = null;
     next_scrollwheel_widget = null;
 
+    Input.window_region_override = application_window_decoration_override;
+    application_window_decoration_override = .NONE;
+    #if BACKGROUND_DRAGS_OS_WINDOW {
+        if !warm_widget && !hot_widget
+            Input.window_region_override = .TITLE_BAR;
+    }
+
     Input.update_window_events();
 
     for Input.get_window_resizes() {
         Simp.update_window(it.window);
 
         if it.window == application_window
-            set_application_window_size(it.width, it.height);
+            register_application_window_size(it.width, it.height);
     }
 
     characters_typed_this_frame.data = characters_typed_this_frame_buffer.data;
@@ -654,7 +702,7 @@ Flags :: enum_flags u64 {
     NO_WRAP :: 128;        // Text box
 
     // Scrollbar
-    SMOOTH;
+    SMOOTH :: 1 << 8;
     REVERSE_SCROLLWHEEL;  // Inverts scrollwheel direction
 
     // Flags
@@ -676,13 +724,23 @@ Flags :: enum_flags u64 {
     CAN_RESIZE;
     SCROLLBARS;
 
-    // Window_Decoration
-    MOVE;
-    RESIZE;
-    TITLE_BAR;
+    // Window_Decoration and Application_Window_Decoration
+    RESIZE_N :: 1 << 26;
+    RESIZE_E :: 1 << 27;
+    RESIZE_S :: 1 << 28;
+    RESIZE_W :: 1 << 29;
+    RESIZE_NE :: RESIZE_N|RESIZE_E;
+    RESIZE_NW :: RESIZE_N|RESIZE_W;
+    RESIZE_SE :: RESIZE_S|RESIZE_E;
+    RESIZE_SW :: RESIZE_S|RESIZE_W;
+    RESIZE :: RESIZE_SE;
+    MOVE :: RESIZE_N|RESIZE_E|RESIZE_S|RESIZE_W;
+    TITLE_BAR :: 1 << 30;
     CLOSE;
     SCROLLBAR_HORIZONTAL;
     SCROLLBAR_VERTICAL;
+    MAXIMIZE;
+    MINIMIZE;
 }
 
 is_locked :: inline (flags: Flags) -> bool { return (flags & .LOCKED) && !(flags & .INTERACTS); }
@@ -766,6 +824,7 @@ became_tooltip_widget_time: float64;
 hot_widget_frame_index: int;
 warm_widget_frame_index: int;
 warm_window_frame_index: int;
+application_window_decoration_override : type_of(Input.window_region_override) = .NONE;
 
 is_warm :: inline (widget: *Widget) -> bool {
     return widget == warm_widget;
@@ -852,8 +911,8 @@ set_hot :: (widget: *Widget, hot: bool) {
     }
 }
 
-Lost_Focus_Reason :: enum {
-    UNDETERMINED; CONFIRMED; CANCELLED;
+Focus_Change :: enum {
+    NONE; UNDETERMINED; CONFIRMED; CANCELLED;
 }
 
 focus :: (widget: *$T/Widget) {
@@ -863,7 +922,7 @@ focus :: (widget: *$T/Widget) {
     widget_became_focussed_time(focussed_widget, frame.time);
 }
 
-remove_focus :: (widget: *$T/Widget, reason := Lost_Focus_Reason.UNDETERMINED) {
+remove_focus :: (widget: *$T/Widget, reason := Focus_Change.UNDETERMINED) {
     if focussed_widget != widget  return;
     widget_lost_focus_time(focussed_widget, frame.time);
     if focussed_widget.type == {
@@ -879,7 +938,7 @@ focus_window :: (window: *Window) {
     window_became_focussed_time(focussed_window, frame.time);
 }
 
-remove_window_focus :: (window: *Window, reason := Lost_Focus_Reason.UNDETERMINED) {
+remove_window_focus :: (window: *Window, reason := Focus_Change.UNDETERMINED) {
     if focussed_window != window  return;
     window_lost_focus_time(focussed_window, frame.time);
     focussed_window = null;
@@ -919,11 +978,9 @@ calculate_rect :: (panel: *Panel) -> Rect {
     if !panel.parent  return panel.calculated_rect;
     assert(panel.parent != panel);
 
-    parent_rect : Rect = ---;
-    if panel.parent.calculated_rect_frame_index < frame.index
-        parent_rect = calculate_rect(panel.parent);
-    else
-        parent_rect = panel.parent.calculated_rect;
+    parent_rect := ifx panel.parent.calculated_rect_frame_index < frame.index
+                   then calculate_rect(panel.parent)
+                   else panel.parent.calculated_rect;
 
     panel.calculated_rect = resolve_rect(parent_rect, panel.desired_box);
     panel.calculated_rect_frame_index = frame.index;
@@ -965,14 +1022,18 @@ add_margin_to_drawn_widget_bounds :: (spacing: int) {
 
 
 should_quit := false;
-application_panel: Panel;
+// Because some positioning operations create sibling panels, they require everything they work
+// on to have a parent.  The root panel has no parent; therefor, we have a separate application panel
+// which is the top panel that the user sees; it's parent is the root panel, which it fills.
+root_panel: Panel;
+application_panel := Panel.{*root_panel, BOX_FILLED, .{}, 0};
 
-set_application_window_size :: (new_width: int, new_height: int) {
-    old_width := application_panel.desired_box.brx.abs;
-    old_height := application_panel.desired_box.bry.abs;
-    application_panel.parent = null;
-    application_panel.desired_box = box(0, 0, new_width, new_height);
-    application_panel.calculated_rect = .{ 0, 0, xx new_width, xx new_height };
+register_application_window_size :: (new_width: int, new_height: int) {
+    old_width := root_panel.desired_box.brx.abs;
+    old_height := root_panel.desired_box.bry.abs;
+    root_panel.parent = null;
+    root_panel.desired_box = box(0, 0, new_width, new_height);
+    root_panel.calculated_rect = .{ 0, 0, xx new_width, xx new_height };
     application_window_resize(new_width, new_height, old_width, old_height);
 }
 
@@ -1100,3 +1161,251 @@ is_struct_or_pointer_to_struct :: (T: Type) -> bool, *Type_Info_Struct {
 lerp :: (a: int, b: int, t: float) -> int {
     return a + cast(int)(cast(float)(b - a) * t);
 }
+
+
+text_edit : struct {
+    currently_editting: *Widget;
+    bytes: [] u8;
+    allocated_count: int;
+    cursor: int;
+    select_anchor: int;
+    cursor_x: float;
+    before_cursor: string;
+    after_cursor: string;
+    lines: [] string;
+
+    #place bytes;
+    as_string : string = ---;
+}
+
+allocate_text_edit :: (size: int) {
+    using text_edit;
+    if size <= allocated_count  return;
+
+    new_bytes := NewArray(size + 1024, u8);  // allocate extra space so we likely don't have to reallocate again soon
+    bytes_count := bytes.count;
+    if allocated_count {
+        if bytes.count
+            memcpy(new_bytes.data, bytes.data, bytes.count);
+        free(bytes.data);
+    }
+    bytes = new_bytes;
+    allocated_count = bytes.count;
+    bytes.count = bytes_count;
+}
+
+update_text_edit :: () {
+    using text_edit;
+    before_cursor.data = bytes.data;
+    before_cursor.count = cursor;
+    after_cursor.data = bytes.data + cursor;
+    after_cursor.count = bytes.count - cursor;
+}
+
+set_text_edit :: (widget: *Widget, s: string, cursor_position := 0x7fffffff) {
+    using text_edit;
+    currently_editting = widget;
+    bytes.count = 0; // we don't need to preserve the buffer as we're setting it from scratch.
+    allocate_text_edit(s.count);
+    if s  memcpy(bytes.data, s.data, s.count);
+    bytes.count = s.count;
+    text_edit_set_cursor(cursor_position, false);
+}
+
+insert_text_edit :: (s: string) {
+    if !s  return;
+    using text_edit;
+
+    has_selection, start, end := text_edit_selection();
+    if has_selection
+        remove_text_edit(start, end);
+
+    allocate_text_edit(bytes.count + s.count);
+    if cursor < bytes.count
+        memcpy(bytes.data + cursor + s.count, bytes.data + cursor, bytes.count - cursor);
+    memcpy(bytes.data + cursor, s.data, s.count);
+    bytes.count += s.count;
+    if select_anchor >= cursor  select_anchor += s.count;
+    cursor += s.count;
+    if currently_editting.flags & .IMMEDIATE
+        set_changed(currently_editting);
+    update_text_edit();
+}
+
+remove_text_edit :: (from: int, to: int) {
+    if from >= to  return;
+    using text_edit;
+
+    if to < bytes.count
+        memcpy(bytes.data + from, bytes.data + to, bytes.count - to);
+    bytes.count -= (to - from);
+    if cursor > from {
+        if cursor <= to  cursor = from;
+        else             cursor -= (to - from);
+    }
+    if select_anchor > from {
+        if select_anchor <= to  select_anchor = from;
+        else                    select_anchor -= (to - from);
+    }
+    if currently_editting.flags & .IMMEDIATE
+        set_changed(currently_editting);
+    update_text_edit();
+}
+
+text_edit_set_cursor :: (cursor_position: int, selecting: bool) {
+    using text_edit;
+    cursor = clamp(cursor_position, 0, bytes.count);
+    if !selecting  select_anchor = cursor;
+    update_text_edit();
+}
+
+text_edit_set_selection :: (select_anchor_position: int, cursor_position: int) {
+    using text_edit;
+    cursor = clamp(cursor_position, 0, bytes.count);
+    select_anchor = clamp(select_anchor_position, 0, bytes.count);
+    update_text_edit();
+}
+
+text_edit_select_all :: () {
+    text_edit_set_selection(0, text_edit.bytes.count);
+}
+
+text_edit_copy_selection :: () {
+    using text_edit;
+    has_selection, start, end := text_edit_selection();
+    if has_selection
+        os_clipboard_set_text(string.{end - start, *bytes[start]});
+}
+
+text_edit_cut_selection :: () {
+    using text_edit;
+    has_selection, start, end := text_edit_selection();
+    if has_selection {
+        os_clipboard_set_text(string.{end - start, *bytes[start]});
+        remove_text_edit(start, end);
+    }
+}
+
+text_edit_paste :: () {
+    insert_text_edit(os_clipboard_get_text());
+}
+
+character_utf32_to_utf8 :: (ch: u32, preallocated_string: *string) {  // preallocated_string must have at least 4 characters of allocated memory.
+    UNI_MAX_LEGAL_UTF32  :: 0x0010FFFF;
+    UNI_REPLACEMENT_CHAR :: 0x0000FFFD;
+    firstByteMark : [7] u8 : .[ 0x00, 0x00, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC ];
+
+    count := 0;
+    if ch < 0x80                        count = 1;
+    else if ch < 0x800                  count = 2;
+    else if ch < 0x10000                count = 3;
+    else if ch <= UNI_MAX_LEGAL_UTF32   count = 4;
+    else {
+        count = 3;
+        ch = UNI_REPLACEMENT_CHAR;
+    }
+
+    byteMask :: 0xBF;
+    byteMark :: 0x80;
+
+    preallocated_string.count = count;
+    s := preallocated_string;
+
+    if count == {
+        case 4; s.data[3] = xx (ch | byteMark) & byteMask; ch = ch >> 6; #through;
+        case 3; s.data[2] = xx (ch | byteMark) & byteMask; ch = ch >> 6; #through;
+        case 2; s.data[1] = xx (ch | byteMark) & byteMask; ch = ch >> 6; #through;
+        case 1; s.data[0] = xx (ch | firstByteMark[count]);
+    }
+}
+
+text_edit_selection :: () -> has_selection: bool, start: int, end: int {
+    using text_edit;
+    if select_anchor > cursor
+        return cursor != select_anchor, cursor, select_anchor;
+    else
+        return cursor != select_anchor, select_anchor, cursor;
+}
+
+text_edit_move_cursor :: (count: int, selecting: bool) {
+    using text_edit;
+    if count < 0 {
+        for outer: 1 .. -count {
+            while true {
+                if cursor == 0  break outer;
+                cursor -= 1;
+                if 192 & bytes[cursor] != 128  break outer;
+            }
+        }
+    }
+    else if cursor < bytes.count {
+        for outer: 1 .. count {
+            cursor += 1 + trailing_utf8_bytes[bytes[cursor]];
+            if cursor >= bytes.count {
+                cursor = bytes.count;
+                break outer;
+            }
+        }
+    }
+    if !selecting  select_anchor = cursor;
+    update_text_edit();
+}
+
+text_edit_backspace :: () {
+    using text_edit;
+    has_selection, start, end := text_edit_selection();
+    if has_selection {
+        remove_text_edit(start, end);
+    }
+    else {
+        if cursor == 0  return;
+        start_cursor := cursor;
+        text_edit_move_cursor(-1, false);
+        remove_text_edit(cursor, start_cursor);
+    }
+}
+
+text_edit_delete :: () {
+    using text_edit;
+    has_selection, start, end := text_edit_selection();
+    if has_selection {
+        remove_text_edit(start, end);
+    }
+    else {
+        if cursor >= bytes.count  return;
+        start_cursor := cursor;
+        text_edit_move_cursor(+1, false);
+        remove_text_edit(start_cursor, cursor);
+    }
+}
+
+text_edit_handle_keyboard_input :: (read_only: bool) -> Focus_Change {
+    if keyboard.any_typing_this_frame() {
+        text := keyboard.eat_typed_this_frame();
+        if !read_only  insert_text_edit(text);
+    }
+
+    if was_clicked(keyboard.escape)     return .CANCELLED;
+    if was_clicked(keyboard.enter)      return .CONFIRMED;
+    if was_clicked(keyboard.tab)        return .UNDETERMINED;
+
+    if was_clicked(keyboard.left)       text_edit_move_cursor(-1, xx keyboard.shift);
+    if was_clicked(keyboard.right)      text_edit_move_cursor(+1, xx keyboard.shift);
+    if was_clicked(keyboard.home)       text_edit_set_cursor(0, xx keyboard.shift);
+    if was_clicked(keyboard.end)        text_edit_set_cursor(text_edit.bytes.count, xx keyboard.shift);
+    if !read_only && was_clicked(keyboard.backspace)  text_edit_backspace();
+    if !read_only && was_clicked(keyboard.delete)     text_edit_delete();
+
+    if keyboard.control {
+        if was_clicked(keyboard.a)  text_edit_select_all();
+        if was_clicked(keyboard.c)  text_edit_copy_selection();
+        if was_clicked(keyboard.v)  text_edit_paste();
+        if was_clicked(keyboard.x) {
+            if read_only  text_edit_copy_selection();
+            else          text_edit_cut_selection();
+        }
+    }
+
+    return .NONE;
+}
+

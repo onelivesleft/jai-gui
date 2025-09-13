@@ -553,6 +553,9 @@ box :: (from_box: Box, auto_place: Placement) -> Box {
 Rect :: struct {
     x, y: float;
     w, h: float;
+
+    #place x;
+    position: Vector2;
 }
 
 contains :: inline (r: Rect, x: float, y: float) -> bool {
