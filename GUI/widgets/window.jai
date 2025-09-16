@@ -12,6 +12,7 @@ Window :: struct {
     key: u64;
     draw_proc: Window_Draw_Proc;
     drawn_bounds: Rect;
+    border_rect: Rect;
 
     _vertical_scrollbar := Scrollbar.{orientation=.VERTICAL};
     _horizontal_scrollbar := Scrollbar.{orientation=.HORIZONTAL};
@@ -20,7 +21,7 @@ Window :: struct {
     icon_id: Icon_Id;
 }
 
-DEFAULT_WINDOW_FLAGS :: Flags.CAN_MOVE | .CAN_RESIZE | .USE_SCROLLWHEEL | .CLOSE | .RESIZE | .MOVE | .TITLE_BAR | .LEFT;
+DEFAULT_WINDOW_FLAGS :: Flags.CAN_MOVE|.CAN_RESIZE|.USE_SCROLLWHEEL|.CLOSE|.RESIZE|.MOVE|.TITLE_BAR|.LEFT;
 
 Window_Draw_Proc :: #type (window: *Window);
 
@@ -157,7 +158,7 @@ calculate_virtual_panel :: (using window: *Window) {
         _horizontal_scrollbar.handle_size = 1.0;
     }
 
-    if  drawn_bounds.h > 0 && window.calculated_rect.h < drawn_bounds.h {
+    if drawn_bounds.h > 0 && window.calculated_rect.h < drawn_bounds.h {
         _vertical_scrollbar.handle_size = window.calculated_rect.h / drawn_bounds.h;
         vertical_position.rel = _vertical_scrollbar.float_value;
         vertical_position.abs = -lerp(0, height, _vertical_scrollbar.float_value);
@@ -204,17 +205,25 @@ update_window_drag :: (window: *Window) {
 }
 
 get_mouse_pointer_window_drag :: (window: *Window) -> Drag_Flags {
-    border_size :: 10;
-    r := *window.calculated_rect;
+    r := *window.border_rect;
     if !contains(r, mouse.x, mouse.y)  return .NONE;
 
+    theme := get_theme(window);
+    border_size := cast(float) theme.window_draggable_border_size;
+
     drag_flags: Drag_Flags;
-    if mouse.y - r.y <= border_size        drag_flags |= .RESIZE_N;
-    if r.y + r.h - mouse.y <= border_size  drag_flags |= .RESIZE_S;
-    if mouse.x - r.x <= border_size        drag_flags |= .RESIZE_W;
-    if r.x + r.w - mouse.x <= border_size  drag_flags |= .RESIZE_E;
-    if !drag_flags  return ifx window.flags & .CAN_MOVE then .MOVE;
-    return ifx window.flags & .CAN_RESIZE then drag_flags;
+    if window.flags & .CAN_RESIZE {
+        if mouse.y - r.y <= border_size        drag_flags |= .RESIZE_N;
+        if r.y + r.h - mouse.y <= border_size  drag_flags |= .RESIZE_S;
+        if mouse.x - r.x <= border_size        drag_flags |= .RESIZE_W;
+        if r.x + r.w - mouse.x <= border_size  drag_flags |= .RESIZE_E;
+        if drag_flags  return drag_flags;
+    }
+
+    if window.flags & .CAN_MOVE
+        return .MOVE;
+
+    return .NONE;
 }
 
 drag_flags_mask : u64 : (1 << 26) | (1 << 27) | (1 << 28) | (1 << 29);
@@ -223,146 +232,3 @@ drag_flags_from_flags :: (flags: Flags) -> Drag_Flags {
     drag_flags : Drag_Flags = xx ((drag_flags_mask & xx flags) >> 26);
     return drag_flags;
 }
-
-// Pointer_Image copied from GetRect
-
-Pointer_Image :: enum u16 {
-    NORMAL    :: 0;  // Normal arrow for pointing at stuff, or whatever.
-    PRESSABLE :: 1;
-    LOCKED    :: 2;  // No action can currently be performed.
-
-    DRAGGING_HORIZONTAL   :: 3;
-    DRAGGING_VERTICAL     :: 4;
-    DRAGGING_FREE         :: 5;
-
-    DRAGGING_NW_SE        :: 6;
-    DRAGGING_NE_SW        :: 7;
-}
-
-#if OS == .WINDOWS {
-    Windows :: #import "Windows";
-
-    set_pointer_image :: (image: Pointer_Image) {
-        if !initted_pointers  init_pointers();
-
-        if (image >= 0) && (image <= cast(Pointer_Image) NUM_POINTERS) {
-            Windows.SetCursor(pointers[image]);
-            pointer_image_was_set_this_frame = true;
-            already_reset_pointer_image = (image == .NORMAL);  // No need to reset the image if it was set to NORMAL.
-        } else {
-            log_error("Invalid pointer index %\n", image);
-        }
-    }
-
-    init_pointers :: () {
-        initted_pointers = true;
-
-        using Pointer_Image;
-
-        w :: Windows;
-
-        pointers[NORMAL]                = w.LoadCursorW(null, w.IDC_ARROW);
-        pointers[PRESSABLE]             = w.LoadCursorW(null, w.IDC_HAND);
-        pointers[LOCKED]                = w.LoadCursorW(null, w.IDC_NO);
-        pointers[DRAGGING_HORIZONTAL]   = w.LoadCursorW(null, w.IDC_SIZEWE);
-        pointers[DRAGGING_VERTICAL]     = w.LoadCursorW(null, w.IDC_SIZENS);
-        pointers[DRAGGING_FREE]         = w.LoadCursorW(null, w.IDC_SIZEALL);
-        pointers[DRAGGING_NW_SE]        = w.LoadCursorW(null, w.IDC_SIZENWSE);
-        pointers[DRAGGING_NE_SW]        = w.LoadCursorW(null, w.IDC_SIZENESW);
-    }
-
-    pointers: [NUM_POINTERS] Windows.HCURSOR;
-} else #if OS == .MACOS {
-    #import "Objective_C/AppKit";
-    set_pointer_image :: (image: Pointer_Image) {
-        if !initted_pointers  init_pointers();
-
-        if (image >= 0) && (image <= cast(Pointer_Image) NUM_POINTERS) {
-            NSCursor.set(pointers[image]);
-            pointer_image_was_set_this_frame = true;
-            already_reset_pointer_image = (image == .NORMAL);  // No need to reset the image if it was set to NORMAL.
-        } else {
-            log_error("Invalid pointer index %\n", image);
-        }
-    }
-
-    init_pointers :: () {
-        initted_pointers = true;
-
-        using Pointer_Image;
-        pointers[NORMAL]                = NSCursor.arrowCursor();
-        pointers[PRESSABLE]             = NSCursor.pointingHandCursor();
-        pointers[LOCKED]                = NSCursor.operationNotAllowedCursor();
-        pointers[DRAGGING_HORIZONTAL]   = NSCursor.resizeLeftRightCursor();
-        pointers[DRAGGING_VERTICAL]     = NSCursor.resizeUpDownCursor();
-        pointers[DRAGGING_FREE]         = NSCursor.openHandCursor(); // @Hack: There are no publicly available cursors for this.
-        pointers[DRAGGING_NW_SE]        = NSCursor.openHandCursor(); // @Hack: There are no publicly available cursors for this.
-        pointers[DRAGGING_NE_SW]        = NSCursor.openHandCursor(); // @Hack: There are no publicly available cursors for this.
-    }
-
-    pointers: [NUM_POINTERS] *NSCursor;
-} else {
-    set_pointer_image :: (image: Pointer_Image) {
-        if !initted_pointers  init_pointers();
-
-        // @Incomplete: Implement this.
-    }
-
-    init_pointers :: () {
-        initted_pointers = true;
-
-        using Pointer_Image;
-        // @Incomplete: Implement this.
-    }
-}
-
-NUM_POINTERS :: #run enum_highest_value(Pointer_Image)+1;
-
-set_pointer_image :: (drag_flags: Drag_Flags) {
-    if drag_flags == .NONE  return;
-
-    if drag_flags == .MOVE {
-        set_pointer_image(.DRAGGING_FREE);
-        return;
-    }
-
-    if drag_flags ==.RESIZE_NW || drag_flags == .RESIZE_SE {
-        set_pointer_image(.DRAGGING_NW_SE);
-        return;
-    }
-
-    if drag_flags ==.RESIZE_NE || drag_flags == .RESIZE_SW {
-        set_pointer_image(.DRAGGING_NE_SW);
-        return;
-    }
-
-    if drag_flags & (.RESIZE_E | .RESIZE_W) {
-        set_pointer_image(.DRAGGING_HORIZONTAL);
-        return;
-    }
-
-    if drag_flags & (.RESIZE_N | .RESIZE_S) {
-        set_pointer_image(.DRAGGING_VERTICAL);
-        return;
-    }
-}
-
-pointer_end_frame :: () {
-    if !pointer_image_was_set_this_frame {
-        if !already_reset_pointer_image {
-            set_pointer_image(.NORMAL); // This itself sets pointer_image* and already_reset*, so don't assume anything!
-            already_reset_pointer_image = true;
-        }
-    }
-
-    // Pointer-handling contribution by Rafał "Veeq7" Jurkiewicz.
-    // We change custom cursor handling each frame, depending on whether we set the cursor or not.
-    // The reason is, if we did set the cursor, we don't want Windows to set it back, which it seems
-    // to do, every frame. But if we didn't want to set the cursor, we do want to pay attention
-    // to Windows cursor changes, for example, as the user mouses over the window's resize frame.
-    pointer_image_was_set_this_frame = false;
-}
-
-initted_pointers                 := false;
-pointer_image_was_set_this_frame := false;
-already_reset_pointer_image      := false;

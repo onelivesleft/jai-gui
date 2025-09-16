@@ -19,6 +19,7 @@ Theme :: struct {
     window_background_color := Vector4.{0.3, 0.3, 0.3, 0.7};
     window_outline_focussed := Vector4.{0.65, 0.65, 0.85, 1.0};
     window_outline_warm :=     Vector4.{0.45, 0.45, 0.65, 1.0};
+    window_draggable_border_size : s16 = 2;
 
     window_decoration_background :=         Vector4.{0.35, 0.35, 0.55, 1.0};
     window_decoration_background_clicked := Vector4.{0.65, 0.65, 0.85, 1.0};
@@ -100,6 +101,7 @@ alternate_theme := Theme.{
     window_background_color = Vector4.{0.4, 0.3, 0.3, 0.7},
     window_outline_focussed = Vector4.{0.65, 0.65, 0.85, 1.0},
     window_outline_warm =     Vector4.{0.45, 0.45, 0.65, 1.0},
+    window_draggable_border_size = 2,
 
     window_decoration_background         = Vector4.{0.35, 0.55, 0.55, 1.0},
     window_decoration_background_clicked = Vector4.{0.65, 0.85, 0.85, 1.0},
@@ -499,26 +501,26 @@ init_skin :: () {
 application_window_resize :: (new_width: int, new_height: int, old_width: int, old_height: int) { }
 
 
-draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
+draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) -> border: *Panel {
     window := currently_drawing_window;
     theme := ifx is_locked(window.flags) then locked_theme else themes[theme_index(window.flags)];
 
-    panel := at(window);
-    if window.flags & .CLOSE | .TITLE_BAR  panel = grow(panel, theme.window_decoration_size, .UP);
-    if window.flags & .SCROLLBARS          panel = grow(panel, theme.window_decoration_scrollbar_size, .RIGHT);
+    border := at(window);
+    if window.flags & (.CLOSE|.TITLE_BAR)  border = grow(border, theme.window_decoration_size, .UP);
+    if window.flags & .SCROLLBARS          border = grow(border, theme.window_decoration_scrollbar_size, .RIGHT|.DOWN);
 
     #if mode == .BACKGROUND {
-        draw_box(panel, theme.window_background_color);
+        draw_box(border, theme.window_background_color);
     }
     else #if mode == .FOREGROUND {
         inherited_flags := window.flags & xx window_decoration_inherit_mask;
 
         if window == warm_window || window == focussed_window {
             color := ifx window == focussed_window then theme.window_outline_focussed else theme.window_outline_warm;
-            draw_outline(panel, color);
+            draw_outline(border, color);
         }
 
-        title_bar_row:, panel = split_top_bottom(panel, theme.window_decoration_size);
+        title_bar_row, panel := split_top_bottom(border, theme.window_decoration_size);
 
         if window.flags & .CLOSE {
             title_bar_row=, close_button := split_left_right(title_bar_row, -theme.window_decoration_size);
@@ -529,19 +531,22 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
             window_decoration(title_bar_row, .TITLE_BAR | inherited_flags);
         }
 
-        if !(window.flags & (.SCROLLBARS | .RESIZE))  return;
+        if window.flags & (.SCROLLBARS | .RESIZE) {
+            _, tr, bl, br := split_quadrants(panel, -theme.window_decoration_scrollbar_size, -theme.window_decoration_scrollbar_size);
 
-        _, tr, bl, br := split_quadrants(panel, -theme.window_decoration_scrollbar_size, -theme.window_decoration_scrollbar_size);
+            if window.flags & .SCROLLBARS {
+                window_decoration(bl, .SCROLLBAR_HORIZONTAL | inherited_flags);
+                window_decoration(tr, .SCROLLBAR_VERTICAL | inherited_flags);
+            }
 
-        if window.flags & .SCROLLBARS {
-            window_decoration(bl, .SCROLLBAR_HORIZONTAL | inherited_flags);
-            window_decoration(tr, .SCROLLBAR_VERTICAL | inherited_flags);
-        }
-
-        if window.flags & .RESIZE {
-            window_decoration(br, .RESIZE | inherited_flags);
+            if window.flags & .RESIZE {
+                window_decoration(br, .RESIZE | inherited_flags);
+            }
         }
     }
+
+//    border = grow(border, theme.window_draggable_border_size, .ALL);
+    return border;
 }
 
 draw_window_decoration :: (using window_decoration: *Window_Decoration) {

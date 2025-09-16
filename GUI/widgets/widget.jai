@@ -146,10 +146,14 @@ widget_type :: (widget: *Widget) -> Type {
 
 update_widget :: (using widget: *Widget) {
     maybe_calculate_rect(widget);
+    if draw_debug_widget_frames  draw_outline(widget, .{1.0, 0.0, 1.0, 1.0});
     calculate_drawn_widget_bounds(calculated_rect);
 
     scissor := peek_scissor();
     if scissor && !contains(scissor.*, mouse.x, mouse.y)
+        return;
+
+    if mouse.left_button_held && !mouse.left_button_start && !hot_widget
         return;
 
     is_mouse_over := contains(calculated_rect, mouse.x, mouse.y);

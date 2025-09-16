@@ -186,7 +186,7 @@ init_window_class :: (background_color_rgb: [3] float) {
     wc.cbWndExtra           = 0;
     wc.hInstance            = hInstance;
     wc.hIcon                = icon;
-    wc.hCursor              = LoadCursorW(null, IDC_ARROW);
+    wc.hCursor              = null;   //LoadCursorW(null, IDC_ARROW); // Setting this to null means windows won't keep overriding our cursor selection when the mouse moves.
     wc.hbrBackground        = brush;  // cast(HBRUSH) GetStockObject(WHITE_BRUSH);
 
     wc.lpszMenuName         = null;

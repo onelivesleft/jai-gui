@@ -1,35 +1,21 @@
 // @TODO
 
-// [x] Let user make and manage a window with no OS decorations.
+// [ ] Make an example.jai!
+// [ ] Windows flickering; warm hystersis?
+// [ ] Window flags are funky.
+// [ ] Window flag: CAN_FOCUS?
 
-// [x] Investigate reworking positioning so it doesn't use pointers+macros
-// [x] Simplify (click on down, checkbox live)
-// [x] Click on down instead of up
 // [ ] skin module parameter
 // [.] Windows!
-//  [x] skin draw_window
-//  [x] Record bounds of widgets drawn in windows, to know how to size window interior.
-//  [x] Detect widget clicked in window; raise window if so.
 //  [.] Moving / Resizing.
 //   [ ] Keep on screen?
 //   [ ] Min/Max sizes.
-//   [x] Mouse pointers
-//  [x] What will be do about window gadgets?
-//  [x] Render window to its own buffer.
-//  [x] Content scrolling / sizing.
 //  [ ] Active window, warm window
 // [.] text_box input.  rename text_input and text_box?  Maybe just have one call, with a flag to specify multiline (will still be two widgets behind the scenes).
-// [x] Keyboard
-//  [x] start/held/end for clicks/keypresses?
-//  [x] Get Input to recognise most keys (e.g. left/right shift/ctrl/alt)
-//  [x] Remove Input.events from user layer
-// [x] Alt/Ctrl on-screen keyboard identities?
-// [x] Release all keys when we alt-tab back
-// [x] Custom widgets: nicer call convention to wrap creating custom data on heap (see key_widget)
 
+// [ ] Fix initial rendering when HAS_OS_DPI_SCALING is not set.
+// [ ] .REVERSE flag for scrollbars?
 // [ ] Should we allow the user to force two widgets to have the same identity? (Return on-screen keyboard unite parts)
-// [x] Fix scrollwheel erronously scrolling things below other things.
-// [x] Remove was_clicked_time et al from Widgets; add hook to skin instead.
 // [ ] radio buttons
 // [ ] dropdown
 // [ ] fx blend colors
@@ -89,24 +75,45 @@ application: struct {
 }
 
 Application_Window_Flags :: enum_flags {
-    HAS_OS_DECORATIONS :: 1;
-    HAS_SYSTEM_MENU :: 2;
-    HAS_TITLE_BAR :: 4;
-    HAS_MAXIMIZE :: 8 | HAS_SYSTEM_MENU; // Requires system menu to work
-    HAS_MINIMIZE :: 16 | HAS_SYSTEM_MENU; // Requires system menu to work
-    CAN_RESIZE :: 32;
+    DEFAULT :: HAS_OS_DPI_SCALING|HAS_OS_DECORATIONS|HAS_SYSTEM_MENU|HAS_TITLE_BAR|HAS_MAXIMIZE|HAS_MINIMIZE|CAN_RESIZE;
 
-    START_MAXIMIZED;
-    START_MINIMIZED;
+    HAS_OS_DPI_SCALING :: 1 << 0;
+    HAS_OS_DECORATIONS :: 1 << 1;
+    HAS_SYSTEM_MENU :: 1 << 3;
+    HAS_TITLE_BAR :: 1 << 4;
+    HAS_MAXIMIZE :: 1 << 5 | HAS_SYSTEM_MENU; // Requires system menu to work
+    HAS_MINIMIZE :: 1 << 6 | HAS_SYSTEM_MENU; // Requires system menu to work
+    CAN_RESIZE :: 1 << 7;
 
-    DEFAULT :: HAS_OS_DECORATIONS|HAS_SYSTEM_MENU|HAS_TITLE_BAR|HAS_MAXIMIZE|HAS_MINIMIZE|CAN_RESIZE;
+    START_MAXIMIZED :: 1 << 8;
+    START_MINIMIZED :: 1 << 9;
+
+    // Default is to open on the monitor the mouse is currently in.
+    OPEN_ON_PRIMARY_MONITOR :: 1 << 10;
+    _OPEN_ON_MONITOR_SHIFT :: 11;
+    OPEN_ON_MONITOR_0 :: 1 << (_OPEN_ON_MONITOR_SHIFT + 0);
+    OPEN_ON_MONITOR_1 :: 1 << (_OPEN_ON_MONITOR_SHIFT + 1);
+    OPEN_ON_MONITOR_2 :: OPEN_ON_MONITOR_1 | OPEN_ON_MONITOR_0;
+    OPEN_ON_MONITOR_3 :: 1 << (_OPEN_ON_MONITOR_SHIFT + 2);
+    OPEN_ON_MONITOR_4 :: OPEN_ON_MONITOR_3 | OPEN_ON_MONITOR_0;
+    OPEN_ON_MONITOR_5 :: OPEN_ON_MONITOR_3 | OPEN_ON_MONITOR_1;
+    OPEN_ON_MONITOR_6 :: OPEN_ON_MONITOR_3 | OPEN_ON_MONITOR_2 | OPEN_ON_MONITOR_1;
+    _OPEN_ON_MONITOR_MASK :: OPEN_ON_MONITOR_6;
+
+    // next :: 1 << 14;
 }
 
-gui_create_application_window :: (window_title: string, window_width: int, window_height: int, window_x := -1, window_y := -1, flags := Application_Window_Flags.DEFAULT, opacity := 1.0) -> *Panel, *Window_Creation.Window_Type {
+
+gui_create_application_window :: (window_title: string, window_width: int, window_height: int, flags := Application_Window_Flags.DEFAULT, window_x := -1, window_y := -1, opacity := 1.0) -> *Panel, *Window_Creation.Window_Type {
     assert(widget_allocator.proc == null, "You should only call gui_create_window once!");
 
     #if OS == .WINDOWS {
         timeBeginPeriod(1);
+        user32   :: #system_library "user32";
+        SetThreadDpiAwarenessContext :: (awareness: DPI_AWARENESS_CONTEXT) -> BOOL #foreign user32;
+        if !(flags & .HAS_OS_DPI_SCALING)
+            SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE);
+
         // The following would tell windows that we don't look at the system DPI, and so windows should automatically scale
         // for us.  However, that's the default behaviour, so...
         //    user32   :: #system_library "user32";
@@ -119,39 +126,91 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 
     if !keyboard  keyboard = cast(*Keyboard) *Input.input_button_states;
 
+    application.flags = flags;
+    init_pointers();
     init_skin();
-
     allocate_text_edit(1024);
 
+    // We will open in center of monitor.  By default we'll use the monitor the mouse pointer is in, but this can be changed using the flags parameter.
+    // A MonitorInfo flag will tell us which is the primary monitor;
+    Desired_Monitor :: struct {
+        desired_index := -1;
+        current_index := -1;
+        found_monitor: HMONITOR;
+        found_rect: RECT;
+    }
+
+    desired_monitor: Desired_Monitor;
+
     #if OS == .WINDOWS {
-        if window_x == -1 {
+        if flags & (.OPEN_ON_PRIMARY_MONITOR|._OPEN_ON_MONITOR_MASK) {
+            desired_monitor.desired_index = cast(int) ifx flags & ._OPEN_ON_MONITOR_MASK
+                                                      then ((flags & ._OPEN_ON_MONITOR_MASK) >> flags._OPEN_ON_MONITOR_SHIFT) - 1
+                                                      else -1;
+
+            find_desired_monitor :: (hMonitor: HMONITOR, hdcMonitor: HDC, lprcMonitor: *RECT, dwData: LPARAM) -> BOOL #c_call {
+                using desired_monitor := cast(*Desired_Monitor) dwData;
+                current_index += 1;
+
+                monitor_info := MONITORINFO.{cbSize = size_of(MONITORINFO)};
+                MONITORINFOF_PRIMARY :: 0x00000001;
+                if !GetMonitorInfoW(hMonitor, *monitor_info)  return 1;  // Continue enumerating
+
+                if desired_index == -1 && monitor_info.dwFlags & MONITORINFOF_PRIMARY
+                || desired_index >= 0 && current_index >= desired_index {
+                    found_monitor = hMonitor;
+                    found_rect = monitor_info.rcMonitor;
+                    return 0; // Stop enumerating
+                }
+
+                return 1; // Continue enumerating
+            }
+
+            EnumDisplayMonitors(null, null, find_desired_monitor, xx *desired_monitor);
+        }
+
+        if !desired_monitor.found_monitor {
             mouse_position: POINT;
             if GetCursorPos(*mouse_position) {
-                monitor := MonitorFromPoint(mouse_position, MONITOR_DEFAULTTONEAREST);
-                info := MONITORINFO.{cbSize = size_of(MONITORINFO)};
-                if GetMonitorInfoW(monitor, *info) {
-                    screen := info.rcMonitor;
-                    window_x = screen.left + (screen.right - screen.left - window_width) / 2;
-                    window_y = screen.top + (screen.bottom - screen.top - window_height) / 2;
+                desired_monitor.found_monitor = MonitorFromPoint(mouse_position, MONITOR_DEFAULTTONEAREST);
+                monitor_info := MONITORINFO.{cbSize = size_of(MONITORINFO)};
+                if GetMonitorInfoW(desired_monitor.found_monitor, *monitor_info) {
+                    desired_monitor.found_rect = monitor_info.rcMonitor;
                 }
             }
         }
+
+        if desired_monitor.found_monitor {
+            screen := desired_monitor.found_rect;
+            if window_x == -1 { // unset, so center
+                window_x = screen.left + (screen.right - screen.left - window_width) / 2;
+                window_y = screen.top + (screen.bottom - screen.top - window_height) / 2;
+            }
+            else {
+                window_x += screen.left;
+                window_y += screen.top;
+                if window_x + window_width > screen.right  window_x = screen.right - window_width;
+                if window_y + window_height > screen.bottom  window_y = screen.bottom - window_height;
+            }
+        }
+
+        application.style = 0;
+        if flags & .HAS_TITLE_BAR    application.style |= WS_CAPTION;
+        if flags & .HAS_SYSTEM_MENU  application.style |= WS_SYSMENU;
+        if flags & .HAS_MAXIMIZE     application.style |= WS_MAXIMIZEBOX;
+        if flags & .HAS_MINIMIZE     application.style |= WS_MINIMIZEBOX;
+        if flags * .START_MAXIMIZED  application.style |= WS_MAXIMIZE;
+        if flags * .START_MINIMIZED  application.style |= WS_MINIMIZE;
+
+        if flags & .CAN_RESIZE       application.style |= WS_THICKFRAME;
+        else                         application.style |= WS_BORDER;
+
+        application.os_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y, application.style);
+        Input.window_remove_all_decorations = !(flags & .HAS_OS_DECORATIONS);
     }
-
-    application.flags = flags;
-    application.style = 0;
-    if flags & .HAS_TITLE_BAR    application.style |= WS_CAPTION;
-    if flags & .HAS_SYSTEM_MENU  application.style |= WS_SYSMENU;
-    if flags & .HAS_MAXIMIZE     application.style |= WS_MAXIMIZEBOX;
-    if flags & .HAS_MINIMIZE     application.style |= WS_MINIMIZEBOX;
-    if flags * .START_MAXIMIZED  application.style |= WS_MAXIMIZE;
-    if flags * .START_MINIMIZED  application.style |= WS_MINIMIZE;
-
-    if flags & .CAN_RESIZE       application.style |= WS_THICKFRAME;
-    else                         application.style |= WS_BORDER;
-
-    application.os_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y, application.style);
-    Input.window_remove_all_decorations = !(flags & .HAS_OS_DECORATIONS);
+    else {
+        application.os_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y);
+    }
 
     gui_application_window_set_opacity(opacity);
 
@@ -167,7 +226,6 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 }
 
 gui_begin_frame :: () -> should_quit: bool {
-
     // We hide the application window for a couple of frames, so everything looks good when it's shown
     if application.hidden_for_startup && frame.index > 1 {
         application.hidden_for_startup = false;
@@ -257,6 +315,8 @@ gui_begin_frame :: () -> should_quit: bool {
             Input.window_region_override = .TITLE_BAR;
     }
 
+    maybe_calculate_rect(*application_panel);
+
     Input.update_window_events();
 
     for Input.get_window_resizes() {
@@ -313,9 +373,13 @@ gui_begin_frame :: () -> should_quit: bool {
     Simp.update_window(application.os_window);
     clear_window();
 
+    prev_x := mouse.x;
+    prev_y := mouse.y;
     mouse_x, mouse_y := Window_Creation.get_mouse_pointer_position(application.os_window, false);
     mouse.x = xx mouse_x;
     mouse.y = xx mouse_y;
+    mouse.dx = mouse.x - prev_x;
+    mouse.dy = mouse.y - prev_y;
 
     mouse.left_button_start = xx (button_state(.MOUSE_BUTTON_LEFT) & .START);
     mouse.left_button_held = xx (button_state(.MOUSE_BUTTON_LEFT) & .HELD);
@@ -348,29 +412,31 @@ gui_application_window_set_opacity :: (opacity: float, min_opacity := 0.1) {
     // WARNING! If you set the opacity too low you will make it very hard for the user to interact with your program!
     // Leave the min_opacity alone unless you really mean it.
 
-    clamped := clamp(opacity, min_opacity, 1.0);
-    a := cast(u8) clamp(clamped * 256, 0, 255);
-    if application.last_set_opacity == a
-        return;
+    #if OS == .WINDOWS {
+        clamped := clamp(opacity, min_opacity, 1.0);
+        a := cast(u8) clamp(clamped * 256, 0, 255);
+        if application.last_set_opacity == a
+            return;
 
-    if a < 255 {
-        if application.last_set_opacity == 255 {
+        if a < 255 {
+            if application.last_set_opacity == 255 {
+                extended_style := GetWindowLongW(application.os_window, GWL_EXSTYLE);
+                extended_style |= WS_EX_LAYERED;
+                SetWindowLongW(application.os_window, GWL_EXSTYLE, extended_style);
+            }
+            LWA_ALPHA :: 2;
+            user32 :: #system_library "user32";
+            SetLayeredWindowAttributes :: (hwnd: *void, crKey: u32, bAlpha: u8, dwFlags: u32) -> bool #foreign user32;
+            SetLayeredWindowAttributes(application.os_window, 0, a, LWA_ALPHA);
+        }
+        else { // We must have been translucent to get here, so just remove the style that enables opacity.
             extended_style := GetWindowLongW(application.os_window, GWL_EXSTYLE);
-            extended_style |= WS_EX_LAYERED;
+            extended_style &= ~cast(s32)WS_EX_LAYERED;
             SetWindowLongW(application.os_window, GWL_EXSTYLE, extended_style);
         }
-        LWA_ALPHA :: 2;
-        user32 :: #system_library "user32";
-        SetLayeredWindowAttributes :: (hwnd: *void, crKey: u32, bAlpha: u8, dwFlags: u32) -> bool #foreign user32;
-        SetLayeredWindowAttributes(application.os_window, 0, a, LWA_ALPHA);
-    }
-    else { // We must have been translucent to get here, so just remove the style that enables opacity.
-        extended_style := GetWindowLongW(application.os_window, GWL_EXSTYLE);
-        extended_style &= ~cast(s32)WS_EX_LAYERED;
-        SetWindowLongW(application.os_window, GWL_EXSTYLE, extended_style);
-    }
 
-    application.last_set_opacity = a;
+        application.last_set_opacity = a;
+    }
 }
 
 gui_draw_windows :: () {
@@ -384,7 +450,9 @@ gui_draw_windows :: () {
             currently_drawing_window = window;
             update_widget(window);
 
-            draw_window(.BACKGROUND);
+            border := draw_window(.BACKGROUND);
+            maybe_calculate_rect(border);
+            window.border_rect = border.calculated_rect;
 
             {
                 calculate_virtual_panel(window);
@@ -399,6 +467,8 @@ gui_draw_windows :: () {
             update_window(window);
             draw_window(.FOREGROUND);
 
+            if draw_debug_widget_frames  draw_outline(border, .{1.0, 1.0, 0.0, 1.0});
+
             if clicked_window == window  bring_to_front_window = clicked_window;
         }
         window.flags |= ~.SHOW;
@@ -406,7 +476,7 @@ gui_draw_windows :: () {
 
     if bring_to_front_window  bring_to_front(bring_to_front_window);
 
-    if currently_dragging_window && released_widget
+    if currently_dragging_window && !mouse.left_button_held
         currently_dragging_window = null;
 
     if currently_dragging_window
@@ -422,15 +492,42 @@ gui_draw_windows :: () {
         request_window_warmth(null);
 }
 
+gui_has_mouse :: () -> bool {
+    return warm_widget || hot_widget;
+}
+
+gui_has_keyboard :: () -> bool {
+    return focussed_widget != null;
+}
+
 gui_no_sleep_this_frame :: () {
     frame.no_sleep = true;
 }
 
+gui_debug_panel :: (panel: *Panel) {
+    log :: (position: *Panel, format_string: string, args: .. Any) {
+        label(position, tprint(format_string, .. args), flags=.FIXED);
+    }
+
+    log(at_top(panel, 20), "Warm Widget:     %  %", warm_widget, ifx warm_widget then warm_widget.*);
+    log(at(.COPY_DOWN),    "Hot Widget:      %", hot_widget);
+    log(at(.COPY_DOWN),    "Warm Window:     %", warm_window);
+    log(at(.COPY_DOWN),    "Focussed Window: %", focussed_window);
+}
+
+gui_debug_widget_frames :: (on: bool) {
+    draw_debug_widget_frames = on;
+}
 
 mouse: struct {
     x, y: float;
     #place x;
     position: Vector2;
+
+    dx, dy: float;
+    #place dx;
+    delta: Vector2;
+
     left_button_start, left_button_end, left_button_held: bool;
     middle_button_start, middle_button_end, middle_button_held: bool;
     right_button_start, right_button_end, right_button_held: bool;
@@ -849,6 +946,10 @@ theme_index :: (flags: Flags) -> int {
     return xx (theme_index_mask & xx flags) >> 5;
 }
 
+get_theme :: (widget: *Widget) -> Theme {
+    return ifx is_locked(widget.flags) then locked_theme else themes[theme_index(widget.flags)];
+}
+
 window_decoration_inherit_mask :: text_align_mask | font_style_mask | theme_index_mask;
 
 prev_frame_time: float64;
@@ -1059,6 +1160,8 @@ add_margin_to_drawn_widget_bounds :: (spacing: int) {
 
 
 should_quit := false;
+draw_debug_widget_frames := false;
+
 // Because some positioning operations create sibling panels, they require everything they work
 // on to have a parent.  The root panel has no parent; therefor, we have a separate application panel
 // which is the top panel that the user sees; it's parent is the root panel, which it fills.
@@ -1450,3 +1553,114 @@ text_edit_handle_keyboard_input :: (read_only: bool) -> Focus_Change {
     return .NONE;
 }
 
+
+Pointer_Image :: enum u16 {
+    NORMAL    :: 0;  // Normal arrow for pointing at stuff, or whatever.
+    PRESSABLE :: 1;
+    LOCKED    :: 2;  // No action can currently be performed.
+
+    DRAGGING_HORIZONTAL   :: 3;
+    DRAGGING_VERTICAL     :: 4;
+    DRAGGING_FREE         :: 5;
+
+    DRAGGING_NW_SE        :: 6;
+    DRAGGING_NE_SW        :: 7;
+}
+
+pointer_image_count :: #run cast(Pointer_Image) (enum_highest_value(Pointer_Image) + 1);
+current_pointer_image: Pointer_Image;
+
+set_pointer_image :: (image: Pointer_Image) {
+    if image >= 0 && image <= pointer_image_count
+        current_pointer_image = image;
+    else
+        log_error("Invalid pointer index %\n", image);
+}
+
+set_pointer_image :: (drag_flags: Drag_Flags) {
+    if drag_flags == .NONE  return;
+
+    if drag_flags == .MOVE {
+        set_pointer_image(.DRAGGING_FREE);
+        return;
+    }
+
+    if drag_flags ==.RESIZE_NW || drag_flags == .RESIZE_SE {
+        set_pointer_image(.DRAGGING_NW_SE);
+        return;
+    }
+
+    if drag_flags ==.RESIZE_NE || drag_flags == .RESIZE_SW {
+        set_pointer_image(.DRAGGING_NE_SW);
+        return;
+    }
+
+    if drag_flags & (.RESIZE_E | .RESIZE_W) {
+        set_pointer_image(.DRAGGING_HORIZONTAL);
+        return;
+    }
+
+    if drag_flags & (.RESIZE_N | .RESIZE_S) {
+        set_pointer_image(.DRAGGING_VERTICAL);
+        return;
+    }
+}
+
+#if OS == .WINDOWS {
+
+    pointers: [pointer_image_count] HCURSOR;
+
+    init_pointers :: () {
+        pointers[Pointer_Image.NORMAL]              = LoadCursorW(null, IDC_ARROW);
+        pointers[Pointer_Image.PRESSABLE]           = LoadCursorW(null, IDC_HAND);
+        pointers[Pointer_Image.LOCKED]              = LoadCursorW(null, IDC_NO);
+        pointers[Pointer_Image.DRAGGING_HORIZONTAL] = LoadCursorW(null, IDC_SIZEWE);
+        pointers[Pointer_Image.DRAGGING_VERTICAL]   = LoadCursorW(null, IDC_SIZENS);
+        pointers[Pointer_Image.DRAGGING_FREE]       = LoadCursorW(null, IDC_SIZEALL);
+        pointers[Pointer_Image.DRAGGING_NW_SE]      = LoadCursorW(null, IDC_SIZENWSE);
+        pointers[Pointer_Image.DRAGGING_NE_SW]      = LoadCursorW(null, IDC_SIZENESW);
+    }
+
+    pointer_end_frame :: () {
+        //user32 :: #system_library "user32";
+        //GetCursor :: () -> HCURSOR #foreign user32;
+        //current_cursor := GetCursor();
+        //if current_cursor == pointers[Pointer_Image.NORMAL]
+        if Input.mouse_in_client_area_of_os_window
+            SetCursor(pointers[current_pointer_image]);
+        current_pointer_image = .NORMAL;
+    }
+
+} else #if OS == .MACOS {
+
+    #import "Objective_C/AppKit";
+    pointers: [pointer_image_count] *NSCursor;
+
+    init_pointers :: () {
+        pointers[Pointer_Image.NORMAL]              = NSCursor.arrowCursor();
+        pointers[Pointer_Image.PRESSABLE]           = NSCursor.pointingHandCursor();
+        pointers[Pointer_Image.LOCKED]              = NSCursor.operationNotAllowedCursor();
+        pointers[Pointer_Image.DRAGGING_HORIZONTAL] = NSCursor.resizeLeftRightCursor();
+        pointers[Pointer_Image.DRAGGING_VERTICAL]   = NSCursor.resizeUpDownCursor();
+        pointers[Pointer_Image.DRAGGING_FREE]       = NSCursor.openHandCursor(); // @Hack: There are no publicly available cursors for this.
+        pointers[Pointer_Image.DRAGGING_NW_SE]      = NSCursor.openHandCursor(); // @Hack: There are no publicly available cursors for this.
+        pointers[Pointer_Image.DRAGGING_NE_SW]      = NSCursor.openHandCursor(); // @Hack: There are no publicly available cursors for this.
+    }
+
+    pointer_end_frame :: () {
+        NSCursor.set(pointers[current_pointer_image]);
+        current_pointer_image = .NORMAL;
+    }
+
+} else {
+
+    init_pointers :: () {
+        // @Incomplete: Implement this.
+    }
+
+    pointer_end_frame :: () {
+        // @Incomplete: Implement this.
+        current_pointer_image = .NORMAL;
+    }
+
+}

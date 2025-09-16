@@ -58,8 +58,10 @@ update_window_decoration :: (window_decoration: *Window_Decoration) {
     }
 
     if window_decoration.flags & .TITLE_BAR {
-        if is_warm(window_decoration)  set_pointer_image(.MOVE);
-        if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .MOVE);
+        if currently_drawing_window.flags & .CAN_MOVE {
+            if is_warm(window_decoration)  set_pointer_image(.MOVE);
+            if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .MOVE);
+        }
         return;
     }
 
@@ -72,14 +74,18 @@ update_window_decoration :: (window_decoration: *Window_Decoration) {
     }
 
     if window_decoration.flags & .RESIZE {
-        if is_warm(window_decoration)  set_pointer_image(.RESIZE_SE);
-        if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .RESIZE_SE);
+        if currently_drawing_window.flags & .CAN_RESIZE {
+            if is_warm(window_decoration)  set_pointer_image(.RESIZE_SE);
+            if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .RESIZE_SE);
+        }
         return;
     }
 
     if window_decoration.flags & .MOVE {
-        if is_warm(window_decoration)  set_pointer_image(.MOVE);
-        if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .MOVE);
+        if currently_drawing_window.flags & .CAN_MOVE {
+            if is_warm(window_decoration)  set_pointer_image(.MOVE);
+            if was_clicked(window_decoration)  start_window_drag(currently_drawing_window, .MOVE);
+        }
         return;
     }
 }

@@ -219,14 +219,21 @@ shrink :: (panel: *Panel, horizontal_delta_ord: $T, vertical_delta_ord: $U) -> *
     return at(panel.parent, shrink(panel.desired_box, horizontal_delta_ord, vertical_delta_ord));
 }
 
+shrink_to_height :: (panel: *Panel, height_ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
+    half_height := ord(height_ord) / 2;
+    center_line, _ := split_top_bottom(panel, 0.5);
+    center_line.desired_box.tl.y = center_line.desired_box.br.y;
+    return at(panel, grow(center_line.desired_box, half_height, .UP|.DOWN));
+}
+
 
 grow :: (panel: *Panel, delta_ord: $T, direction := Direction.ALL) -> *Panel
 #modify { return is_implicit_ord(T); }
 {
     return at(panel.parent, grow(panel.desired_box, delta_ord, direction));
 }
-
-
 
 Ord :: struct {
     rel: float;
@@ -261,6 +268,14 @@ operator + :: (a: Ord, b: int) -> Ord #symmetric {
 
 operator - :: (a: Ord, b: int) -> Ord #symmetric {
     return .{ a.rel, a.abs - b };
+}
+
+operator * :: (a: Ord, b: int) -> Ord #symmetric {
+    return .{ a.rel*b, a.abs*b };
+}
+
+operator / :: (a: Ord, b: int) -> Ord #symmetric {
+    return .{ a.rel/b, a.abs/b };
 }
 
 parse_ord :: (s: string) -> Ord, bool {

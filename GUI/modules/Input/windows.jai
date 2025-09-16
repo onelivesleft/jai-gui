@@ -219,6 +219,7 @@ get_vk :: (key: Key_Code) -> VK: u64 {
 
 
 #add_context _windows_windowproc :: MyWindowProc;
+mouse_in_client_area_of_os_window: bool;
 
 
 MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s64 #c_call {
@@ -245,11 +246,12 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
 
             case WM_NCHITTEST;
             hit := DefWindowProcW(hwnd, message, wParam, lParam);
+            HTCLIENT :: 1;
             if window_region_override {
-                HTCLIENT :: 1;
                 if hit == HTCLIENT
                     hit = cast(s64) window_region_override;
             }
+            mouse_in_client_area_of_os_window = hit == HTCLIENT;
             return hit;
 
             case WM_NCCALCSIZE;
@@ -457,13 +459,15 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
             return 0;
 
             case WM_DPICHANGED;
+            /*
             y_dpi := (wParam >> 16) & 0xFFFF;
             x_dpi := (wParam)       & 0xFFFF;
             rect := cast(*RECT) lParam;
             w := rect.right - rect.left;
             h := rect.bottom - rect.top;
             SetWindowPos(hwnd, HWND_TOPMOST, rect.left, rect.top, w, h, SWP_NOACTIVATE|SWP_NOZORDER);
-            return 0;
+            */
+            return DefWindowProcW(hwnd, message, wParam, lParam);
 
             case WM_DROPFILES;
             drop := cast(HDROP) wParam;
@@ -492,8 +496,11 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
             return 0;
 
             case WM_SETCURSOR;
-            if windows_ignore_setcursor_messages return 0;
-            else return DefWindowProcW(hwnd, message, wParam, lParam);
+            HTCLIENT :: 1;
+            if lParam == HTCLIENT
+                return 0;
+            else
+                return DefWindowProcW(hwnd, message, wParam, lParam);
 
             case;
             return DefWindowProcW(hwnd, message, wParam, lParam);

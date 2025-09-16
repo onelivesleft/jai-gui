@@ -30,11 +30,11 @@ toast_gravity :: 200.0;
 toast_up_speed :: 200.0;
 
 main :: () {
-    application_window_flags := Application_Window_Flags.DEFAULT;
+    application_window_flags := Application_Window_Flags.DEFAULT | .OPEN_ON_MONITOR_0;
     #if CUSTOM_OS_WINDOW {
         application_window_flags &= ~.HAS_OS_DECORATIONS;
     }
-    application_panel, application_window_handle := gui_create_application_window("GUI Test", 1280, 896, 3100, 40, application_window_flags);
+    application_panel, application_window_handle := gui_create_application_window("GUI Test", 1280, 896, application_window_flags);
 
     show_wheel := true;
     maybe_lock : Flags;

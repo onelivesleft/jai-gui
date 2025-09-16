@@ -485,7 +485,7 @@ application_window_resize :: (new_width: int, new_height: int, old_width: int, o
     }
 }
 
-draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
+draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) -> border: *Panel {
     window := currently_drawing_window;
     theme := ifx is_locked(window.flags) then locked_theme else themes[theme_index(window.flags)];
 
@@ -526,15 +526,17 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
 
         inherited_flags := window.flags & xx window_decoration_inherit_mask;
 
-        title_bar_row:, panel = split_top_bottom(panel, theme.window_decoration_size);
+        if window.flags * (.CLOSE|.TITLE_BAR) {
+            title_bar_row:, panel = split_top_bottom(panel, theme.window_decoration_size);
 
-        if window.flags & .CLOSE {
-            title_bar_row=, close_button := split_left_right(title_bar_row, -theme.window_decoration_size);
-            window_decoration(close_button, .CLOSE | inherited_flags);
-        }
+            if window.flags & .CLOSE {
+                title_bar_row=, close_button := split_left_right(title_bar_row, -theme.window_decoration_size);
+                window_decoration(close_button, .CLOSE | inherited_flags);
+            }
 
-        if window.flags & .TITLE_BAR {
-            window_decoration(title_bar_row, .TITLE_BAR | inherited_flags);
+            if window.flags & .TITLE_BAR {
+                window_decoration(title_bar_row, .TITLE_BAR | inherited_flags);
+            }
         }
 
         if window.flags & .MOVE {
@@ -543,7 +545,7 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
             window_decoration(at(window, tl,tl, br,br), .MOVE | inherited_flags);
         }
 
-        if !(window.flags & (.SCROLLBARS | .RESIZE))  return;
+        if !(window.flags & (.SCROLLBARS|.RESIZE))  return;
 
         _, tr, bl, br := split_quadrants(panel, -theme.window_decoration_scrollbar_size, -theme.window_decoration_scrollbar_size);
 
@@ -556,6 +558,8 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) {
             window_decoration(br, .RESIZE | inherited_flags);
         }
     }
+
+    return panel;
 }
 
 
