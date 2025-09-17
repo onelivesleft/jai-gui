@@ -1,1 +1,1 @@
-This is a work-in-progress module, probably not up-to-date for the most recent compiler version.  The test program is for developing; it currently opens on the second monitor (remove the position args from `gui_create_application_window` to stop this behavior)
+This is a work-in-progress module, probably not up-to-date for the most recent compiler version.  Check out the `example.jai` to see how it works.
