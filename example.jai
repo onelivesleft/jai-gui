@@ -10,17 +10,17 @@ cell_sizes :: float.[2, 3, 4, 5, 6, 8, 10, 16, 24, 32, 48, 64, 96, 128];
 cell_size := cell_sizes[initial_cell_size_index];
 
 Cell :: enum_flags u8 {
-    PARITY_0_BIT :: 0;
-    PARITY_1_BIT :: 1;
-    PARITY_0_STATE :: 1 << PARITY_0_BIT;
-    PARITY_1_STATE :: 1 << PARITY_1_BIT;
-    EXTRA_BITS_MASK :: ~(PARITY_0_STATE|PARITY_1_STATE);
+    ODD_BIT_INDEX :: 0;
+    EVEN_BIT_INDEX :: 1;
+    ODD_STATE :: 1 << ODD_BIT_INDEX;
+    EVEN_STATE :: 1 << EVEN_BIT_INDEX;
+    EXTRA_BITS_MASK :: ~(ODD_STATE|EVEN_STATE);
 };
 
 cells: [] Cell;
 cells_width: int;
 cells_height: int;
-active_cell_parity := Cell.PARITY_0_BIT;
+active_cell_parity := Cell.ODD_BIT_INDEX;
 
 life_running := true;
 life_run_for_one_step := false;
@@ -96,7 +96,7 @@ main :: () {
         controls_window := window(draw_controls, "Controls", at(10,-52, 400,-10), flags=.CAN_MOVE); // Try removing the flags parameter to see the default window appearance.
 
         // Step 6.  Do your game logic.  To use the mouse, first check its not being used by GUI.
-        active_cell_parity = (Cell.PARITY_0_BIT + .PARITY_1_BIT) - active_cell_parity;
+        active_cell_parity = (Cell.ODD_BIT_INDEX + .EVEN_BIT_INDEX) - active_cell_parity;
         mouse_cell_x := wrap(cast(int) ((mouse.x - draw_offset.x) / cell_size), 0, cells_width);
         mouse_cell_y := wrap(cast(int) ((mouse.y - draw_offset.y) / cell_size), 0, cells_height);
 
