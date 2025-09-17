@@ -7,7 +7,9 @@ initial_width :: 1024;
 initial_height :: 1024;
 initial_cell_size_index :: 4;
 cell_sizes :: float.[2, 3, 4, 5, 6, 8, 10, 16, 24, 32, 48, 64, 96, 128];
+
 cell_size := cell_sizes[initial_cell_size_index];
+cell_size_index := initial_cell_size_index;
 
 Cell :: enum_flags u8 {
     ODD_BIT_INDEX :: 0;
@@ -41,6 +43,7 @@ small_margin :: 2;
 
 application_panel: *Panel;
 should_quit := false;
+application_has_focus := true;
 
 main :: () {
     // Step 1.  Create OS window
@@ -49,7 +52,7 @@ main :: () {
     // Step 2.  Loop until quit
     while !should_quit {
         // Step 3.  Call gui_begin_frame at the start of every frame.
-        should_quit = gui_begin_frame();
+        should_quit, application_has_focus = gui_begin_frame();
 
         check_for_grid_resize();
 
@@ -63,7 +66,7 @@ main :: () {
                 with_spacing(big_margin);
 
                 play_pause_icon := ifx life_running then Icon_Id.PLAY else .PAUSE;
-                checkbox(at(big_margin,big_margin, big_margin+big_widget_size,-big_margin), play_pause_icon, *life_running);
+                checkbox(at_size(big_margin,big_margin, big_widget_size,big_widget_size), play_pause_icon, *life_running);
 
                 step_icon := Icon_Id.STEP_FORWARD;
                 if button(at(.COPY_RIGHT), step_icon)
@@ -85,47 +88,57 @@ main :: () {
                 checkbox(at(row, 0,0.0, 70,1.0), "Wrap", *wrap_world);
                 checkbox(at(.COPY_RIGHT),        "Trail", *show_trail);
 
-                cell_size_index, cell_size_scrollbar := horizontal_scrollbar(at(.FILL_RIGHT), initial_cell_size_index, .{0, cell_sizes.count - 1}, .REVERSE_SCROLLWHEEL);
-                cell_size = cell_sizes[cell_size_index];
-                if !gui_has_mouse()  use_scrollwheel(cell_size_scrollbar);
+                if horizontal_scrollbar(at(.FILL_RIGHT), *cell_size_index, .{0, cell_sizes.count - 1}, .REVERSE_SCROLLWHEEL)
+                    cell_size_changed = true;
             }
         }
 
         // Step 5.  This tells GUI to draw the window this frame, when you call gui_draw_windows (as long as its is_open bool is true).
         //          The code in draw_controls (above) doesn't run until then.
-        controls_window := window(draw_controls, "Controls", at(10,-52, 400,-10), flags=.CAN_MOVE); // Try removing the flags parameter to see the default window appearance.
+        controls_window := window(draw_controls, "Controls", at_size(10,-52, 400,42), flags=.CAN_MOVE); // Try removing the flags parameter to see the default window appearance.
 
-        // Step 6.  Do your game logic.  To use the mouse, first check its not being used by GUI.
+        showing_gui := controls_window.is_open;  // We're going to hide the quit button when we hide the controls window.
+
         active_cell_parity = (Cell.ODD_BIT_INDEX + .EVEN_BIT_INDEX) - active_cell_parity;
         mouse_cell_x := wrap(cast(int) ((mouse.x - draw_offset.x) / cell_size), 0, cells_width);
         mouse_cell_y := wrap(cast(int) ((mouse.y - draw_offset.y) / cell_size), 0, cells_height);
 
+        // Step 6.  To use the mouse the mouse in your game logic, first check its not being used by GUI:
         if !gui_has_mouse() {
-            if mouse.left_button_start {
+            if was_clicked(mouse.left_button) {
                 cell := get_cell(mouse_cell_x, mouse_cell_y);
                 if cell  mouse_is_drawing_alive_cells = !is_alive(cell);
             }
 
-            if mouse.left_button_held {
+            if mouse.left_button {
                 temporary_pause = true;
                 cell := get_cell(mouse_cell_x, mouse_cell_y);
                 drawing_alive_cells := mouse_is_drawing_alive_cells;
-                if mouse.right_button_held  drawing_alive_cells = !drawing_alive_cells;
+                if mouse.right_button  drawing_alive_cells = !drawing_alive_cells;
                 if cell  set_cell_life_this_frame(cell, drawing_alive_cells);
             }
             else {
                 temporary_pause = false;
-                if mouse.right_button_start  controls_window.is_open = !controls_window.is_open;
+                if was_clicked(mouse.right_button)  controls_window.is_open = !controls_window.is_open;
             }
 
-            if mouse.middle_button_held
+            if mouse.middle_button
                 draw_offset += mouse.delta;
+
+            cell_size_delta := mouse.scrollwheel;
+            if was_clicked(mouse.x1_button)  cell_size_delta -= 1;
+            if was_clicked(mouse.x2_button)  cell_size_delta += 1;
+
+            if cell_size_delta {
+                cell_size_index = clamp(cell_size_index + cell_size_delta, 0, cell_sizes.count - 1);
+                cell_size_changed = true;
+            }
         }
 
         // Same with the keyboard, make sure GUI isn't using it first.
-        if !gui_has_keyboard() && keyboard.escape  should_quit = true;
+        if !gui_has_keyboard() && was_clicked(keyboard.escape)  should_quit = true;
 
-        do_simulate := life_running || life_run_for_one_step;
+        do_simulate := (life_running || life_run_for_one_step) && application_has_focus;
         if life_run_for_one_step {
             life_running = false;
             life_run_for_one_step = false;
@@ -140,6 +153,7 @@ main :: () {
                 alive := is_alive(cell);
                 neighbour_count := get_neighbour_count(x, y);
                 alpha := 1.0;
+                size := 1.0;
 
                 if do_simulate && !temporary_pause {
                     if alive {
@@ -164,32 +178,50 @@ main :: () {
                             cell.* = state | (extra_value & .EXTRA_BITS_MASK);
                         }
 
-                        if show_trail
+                        if show_trail {
                             alpha = (cast(float) extra_value) / cast(float) (1 << 10);
+                            size =  min(1.0, (cast(float) extra_value) / cast(float) (1 << 9));
+                        }
                     }
                 }
 
-                screen_x := wrap(cast(float)x * cell_size + draw_offset.x, 0, screen_width);
-                screen_y := wrap(cast(float)y * cell_size + draw_offset.y, 0, screen_height);
+                grid_width := cells_width * cell_size;
+                grid_height := cells_height * cell_size;
+
+                screen_x := wrap(cast(float)x * cell_size + draw_offset.x, 0, grid_width);
+                screen_y := wrap(cast(float)y * cell_size + draw_offset.y, 0, grid_height);
 
                 if alpha {
-                    draw_box(Rect.{screen_x, screen_y, cell_size - 1, cell_size - 1}, .{1.0, 1.0, 1.0, alpha});
-                    if screen_x > screen_width - cell_size
-                        draw_box(Rect.{screen_x - screen_width, screen_y, cell_size - 1, cell_size - 1}, .{1.0, 1.0, 1.0, alpha});
-                    if screen_y > screen_height - cell_size
-                        draw_box(Rect.{screen_x, screen_y - screen_height, cell_size - 1, cell_size - 1}, .{1.0, 1.0, 1.0, alpha});
-                    if screen_x > screen_width - cell_size && screen_y > screen_height - cell_size
-                        draw_box(Rect.{screen_x - screen_width, screen_y - screen_height, cell_size - 1, cell_size - 1}, .{1.0, 1.0, 1.0, alpha});
+                    color := Vector4.{1.0, 1.0, 1.0, alpha};
+                    shrink := (1 - size) * cell_size / 4;
+                    side_length := cell_size - 2*shrink - 1;
+                    draw_box(Rect.{screen_x + shrink, screen_y + shrink, side_length, side_length}, color);
+
+                    wrapped_x := screen_x - grid_width;
+                    if -cell_size < wrapped_x && wrapped_x < 0
+                        draw_box(Rect.{wrapped_x, screen_y, side_length, side_length}, color);
+
+                    wrapped_y := screen_y - grid_height;
+                    if -cell_size < wrapped_y && wrapped_y < 0
+                        draw_box(Rect.{screen_x, wrapped_y, side_length, side_length}, color);
+
+                    if -cell_size < wrapped_x && wrapped_x < 0 && -cell_size < wrapped_y && wrapped_y < 0
+                        draw_box(Rect.{wrapped_x, wrapped_y, side_length, side_length}, color);
                 }
             }
         }
 
-        // Step 7.  You can add widgets directly without using a window; call it after you've drawn your game so they appear on top.
-        //          (We could move this line to after gui_draw_windows to have it draw on top of them too!)
-        if button(at(-42,10, -10,42), .CLOSE)  should_quit = true;
+        // Step 7.  You can add widgets directly without using a window; do it after you've drawn your game so they appear on top.
+        //          (We could move this section to after gui_draw_windows to have it draw on top of them too!)
+        if showing_gui {
+            quit_icon := Icon_Id.CLOSE;
+            if button(at_size(-big_widget_size-big_margin,big_margin, big_widget_size,big_widget_size), quit_icon)  should_quit = true;
+        }
 
         // Step 8.  Call gui_draw_windows after you've drawn your scene to draw all your windows on top.
         gui_draw_windows();
+
+        if !application_has_focus  sleep_milliseconds(100);  // Don't hog the CPU if we're not active.
     }
 }
 
@@ -251,8 +283,13 @@ get_cell_sections :: inline (cell: *Cell) -> state: Cell, extra_value: Cell {
 }
 
 check_for_grid_resize :: () {
+    if cell_size_changed {
+        cell_size = cell_sizes[cell_size_index];
+        cell_size_changed = false;
+    }
     new_cells_width := cast(int) (application_panel.calculated_rect.w / cell_size) + 1;
     new_cells_height := cast(int) (application_panel.calculated_rect.h / cell_size) + 1;
+
     if new_cells_width != cells_width || new_cells_height != cells_height {
         new_cells := NewArray(new_cells_width * new_cells_height, Cell);
         if cells.data {
@@ -291,9 +328,24 @@ random_fill_cells :: () {
     }
 }
 
-wrap :: (x: $T, min: T, max: T) -> T {
-    size := max - min;
-    while x < min  x += size;
-    while x > max  x -= size;
+wrap :: (x: $T, min: T, limit: T) -> T
+#modify {
+    return (cast(*Type_Info)T).type == .FLOAT;
+} {
+    size := limit - min;
+    x = fmod_cycling(x, size);
+    x += min;
+    return x;
+}
+
+wrap :: (x: $T, min: T, limit: T) -> T
+#modify {
+    return (cast(*Type_Info)T).type == .INTEGER;
+} {
+    size := limit - min;
+    x -= min;
+    x %= size;
+    x += min;
+    if x < min  x += size;
     return x;
 }

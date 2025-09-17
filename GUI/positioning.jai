@@ -71,6 +71,21 @@ at :: (tlx: $T, tly: $U, brx: $V, bry: $W) -> *Panel
     return at(peek_panel(), tlx, tly, brx, bry);
 }
 
+at_size :: (parent: *Panel, x: $T, y: $U, width: $V, height: $W) -> *Panel
+#modify { return is_implicit_ord(T) && is_implicit_ord(U) && is_implicit_ord(V) && is_implicit_ord(W); }
+{
+    panel := New(Panel, false,, temp);
+    panel.* = .{ parent, .{ coord(x, y), coord(x + width, y + height) }, .{}, 0};
+    return panel;
+}
+
+at_size :: (x: $T, y: $U, width: $V, height: $W) -> *Panel
+#modify { return is_implicit_ord(T) && is_implicit_ord(U) && is_implicit_ord(V) && is_implicit_ord(W); }
+{
+    return at_size(peek_panel(), x, y, width, height);
+}
+
+
 at :: (parent: *Panel, _box: Box) -> *Panel  {
     panel := New(Panel, false,, temp);
     panel.* = .{ parent, _box, .{}, 0 };
@@ -228,6 +243,14 @@ shrink_to_height :: (panel: *Panel, height_ord: $T) -> *Panel
     return at(panel, grow(center_line.desired_box, half_height, .UP|.DOWN));
 }
 
+shrink_to_width :: (panel: *Panel, width_ord: $T) -> *Panel
+#modify { return is_implicit_ord(T); }
+{
+    half_width := ord(width_ord) / 2;
+    center_line, _ := split_left_right(panel, 0.5);
+    center_line.desired_box.tl.x = center_line.desired_box.br.x;
+    return at(panel, grow(center_line.desired_box, half_width, .LEFT|.RIGHT));
+}
 
 grow :: (panel: *Panel, delta_ord: $T, direction := Direction.ALL) -> *Panel
 #modify { return is_implicit_ord(T); }

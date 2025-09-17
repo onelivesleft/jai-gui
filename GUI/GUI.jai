@@ -1,9 +1,11 @@
 // @TODO
 
-// [ ] Make an example.jai!
-// [ ] Windows flickering; warm hystersis?
-// [ ] Window flags are funky.
-// [ ] Window flag: CAN_FOCUS?
+// [ ] Investigate custom os window decorations not working?
+
+// [x] Make an example.jai!
+// [x] Windows flickering; warm hystersis?
+// [x] Window flags are funky.
+// [x] Window flag: CAN_FOCUS?
 
 // [ ] skin module parameter
 // [.] Windows!
@@ -225,7 +227,7 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
     return *application_panel, *application.os_window;
 }
 
-gui_begin_frame :: () -> should_quit: bool {
+gui_begin_frame :: () -> should_quit: bool, application_has_focus: bool {
     // We hide the application window for a couple of frames, so everything looks good when it's shown
     if application.hidden_for_startup && frame.index > 1 {
         application.hidden_for_startup = false;
@@ -381,18 +383,30 @@ gui_begin_frame :: () -> should_quit: bool {
     mouse.dx = mouse.x - prev_x;
     mouse.dy = mouse.y - prev_y;
 
-    mouse.left_button_start = xx (button_state(.MOUSE_BUTTON_LEFT) & .START);
-    mouse.left_button_held = xx (button_state(.MOUSE_BUTTON_LEFT) & .HELD);
-    mouse.left_button_end   = xx (button_state(.MOUSE_BUTTON_LEFT) & .END);
+    mouse.left_button = button_state(.MOUSE_BUTTON_LEFT);
+    mouse.left_button_start = xx (mouse.left_button & .START);
+    mouse.left_button_held = xx (mouse.left_button & .HELD);
+    mouse.left_button_end   = xx (mouse.left_button & .END);
 
-    mouse.middle_button_start = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .START);
-    mouse.middle_button_held = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .HELD);
-    mouse.middle_button_end   = xx (button_state(.MOUSE_BUTTON_MIDDLE) & .END);
+    mouse.middle_button = button_state(.MOUSE_BUTTON_MIDDLE);
+    mouse.middle_button_start = xx (mouse.middle_button & .START);
+    mouse.middle_button_held = xx (mouse.middle_button & .HELD);
+    mouse.middle_button_end   = xx (mouse.middle_button & .END);
 
-    mouse.right_button_start = xx (button_state(.MOUSE_BUTTON_RIGHT) & .START);
-    mouse.right_button_held = xx (button_state(.MOUSE_BUTTON_RIGHT) & .HELD);
-    mouse.right_button_end   = xx (button_state(.MOUSE_BUTTON_RIGHT) & .END);
+    mouse.right_button = button_state(.MOUSE_BUTTON_RIGHT);
+    mouse.right_button_start = xx (mouse.right_button & .START);
+    mouse.right_button_held = xx (mouse.right_button & .HELD);
+    mouse.right_button_end   = xx (mouse.right_button & .END);
 
+    mouse.x1_button = button_state(.MOUSE_BUTTON_X1);
+    mouse.x1_button_start = xx (mouse.x1_button & .START);
+    mouse.x1_button_held = xx (mouse.x1_button & .HELD);
+    mouse.x1_button_end   = xx (mouse.x1_button & .END);
+
+    mouse.x2_button = button_state(.MOUSE_BUTTON_X2);
+    mouse.x2_button_start = xx (mouse.x2_button & .START);
+    mouse.x2_button_held = xx (mouse.x2_button & .HELD);
+    mouse.x2_button_end   = xx (mouse.x2_button & .END);
 
     mouse.scrollwheel = Input.mouse_delta_z / mouse.scrollwheel_resolution;
     mouse.scrollwheel_fraction += (Input.mouse_delta_z % mouse.scrollwheel_resolution) / cast(float)mouse.scrollwheel_resolution;
@@ -405,7 +419,7 @@ gui_begin_frame :: () -> should_quit: bool {
         mouse.scrollwheel_fraction -= 1.0;
     }
 
-    return should_quit;
+    return should_quit, Input.input_application_has_focus;
 }
 
 gui_application_window_set_opacity :: (opacity: float, min_opacity := 0.1) {
@@ -528,9 +542,13 @@ mouse: struct {
     #place dx;
     delta: Vector2;
 
+    left_button, middle_button, right_button, x1_button, x2_button: Key_State;
     left_button_start, left_button_end, left_button_held: bool;
     middle_button_start, middle_button_end, middle_button_held: bool;
     right_button_start, right_button_end, right_button_held: bool;
+    x1_button_start, x1_button_end, x1_button_held: bool;
+    x2_button_start, x2_button_end, x2_button_held: bool;
+
     scrollwheel: int;             // normalized, will typically be -1, +1 or 0
     scrollwheel_fraction: float;  // on devices with high-precision wheels this can be (-1.0, +1.0)
                                   // (though you can typically ignore it as it will automaticaly accumulate
@@ -856,6 +874,7 @@ Flags :: enum_flags u64 {
     BORDER;
     CAN_MOVE;
     CAN_RESIZE;
+    CAN_FOCUS;
     SCROLLBARS;
 
     // Window_Decoration and Application_Window_Decoration
@@ -1062,6 +1081,7 @@ focus :: (widget: *$T/Widget) {
 
 remove_focus :: (widget: *$T/Widget, reason := Focus_Change.UNDETERMINED) {
     if focussed_widget != widget  return;
+
     widget_lost_focus_time(focussed_widget, frame.time);
     if focussed_widget.type == {
         case .INPUT_LINE; lost_focus(cast(*Input_Line) widget, reason);
@@ -1072,12 +1092,15 @@ remove_focus :: (widget: *$T/Widget, reason := Focus_Change.UNDETERMINED) {
 focus_window :: (window: *Window) {
     if focussed_window && focussed_window != window
         remove_window_focus(focussed_window);
+    if !window || !(window.flags & .CAN_FOCUS)  return;
+
     focussed_window = window;
     window_became_focussed_time(focussed_window, frame.time);
 }
 
 remove_window_focus :: (window: *Window, reason := Focus_Change.UNDETERMINED) {
     if focussed_window != window  return;
+
     window_lost_focus_time(focussed_window, frame.time);
     focussed_window = null;
 }
@@ -1085,7 +1108,7 @@ remove_window_focus :: (window: *Window, reason := Focus_Change.UNDETERMINED) {
 set_clicked :: (widget: *Widget) {
     clicked_widget = widget;
     clicked_window = currently_drawing_window;
-    focussed_window = currently_drawing_window;
+    focus_window(currently_drawing_window);
     widget_was_clicked_time(widget, frame.time);
 }
 
