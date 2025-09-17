@@ -40,21 +40,20 @@ small_widget_size :: 16;
 small_margin :: 2;
 
 application_panel: *Panel;
+should_quit := false;
 
 main :: () {
     // Step 1.  Create OS window
     application_panel = gui_create_application_window("GUI Example", initial_width, initial_height);
 
     // Step 2.  Loop until quit
-    while true {
+    while !should_quit {
         // Step 3.  Call gui_begin_frame at the start of every frame.
-        should_quit := gui_begin_frame();
-
-        if !gui_has_keyboard() && keyboard.escape  should_quit = true;
-        if should_quit  break;
+        should_quit = gui_begin_frame();
 
         check_for_grid_resize();
 
+        // Step 4.  If you want to have windows (that the user can drag, rearrange, etc.) then you make a window proc like this:
         draw_controls :: (window: *Window) {
             control_count :: 4;
             controls, settings := split_left_right(window, big_widget_size*control_count + big_margin*(control_count+1));
@@ -91,10 +90,13 @@ main :: () {
                 if !gui_has_mouse()  use_scrollwheel(cell_size_scrollbar);
             }
         }
-        controls_window := window(draw_controls, "Controls", at(10,10, 400,52), .CAN_MOVE);
 
+        // Step 5.  This tells GUI to draw the window this frame, when you call gui_draw_windows (as long as its is_open bool is true).
+        //          The code in draw_controls (above) doesn't run until then.
+        controls_window := window(draw_controls, "Controls", at(10,-52, 400,-10), flags=.CAN_MOVE); // Try removing the flags parameter to see the default window appearance.
+
+        // Step 6.  Do your game logic.  To use the mouse, first check its not being used by GUI.
         active_cell_parity = (Cell.PARITY_0_BIT + .PARITY_1_BIT) - active_cell_parity;
-
         mouse_cell_x := wrap(cast(int) ((mouse.x - draw_offset.x) / cell_size), 0, cells_width);
         mouse_cell_y := wrap(cast(int) ((mouse.y - draw_offset.y) / cell_size), 0, cells_height);
 
@@ -116,11 +118,12 @@ main :: () {
                 if mouse.right_button_start  controls_window.is_open = !controls_window.is_open;
             }
 
-            if mouse.middle_button_held {
-                draw_offset.x += mouse.dx;
-                draw_offset.y += mouse.dy;
-            }
+            if mouse.middle_button_held
+                draw_offset += mouse.delta;
         }
+
+        // Same with the keyboard, make sure GUI isn't using it first.
+        if !gui_has_keyboard() && keyboard.escape  should_quit = true;
 
         do_simulate := life_running || life_run_for_one_step;
         if life_run_for_one_step {
@@ -181,7 +184,11 @@ main :: () {
             }
         }
 
-        // Step 4.  Call gui_draw_windows after you've drawn your scene to draw all your windows on top.
+        // Step 7.  You can add widgets directly without using a window; call it after you've drawn your game so they appear on top.
+        //          (We could move this line to after gui_draw_windows to have it draw on top of them too!)
+        if button(at(-42,10, -10,42), .CLOSE)  should_quit = true;
+
+        // Step 8.  Call gui_draw_windows after you've drawn your scene to draw all your windows on top.
         gui_draw_windows();
     }
 }

@@ -1174,7 +1174,6 @@ register_application_window_size :: (new_width: int, new_height: int) {
     if new_width == old_width && new_height == old_height
         return;
 
-    print("new size: % %\n", new_width, new_height);
     root_panel.parent = null;
     root_panel.desired_box = box(0, 0, new_width, new_height);
     root_panel.calculated_rect = .{ 0, 0, xx new_width, xx new_height };
