@@ -472,15 +472,7 @@ gui_end_frame :: () {
     if tooltip_widget && tooltip_widget.tooltip && frame.time - became_tooltip_widget_time > theme.tooltip_delay
         draw_tooltip(tooltip_widget);
 
-    #if OS == .WINDOWS {
-        IsWindowVisible :: (hWnd: HWND) -> BOOL #foreign user32;
-        IsIconic :: (handle: HWND) -> bool #foreign user32;
-        if IsWindowVisible(application.os_window) && !IsIconic(application.os_window)
-            Simp.swap_buffers(application.os_window);
-    }
-    else {
-        Simp.swap_buffers(application.os_window);
-    }
+    Simp.swap_buffers(application.os_window);
 
     if !frame.no_sleep
     && hot_widget_frame_index != frame.index
