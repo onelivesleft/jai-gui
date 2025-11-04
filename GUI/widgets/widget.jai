@@ -144,6 +144,7 @@ widget_type :: (widget: *Widget) -> Type {
     return Widget;
 }
 
+
 update_widget :: (using widget: *Widget) {
     maybe_calculate_rect(widget);
     if draw_debug_widget_frames  draw_outline(widget, .{1.0, 0.0, 1.0, 1.0});
@@ -198,7 +199,7 @@ use_scrollwheel :: (using widget: *Widget) {
         case .DATA_TABLE;        use_scrollwheel(*(cast(*Data_Table(void))widget).scrollbar);
         case .SCROLLABLE_PANEL;  use_scrollwheel(cast(*Scrollable_Panel) widget);
         case .SCROLLBAR;         use_scrollwheel(cast(*Scrollbar) widget);
-        case .INPUT_BOX;          use_scrollwheel(*(cast(*Input_Box)widget).scrollbar);
+        case .INPUT_BOX;         use_scrollwheel(*(cast(*Input_Box)widget).scrollbar);
         case .WINDOW;            use_scrollwheel(cast(*Window) widget);
     }
 }

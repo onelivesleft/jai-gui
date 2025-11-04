@@ -257,6 +257,7 @@ get_mouse_pointer_position :: (hwnd: HWND, right_handed: bool) -> (x: int, y: in
         p.y = h - p.y;
     }
 
+
     return p.x, p.y, (win_success != 0);
 }
 

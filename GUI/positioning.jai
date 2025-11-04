@@ -85,6 +85,16 @@ at_size :: (x: $T, y: $U, width: $V, height: $W) -> *Panel
     return at_size(peek_panel(), x, y, width, height);
 }
 
+at :: (parent: *Panel, rect: Rect) -> *Panel {
+    panel := New(Panel, false,, temp);
+    panel.* = .{ parent, .{ coord(cast(int)rect.x, cast(int)rect.y), coord(cast(int)(rect.x + rect.w), cast(int)(rect.y + rect.h)) }, .{}, 0};
+    return panel;
+}
+
+at :: (rect: Rect) -> *Panel {
+    return at(peek_panel(), rect);
+}
+
 
 at :: (parent: *Panel, _box: Box) -> *Panel  {
     panel := New(Panel, false,, temp);

@@ -23,6 +23,20 @@ else {
 #load "icons.jai";
 #load "positioning.jai";
 
+
+is_iprof_attached :: #run -> bool {
+    struct_info := cast(*Type_Info_Struct) type_of(context);
+    found_iprof := false;
+    for member: struct_info.members {
+        if member.name == "_Iprof" {
+            found_iprof = true;
+            break;
+        }
+    }
+    return found_iprof;
+}
+#load "profiling.jai";
+
 #import "Basic";
 #import "Clipboard";
 #import "Compiler";
@@ -37,4 +51,12 @@ Simp :: #import "Simp";
 #import "GL";
 Input :: #import,dir "modules/Input";
 Window_Creation :: #import,dir "modules/Window_Creation";
-#if OS == .WINDOWS  #import "Windows";
+
+
+#scope_module
+
+
+#if OS == .WINDOWS {
+    #import "Windows";
+    user32 :: #system_library "user32";
+}

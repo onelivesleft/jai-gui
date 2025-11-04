@@ -66,6 +66,9 @@ frame: struct {
     time: Frame_Time;
     dt: float;
     no_sleep: bool;
+    window_called_this_frame: bool;
+    windows_drawn_this_frame: bool;
+    end_frame_called_this_frame: bool;
 }
 
 application: struct {
@@ -102,8 +105,12 @@ Application_Window_Flags :: enum_flags {
     OPEN_ON_MONITOR_6 :: OPEN_ON_MONITOR_3 | OPEN_ON_MONITOR_2 | OPEN_ON_MONITOR_1;
     _OPEN_ON_MONITOR_MASK :: OPEN_ON_MONITOR_6;
 
-    // next :: 1 << 14;
+    HAS_NOTIFICATION_ICON :: 1 << 14;
+    HIDE_FROM_TASKBAR :: 1 << 15;
+    MINIMIZE_TO_NOTIFICATION_ICON :: 1 << 16 | HAS_NOTIFICATION_ICON | HIDE_FROM_TASKBAR;
+
 }
+
 
 
 gui_create_application_window :: (window_title: string, window_width: int, window_height: int, flags := Application_Window_Flags.DEFAULT, window_x := -1, window_y := -1, opacity := 1.0) -> *Panel, *Window_Creation.Window_Type {
@@ -111,10 +118,9 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
 
     #if OS == .WINDOWS {
         timeBeginPeriod(1);
-        user32   :: #system_library "user32";
-        SetThreadDpiAwarenessContext :: (awareness: DPI_AWARENESS_CONTEXT) -> BOOL #foreign user32;
+        SetProcessDpiAwarenessContext :: (awareness: DPI_AWARENESS_CONTEXT) -> BOOL #foreign user32;
         if !(flags & .HAS_OS_DPI_SCALING)
-            SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE);
+            SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_SYSTEM_AWARE);
 
         // The following would tell windows that we don't look at the system DPI, and so windows should automatically scale
         // for us.  However, that's the default behaviour, so...
@@ -201,23 +207,54 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
         if flags & .HAS_SYSTEM_MENU  application.style |= WS_SYSMENU;
         if flags & .HAS_MAXIMIZE     application.style |= WS_MAXIMIZEBOX;
         if flags & .HAS_MINIMIZE     application.style |= WS_MINIMIZEBOX;
-        if flags * .START_MAXIMIZED  application.style |= WS_MAXIMIZE;
-        if flags * .START_MINIMIZED  application.style |= WS_MINIMIZE;
+        if flags & .START_MAXIMIZED  application.style |= WS_MAXIMIZE;
+        if flags & .START_MINIMIZED  application.style |= WS_MINIMIZE;
 
         if flags & .CAN_RESIZE       application.style |= WS_THICKFRAME;
         else                         application.style |= WS_BORDER;
 
         application.os_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y, application.style);
+        if flags & .HIDE_FROM_TASKBAR {
+            current := GetWindowLongW(application.os_window, GWL_EXSTYLE);
+            SetWindowLongW(application.os_window, GWL_EXSTYLE, current | WS_EX_TOOLWINDOW);
+        }
         Input.window_remove_all_decorations = !(flags & .HAS_OS_DECORATIONS);
     }
     else {
         application.os_window = Window_Creation.create_window(window_width, window_height, window_title, window_x, window_y);
     }
 
+    {
+        flags : u32 = SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE|SWP_FRAMECHANGED;
+        if application.flags & .START_MINIMIZED
+            flags |= SWP_HIDEWINDOW;
+        SetWindowPos(application.os_window, null, -1, -1, cast(s32) window_width, cast(s32) window_height, flags);
+    }
+
+    //{
+    //    SetWindowPlacement :: (hwnd: HWND, wp: *Input.WINDOWPLACEMENT) -> bool #foreign user32;
+    //    SW_SHOWMINIMIZED :: 2;
+    //    window_placement := Input.WINDOWPLACEMENT.{
+    //        length = size_of(Input.WINDOWPLACEMENT),
+    //        showCmd = 1,//SW_SHOWMINIMIZED,
+    //        rcNormalPosition = .{left=cast(s32) window_x, top=cast(s32) window_y, right=cast(s32) (window_x + window_width), bottom=cast(s32) (window_y+window_height)},
+    //    };
+    //    SetWindowPlacement(application.os_window, *window_placement);
+    //}
+
+    //if application.flags & .START_MINIMIZED {
+    //    SW_SHOWMINIMIZED :: 2;
+    //    ShowWindow(application.os_window, SW_SHOWMINIMIZED);
+    //}
+
     gui_application_window_set_opacity(opacity);
 
     Simp.set_render_target(application.os_window);
     register_application_window_size(window_width, window_height);
+
+    if flags & .HAS_NOTIFICATION_ICON {
+        Input.add_notification_icon(application.os_window, notification_icon_callback);
+    }
 
     array_reset(*placement_spacing);
     array_add(*placement_spacing, .{0, 0});
@@ -227,76 +264,41 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
     return *application_panel, *application.os_window;
 }
 
+gui_shutdown :: () {
+    Input.clean_up_notification_icon(application.os_window);
+}
+
 gui_begin_frame :: () -> should_quit: bool, application_has_focus: bool {
     // We hide the application window for a couple of frames, so everything looks good when it's shown
     if application.hidden_for_startup && frame.index > 1 {
         application.hidden_for_startup = false;
         width := cast(s32) application_panel.calculated_rect.w;
         height := cast(s32) application_panel.calculated_rect.h;
-
-        user32 :: #system_library "user32";
-        ShowWindow :: (hwnd: *void, show: s32) #foreign user32;
-        ShowWindow(application.os_window, 1);
-        //SetWindowLongW(application.os_window, GWL_STYLE, cast(s32) application_window_style);
-        SetWindowPos(application.os_window, null, -1, -1, width, height, SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE|SWP_FRAMECHANGED);
+        flags : u32 = SWP_NOZORDER|SWP_NOMOVE|SWP_NOACTIVATE|SWP_FRAMECHANGED;
+        if application.flags & .START_MINIMIZED
+            flags |= SWP_HIDEWINDOW;
+        SetWindowPos(application.os_window, null, -1, -1, width, height, flags);
+        if application.flags & .START_MINIMIZED {
+            SW_SHOWMINIMIZED :: 2;
+            ShowWindow(application.os_window, SW_SHOWMINIMIZED);
+        }
+        else if application.flags & .START_MAXIMIZED {
+            SW_SHOWMAXIMIZED :: 3;
+            ShowWindow(application.os_window, SW_SHOWMAXIMIZED);
+        }
+        else {
+            SW_SHOWNORMAL :: 1;
+            ShowWindow(application.os_window, SW_SHOWNORMAL);
+        }
     }
 
-    // First, clean up the previous frame.
-
-    pointer_end_frame();
-
-    if mouse.left_button_held {
-        if mouse.left_button_start && hot_widget != focussed_widget && focussed_widget
-            remove_focus(focussed_widget);
-    }
-    else if hot_widget {
-        widget_lost_hot_time(hot_widget, frame.time);
-        hot_widget = null;
-    }
-
-    if next_warm_widget {
-        if warm_widget != next_warm_widget
-            set_warm_widget(next_warm_widget, true);
-    }
-    else if warm_widget {
-        set_warm_widget(warm_widget, false);
-    }
-
-    if next_warm_window {
-        if warm_window != next_warm_window
-            set_warm_window(next_warm_window, true);
-    }
-    else if warm_window {
-        set_warm_window(warm_window, false);
-    }
-
-    if scrollwheel_widget  use_scrollwheel(scrollwheel_widget);
-    scrollwheel_widget = next_scrollwheel_widget;
-
-    if tooltip_widget && tooltip_widget != prev_tooltip_widget
-        became_tooltip_widget_time = frame.time;
-    prev_tooltip_widget = tooltip_widget;
-    if tooltip_widget && tooltip_widget.tooltip && frame.time - became_tooltip_widget_time > theme.tooltip_delay
-        draw_tooltip(tooltip_widget);
-
-    Simp.swap_buffers(application.os_window);
-
-    if !frame.no_sleep
-    && hot_widget_frame_index != frame.index
-    && warm_widget_frame_index != frame.index
-    && warm_window_frame_index != frame.index
-    && !clicked_widget && !released_widget && !changed_widget {
-        // Nothing immediate happened so sleep a little
-        dt := seconds_since_init() - frame.time;
-        ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
-        sleep_milliseconds(ms);
-    }
-
-    reset_temporary_storage();
-
-    // Now that previous frame is cleaned up, start this one!
+    if !frame.end_frame_called_this_frame
+        gui_end_frame();
 
     frame.index += 1;
+    frame.window_called_this_frame = false;
+    frame.windows_drawn_this_frame = false;
+    frame.end_frame_called_this_frame = false;
     prev_frame_time = frame.time;
     frame.time = seconds_since_init();
     frame.dt = cast(float)(frame.time - prev_frame_time);
@@ -309,6 +311,7 @@ gui_begin_frame :: () -> should_quit: bool, application_has_focus: bool {
     next_warm_widget = null;
     next_warm_window = null;
     next_scrollwheel_widget = null;
+    notification_icon_click_this_frame = .NONE;
 
     Input.window_region_override = application_window_decoration_override;
     application_window_decoration_override = .NONE;
@@ -422,6 +425,77 @@ gui_begin_frame :: () -> should_quit: bool, application_has_focus: bool {
     return should_quit, Input.input_application_has_focus;
 }
 
+gui_end_frame :: () {
+    frame.end_frame_called_this_frame = true;
+
+    #if is_iprof_attached {
+        iprof_update();
+        if !iprof_window_called_this_frame  gui_iprof_window();
+    }
+
+    if frame.window_called_this_frame && !frame.windows_drawn_this_frame
+        gui_draw_windows();
+
+    pointer_end_frame();
+
+    if mouse.left_button_held {
+        if mouse.left_button_start && hot_widget != focussed_widget && focussed_widget
+            remove_focus(focussed_widget);
+    }
+    else if hot_widget {
+        widget_lost_hot_time(hot_widget, frame.time);
+        hot_widget = null;
+    }
+
+    if next_warm_widget {
+        if warm_widget != next_warm_widget
+            set_warm_widget(next_warm_widget, true);
+    }
+    else if warm_widget {
+        set_warm_widget(warm_widget, false);
+    }
+
+    if next_warm_window {
+        if warm_window != next_warm_window
+            set_warm_window(next_warm_window, true);
+    }
+    else if warm_window {
+        set_warm_window(warm_window, false);
+    }
+
+    if scrollwheel_widget  use_scrollwheel(scrollwheel_widget);
+    scrollwheel_widget = next_scrollwheel_widget;
+
+    if tooltip_widget && tooltip_widget != prev_tooltip_widget
+        became_tooltip_widget_time = frame.time;
+    prev_tooltip_widget = tooltip_widget;
+    if tooltip_widget && tooltip_widget.tooltip && frame.time - became_tooltip_widget_time > theme.tooltip_delay
+        draw_tooltip(tooltip_widget);
+
+    #if OS == .WINDOWS {
+        IsWindowVisible :: (hWnd: HWND) -> BOOL #foreign user32;
+        IsIconic :: (handle: HWND) -> bool #foreign user32;
+        if IsWindowVisible(application.os_window) && !IsIconic(application.os_window)
+            Simp.swap_buffers(application.os_window);
+    }
+    else {
+        Simp.swap_buffers(application.os_window);
+    }
+
+    if !frame.no_sleep
+    && hot_widget_frame_index != frame.index
+    && warm_widget_frame_index != frame.index
+    && warm_window_frame_index != frame.index
+    && !clicked_widget && !released_widget && !changed_widget {
+        // Nothing immediate happened so sleep a little
+        dt := seconds_since_init() - frame.time;
+        ms := clamp(10 - cast(s32)(dt * 1000), 1, 10);
+        sleep_milliseconds(ms);
+    }
+
+    reset_temporary_storage();
+}
+
 gui_application_window_set_opacity :: (opacity: float, min_opacity := 0.1) {
     // WARNING! If you set the opacity too low you will make it very hard for the user to interact with your program!
     // Leave the min_opacity alone unless you really mean it.
@@ -439,7 +513,6 @@ gui_application_window_set_opacity :: (opacity: float, min_opacity := 0.1) {
                 SetWindowLongW(application.os_window, GWL_EXSTYLE, extended_style);
             }
             LWA_ALPHA :: 2;
-            user32 :: #system_library "user32";
             SetLayeredWindowAttributes :: (hwnd: *void, crKey: u32, bAlpha: u8, dwFlags: u32) -> bool #foreign user32;
             SetLayeredWindowAttributes(application.os_window, 0, a, LWA_ALPHA);
         }
@@ -454,19 +527,26 @@ gui_application_window_set_opacity :: (opacity: float, min_opacity := 0.1) {
 }
 
 gui_draw_windows :: () {
+    frame.windows_drawn_this_frame = true;
+
     bring_to_front_window: *Window;
 
     for key: window_order {
         window, was_added := find_or_add(*window_data, key);
         assert(!was_added, "Didn't find the window in the window_data table, but it should be there!");
 
-        if window.flags & .SHOW && window.is_open {
+        if !hide_all_windows && window.flags & .SHOW && window.is_open {
             currently_drawing_window = window;
-            update_widget(window);
-
             border := draw_window(.BACKGROUND);
             maybe_calculate_rect(border);
             window.border_rect = border.calculated_rect;
+            // To detect if the mouse is over the outer edge of the window (to detect resizes for instance)
+            // we need to use the windows border_rect instead of it's normal client rect.
+            // So, we swap them before and after the widget update.
+            maybe_calculate_rect(window);
+            Swap(*window.border_rect, *window.calculated_rect);
+            update_widget(window);
+            Swap(*window.border_rect, *window.calculated_rect);
 
             {
                 calculate_virtual_panel(window);
@@ -506,6 +586,23 @@ gui_draw_windows :: () {
         request_window_warmth(null);
 }
 
+gui_notification_message :: (title: string, message: string, flags := Input.Notification_Icon_Flags.INFO) {
+    Input.show_notification_message(title, message);
+}
+
+gui_notification_icon_was_clicked :: () -> type_of(notification_icon_click_this_frame) {
+    return notification_icon_click_this_frame;
+}
+
+gui_minimize_or_restore_application_window :: () {
+    IsIconic :: (handle: HWND) -> bool #foreign user32;
+    ShowWindow(application.os_window, cast(s32) ifx IsIconic(application.os_window) then SW_RESTORE else SW_MINIMIZE);
+}
+
+gui_hide_all_windows :: (hidden: bool) {
+    hide_all_windows = hidden;
+}
+
 gui_has_mouse :: () -> bool {
     return warm_widget || hot_widget;
 }
@@ -518,19 +615,130 @@ gui_no_sleep_this_frame :: () {
     frame.no_sleep = true;
 }
 
-gui_debug_panel :: (panel: *Panel) {
+gui_show_iprof_window :: (show := true) {
+    #if is_iprof_attached
+        if iprof_window  iprof_window.is_open = show;
+}
+
+gui_iprof_window :: (text := "Iprof", initial_panel : *Panel = null, flags := DEFAULT_WINDOW_FLAGS|.SCROLLBARS, tooltip := "", initially_closed := false, $callsite := #caller_location) -> *Window {
+    #if is_iprof_attached {
+        iprof_window_called_this_frame = true;
+        _initial_panel := initial_panel;
+        if !_initial_panel {
+            tl, tr, bl, br := split_quadrants(*application_panel, 0.666, 0.666);
+            _initial_panel = br;
+        }
+        iprof_window = window(iprof_draw_window, text, _initial_panel, flags, tooltip, initially_closed, callsite);
+        return iprof_window;
+    }
+}
+
+gui_debug_panel :: (panel : *Panel = null) {
+    _panel := ifx panel else *application_panel;
     log :: (position: *Panel, format_string: string, args: .. Any) {
         label(position, tprint(format_string, .. args), flags=.FIXED);
     }
 
-    log(at_top(panel, 20), "Warm Widget:     %  %", warm_widget, ifx warm_widget then warm_widget.*);
+    log(at_top(_panel, 20), "Warm Widget:     %  %", warm_widget, ifx warm_widget then warm_widget.*);
     log(at(.COPY_DOWN),    "Hot Widget:      %", hot_widget);
     log(at(.COPY_DOWN),    "Warm Window:     %", warm_window);
     log(at(.COPY_DOWN),    "Focussed Window: %", focussed_window);
+    log(at(.COPY_DOWN),    "Mouse: % %", mouse.x, mouse.y);
+    log(at(.COPY_DOWN),    "Panel WH: % %", application_panel.calculated_rect.w, application_panel.calculated_rect.h);
+    log(at(.COPY_DOWN),    "Simp WH: %", context.simp.texture_render_target);
+    if warm_widget  log(at(.COPY_DOWN),    "Warm rect: %", warm_widget.calculated_rect);
 }
 
 gui_debug_widget_frames :: (on: bool) {
     draw_debug_widget_frames = on;
+}
+
+gui_system_menu :: (menus: .. Menu, use_separator := true) {
+    if menus.count == 0  return;
+
+    array_reset(*menu_item_from_system_menu_id);
+
+    mouse_position: POINT;
+    GetCursorPos(*mouse_position);
+
+    menu_handle := system_menu(..menus, use_separator);
+
+    TPM_RIGHTBUTTON :: 0x002;
+    TPM_BOTTOMALIGN :: 0x020;
+    TPM_RETURNCMD ::   0x100;
+    id := TrackPopupMenu(menu_handle, TPM_RIGHTBUTTON|TPM_BOTTOMALIGN|TPM_RETURNCMD, mouse_position.x, mouse_position.y, 0, application.os_window, null);
+    if id > 0 {
+        item := menu_item_from_system_menu_id[id - 1];
+        if item.has_index {
+            if item.indexed_procedure  item.indexed_procedure(item.index);
+        }
+        else {
+            if item.procedure  item.procedure();
+        }
+    }
+
+    for system_menu_handles  DestroyMenu(it);
+    array_reset(*system_menu_handles);
+}
+
+menu_item :: (text: string, flags := Menu_Item.Flags.NONE, icon := Menu_Item.Icon.NONE) -> Menu_Item {
+    return .{type=.TEXT, text=text, flags=flags, icon=icon};
+}
+
+menu_item :: (text: string, procedure: #type (), flags := Menu_Item.Flags.NONE, icon := Menu_Item.Icon.NONE) -> Menu_Item {
+    return .{type=.TEXT, text=text, procedure=procedure, flags=flags, icon=icon};
+}
+
+menu_item :: (text: string, procedure: #type (int), index: int, flags := Menu_Item.Flags.NONE, icon := Menu_Item.Icon.NONE) -> Menu_Item {
+    return .{type=.TEXT, text=text, index=index, has_index=true, indexed_procedure=procedure, flags=flags, icon=icon};
+}
+
+menu_separator :: () -> Menu_Item {
+    return .{type=.SEPARATOR};
+}
+
+sub_menu :: (text: string, sub_menu: Menu, flags := Menu_Item.Flags.NONE, icon := Menu_Item.Icon.NONE) -> Menu_Item {
+    return .{type=.SUB_MENU, text=text, sub_menu=sub_menu, flags=flags, icon=icon};
+}
+
+Menu :: [] Menu_Item;
+
+Menu_Item :: struct {
+    type: enum { TEXT; SUB_MENU; SEPARATOR; } = .TEXT;
+    index: int;
+    has_index := false;
+
+    text: string;
+    flags: Flags;
+    icon: Icon;
+
+    procedure: #type ();
+  #place procedure;
+    indexed_procedure: #type (int);
+  #place procedure;
+    sub_menu: Menu;
+
+    Flags :: enum_flags u8 {
+        NONE :: 0;
+        IS_DEFAULT :: 1;
+        IS_CHECKED;
+        IS_HIGHLIGHTED;
+        IS_DISABLED;
+    }
+
+    Icon :: enum s64 {
+        NONE ::               0;
+        CLOSE ::              5; // Close button for the menu bar.
+        CLOSE_DISABLED ::     6; // Disabled close button for the menu bar.
+        MINIMIZE ::           3; // Minimize button for the menu bar.
+        MINIMIZE_DISABLED ::  7; // Disabled minimize button for the menu bar.
+        RESTORE ::            2; // Restore button for the menu bar.
+        SUB_MENU_CLOSE ::     8; // Close button for the submenu.
+        SUB_MENU_MAXIMIZE :: 10; // Maximize button for the submenu.
+        SUB_MENU_MINIMIZE :: 11; // Minimize button for the submenu.
+        SUB_MENU_RESTORE ::   9; // Restore button for the submenu.
+        SYSTEM ::             1; // Windows icon or the icon of the window specified in dwItemData.
+    }
 }
 
 mouse: struct {
@@ -1686,3 +1894,182 @@ set_pointer_image :: (drag_flags: Drag_Flags) {
     }
 
 }
+
+
+notification_icon_click_this_frame: enum { NONE; LEFT; RIGHT; MIDDLE; X; }
+
+notification_icon_callback :: (hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> handled: bool #c_call {
+    ctx: Context;
+    push_context ctx {
+        WM_LBUTTONDOWN :: 0x0201; //513
+        WM_LBUTTONUP :: 0x0202; //514
+        WM_LBUTTONDBLCLK :: 0x0203; //515
+        WM_RBUTTONDOWN :: 0x0204;
+        WM_RBUTTONUP :: 0x0205;
+        WM_RBUTTONDBLCLK :: 0x0206;
+        WM_MBUTTONDOWN :: 0x0207;
+        WM_MBUTTONUP :: 0x0208;
+        WM_MBUTTONDBLCLK :: 0x0209;
+        WM_XBUTTONDOWN :: 0x020B;
+        WM_XBUTTONUP :: 0x020C;
+        WM_XBUTTONDBLCLK :: 0x020D;
+
+        if lParam == WM_LBUTTONDOWN || lParam == WM_LBUTTONDBLCLK
+            notification_icon_click_this_frame = .LEFT;
+        else if lParam == WM_RBUTTONDOWN || lParam == WM_RBUTTONDBLCLK
+            notification_icon_click_this_frame = .RIGHT;
+        else if lParam == WM_MBUTTONDOWN || lParam == WM_MBUTTONDBLCLK
+            notification_icon_click_this_frame = .MIDDLE;
+        else if lParam == WM_XBUTTONDOWN || lParam == WM_XBUTTONDBLCLK
+            notification_icon_click_this_frame = .X;
+
+        if lParam == WM_LBUTTONDOWN && (application.flags & .MINIMIZE_TO_NOTIFICATION_ICON == .MINIMIZE_TO_NOTIFICATION_ICON)
+            gui_minimize_or_restore_application_window();
+    }
+    return true;
+}
+
+MENUITEMINFO :: struct {
+    cbSize: u32 = 80; // checked via #assert below
+    fMask: u32;
+    fType: u32;
+    fState: u32;
+    wID: u32;
+    hSubMenu: HMENU;
+    hbmpChecked: HBITMAP;
+    hbmpUnchecked: HBITMAP;
+    dwItemData: *u64;
+    dwTypeData: LPSTR;
+    cch: u32;
+    hbmpItem: HBITMAP;
+
+    MIIM_BITMAP ::     0x00000080; // Retrieves or sets the hbmpItem member.
+    MIIM_CHECKMARKS :: 0x00000008; // Retrieves or sets the hbmpChecked and hbmpUnchecked members.
+    MIIM_DATA ::       0x00000020; // Retrieves or sets the dwItemData member.
+    MIIM_FTYPE ::      0x00000100; // Retrieves or sets the fType member.
+    MIIM_ID ::         0x00000002; // Retrieves or sets the wID member.
+    MIIM_STATE ::      0x00000001; // Retrieves or sets the fState member.
+    MIIM_STRING ::     0x00000040; // Retrieves or sets the dwTypeData member.
+    MIIM_SUBMENU ::    0x00000004; // Retrieves or sets the hSubMenu member.
+    MIIM_TYPE ::       0x00000010;
+
+    MFT_MENUBARBREAK :: 0x00000020; // Places the menu item on a new line (for a menu bar) or in a new column (for a drop-down menu, submenu, or shortcut menu). For a drop-down menu, submenu, or shortcut menu, a vertical line separates the new column from the old.
+    MFT_MENUBREAK ::    0x00000040; // Places the menu item on a new line (for a menu bar) or in a new column (for a drop-down menu, submenu, or shortcut menu). For a drop-down menu, submenu, or shortcut menu, the columns are not separated by a vertical line.
+    MFT_OWNERDRAW ::    0x00000100; // Assigns responsibility for drawing the menu item to the window that owns the menu. The window receives a WM_MEASUREITEM message before the menu is displayed for the first time, and a WM_DRAWITEM message whenever the appearance of the menu item must be updated. If this value is specified, the dwTypeData member contains an application-defined value.
+    MFT_RADIOCHECK ::   0x00000200; // Displays selected menu items using a radio-button mark instead of a check mark if the hbmpChecked member is NULL.
+    MFT_RIGHTJUSTIFY :: 0x00004000; // Right-justifies the menu item and any subsequent items. This value is valid only if the menu item is in a menu bar.
+    MFT_RIGHTORDER ::   0x00002000; // Specifies that menus cascade right-to-left (the default is left-to-right). This is used to support right-to-left languages, such as Arabic and Hebrew.
+    MFT_SEPARATOR ::    0x00000800; // Specifies that the menu item is a separator. A menu item separator appears as a horizontal dividing line. The dwTypeData and cch members are ignored. This value is valid only in a drop-down menu, submenu, or shortcut menu.
+
+    MFS_CHECKED ::  0x00000008; // Checks the menu item. For more information about selected menu items, see the hbmpChecked member.
+    MFS_DEFAULT ::  0x00001000; // Specifies that the menu item is the default. A menu can contain only one default menu item, which is displayed in bold.
+    MFS_DISABLED :: 0x00000003; // Disables the menu item and grays it so that it cannot be selected.
+    MFS_HILITE ::   0x00000080; // Highlights the menu item.
+
+    HBMMENU_CALLBACK ::       -1; // A bitmap that is drawn by the window that owns the menu. The application must process the WM_MEASUREITEM and WM_DRAWITEM messages.
+    HBMMENU_MBAR_CLOSE ::      5; // Close button for the menu bar.
+    HBMMENU_MBAR_CLOSE_D ::    6; // Disabled close button for the menu bar.
+    HBMMENU_MBAR_MINIMIZE ::   3; // Minimize button for the menu bar.
+    HBMMENU_MBAR_MINIMIZE_D :: 7; // Disabled minimize button for the menu bar.
+    HBMMENU_MBAR_RESTORE ::    2; // Restore button for the menu bar.
+    HBMMENU_POPUP_CLOSE ::     8; // Close button for the submenu.
+    HBMMENU_POPUP_MAXIMIZE :: 10; // Maximize button for the submenu.
+    HBMMENU_POPUP_MINIMIZE :: 11; // Minimize button for the submenu.
+    HBMMENU_POPUP_RESTORE ::   9; // Restore button for the submenu.
+    HBMMENU_SYSTEM ::          1; // Windows icon or the icon of the window specified in dwItemData.
+}
+#assert size_of(MENUITEMINFO) == 80;
+
+null_terminate :: ($$s: string) -> string {
+    #if is_constant(s) {
+        return s;
+    }
+    else {
+        result : string = ---;
+        result.count = s.count + 1;
+        result.data = alloc(result.count,, temp);
+        memcpy(result.data, s.data, s.count);
+        result[s.count] = #char "\0";
+        return result;
+    }
+}
+
+system_menu :: (menus: .. Menu, use_separator := true) -> HMENU {
+    menu_handle := CreatePopupMenu();
+    array_add(*system_menu_handles, menu_handle);
+
+    system_menu_item :: (item: Menu_Item, id: u32) -> MENUITEMINFO {
+        using MENUITEMINFO;
+        result : MENUITEMINFO = ---;
+        if #complete item.type == {
+            case .TEXT;
+            s := null_terminate(item.text);
+            result = .{fMask=MIIM_STRING|MIIM_ID, dwTypeData=s.data, wID=id};
+
+            case .SUB_MENU;
+            s := null_terminate(item.text);
+            sub_menu_handle := system_menu(item.sub_menu);
+            result = .{fMask=MIIM_STRING|MIIM_SUBMENU|MIIM_ID, dwTypeData=s.data, hSubMenu=sub_menu_handle, wID=id};
+
+            case .SEPARATOR;
+            result = .{fMask=MIIM_FTYPE|MIIM_ID, fType=MFT_SEPARATOR, wID=id};
+        }
+
+        if item.flags & .IS_CHECKED {
+            result.fMask |= MIIM_STATE;
+            result.fState |= MFS_CHECKED;
+        }
+
+        if item.flags & .IS_HIGHLIGHTED {
+            result.fMask |= MIIM_STATE;
+            result.fState |= MFS_HILITE;
+        }
+
+        if item.flags & .IS_DEFAULT {
+            result.fMask |= MIIM_STATE;
+            result.fState |= MFS_DEFAULT;
+        }
+
+        if item.flags & .IS_DISABLED {
+            result.fMask |= MIIM_STATE;
+            result.fState |= MFS_DISABLED;
+        }
+
+        if item.icon {
+            result.fMask |= MIIM_BITMAP;
+            result.hbmpItem = cast(HBITMAP) item.icon;
+        }
+
+        return result;
+    }
+
+    menu_item_position : u32 = 0;
+
+    add_menu_item :: (menu_item: *Menu_Item) #expand {
+        array_add(*menu_item_from_system_menu_id, menu_item);
+        menu_item_info := system_menu_item(menu_item, cast(u32) menu_item_from_system_menu_id.count);
+        InsertMenuItemA(menu_handle, menu_item_position, true, *menu_item_info);
+        menu_item_position += 1;
+    }
+
+    reusable_separator = menu_separator();
+
+    for menu: menus {
+        if use_separator && it_index
+            add_menu_item(*reusable_separator);
+
+        for * menu  add_menu_item(it);
+    }
+
+    return menu_handle;
+}
+
+system_menu_handles: [..] HMENU;
+menu_item_from_system_menu_id: [..] *Menu_Item;
+reusable_separator: Menu_Item;
+
+CreatePopupMenu :: () -> HMENU #foreign user32;
+InsertMenuItemA :: (menu: HMENU, item: u32, fByPositionL: bool,  lpmi: *MENUITEMINFO) -> bool #foreign user32;
+TrackPopupMenu :: (menu: HMENU, uFlags: u32, x: s32, y: s32, nReserved: s32, hWnd: HWND, prcRect: *RECT) -> BOOL #foreign user32;
+DestroyMenu :: (menu: HMENU) -> BOOL #foreign user32;
+

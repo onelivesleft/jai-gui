@@ -47,7 +47,7 @@ application_has_focus := true;
 
 main :: () {
     // Step 1.  Create OS window
-    application_panel = gui_create_application_window("GUI Example", initial_width, initial_height);
+    application_panel = gui_create_application_window("GUI Example", initial_width, initial_height, .DEFAULT & ~.HAS_OS_DPI_SCALING);
 
     // Step 2.  Loop until quit
     while !should_quit {
@@ -97,13 +97,14 @@ main :: () {
         //          The code in draw_controls (above) doesn't run until then.
         controls_window := window(draw_controls, "Controls", at_size(10,-52, 400,42), flags=.CAN_MOVE); // Try removing the flags parameter to see the default window appearance.
 
-        showing_gui := controls_window.is_open;  // We're going to hide the quit button when we hide the controls window.
+        showing_gui := controls_window.is_open;
+        gui_hide_all_windows(!showing_gui);
 
         active_cell_parity = (Cell.ODD_BIT_INDEX + .EVEN_BIT_INDEX) - active_cell_parity;
         mouse_cell_x := wrap(cast(int) ((mouse.x - draw_offset.x) / cell_size), 0, cells_width);
         mouse_cell_y := wrap(cast(int) ((mouse.y - draw_offset.y) / cell_size), 0, cells_height);
 
-        // Step 6.  To use the mouse the mouse in your game logic, first check its not being used by GUI:
+        // Step 6.  To use the mouse in your game logic, first check its not being used by GUI:
         if !gui_has_mouse() {
             if was_clicked(mouse.left_button) {
                 cell := get_cell(mouse_cell_x, mouse_cell_y);
@@ -217,13 +218,24 @@ main :: () {
             quit_icon := Icon_Id.CLOSE;
             if button(at_size(-big_widget_size-big_margin,big_margin, big_widget_size,big_widget_size), quit_icon)  should_quit = true;
         }
+        // Step 8.  Optionally call gui_draw_windows after you've drawn your scene to draw all your windows on top.
+        //          If you added a window (by calling window(...)) then this will automatically be called at the end of the
+        //          frame.  If you want to do things after drawing the windows but before the end of the frame, such as drawing
+        //          other widgets on top, then call it manually and then do your thing.
+        // gui_draw_windows();
 
-        // Step 8.  Call gui_draw_windows after you've drawn your scene to draw all your windows on top.
-        gui_draw_windows();
+        // Step 9.  Optionally call gui_end_frame.  If you don't call it yourself, it will be called at the start of gui_begin_frame.
+        //          Usually you don't need to worry about this, unless you really want to time something to happen between gui_end_frame
+        //          and gui_begin_frame.
+        // gui_end_frame();
 
         if !application_has_focus  sleep_milliseconds(100);  // Don't hog the CPU if we're not active.
     }
+
+    // Step 10.  Call gui_shutdown on exit to clean up resources (like the notification tray icon).
+    gui_shutdown();
 }
+
 
 get_cell :: inline (x: int, y: int) -> *Cell {
     if x < 0 || x >= cells_width || y < 0 || y >= cells_height

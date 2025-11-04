@@ -495,6 +495,13 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
             array_add(*events_this_frame, event);
             return 0;
 
+            case WM_USER_NOTIFICATION_ICON;
+            if notification_icon_callback {
+                handled := notification_icon_callback(hwnd, message, wParam, lParam);
+                if handled  return 0;
+            }
+            return DefWindowProcW(hwnd, message, wParam, lParam);
+
             case WM_SETCURSOR;
             HTCLIENT :: 1;
             if lParam == HTCLIENT
@@ -502,13 +509,125 @@ MyWindowProc :: (hwnd: HWND, message: u32, wParam: WPARAM, lParam: LPARAM) -> s6
             else
                 return DefWindowProcW(hwnd, message, wParam, lParam);
 
+            case WM_SHOWWINDOW;
+            return DefWindowProcW(hwnd, message, wParam, lParam);
+
             case;
             return DefWindowProcW(hwnd, message, wParam, lParam);
+
         }
 
         return 0;
     }
 }
+
+add_notification_icon :: (window: HWND, callback: type_of(notification_icon_callback)) {
+    hInstance := GetModuleHandleW(null);
+    icon := LoadIconW(hInstance, MAKEINTRESOURCEW(2));
+    if icon == null {
+        exe_path : [MAX_PATH]u16;
+        GetModuleFileNameW(null, exe_path.data, MAX_PATH);
+        icon = ExtractIconW(hInstance, exe_path.data, 0); // 0 means first icon.
+    }
+    if icon == null {
+        IDI_APPLICATION :: 32512;
+        icon = LoadIconW(null, MAKEINTRESOURCEW(IDI_APPLICATION));
+    }
+
+    NOTIFYICON_VERSION_4 :: 4;
+    notification_icon = NOTIFYICONDATAW.{
+        hWnd = window,
+        hIcon = icon,
+        uVersion = NOTIFYICON_VERSION_4,
+    };
+
+    ok := Shell_NotifyIconW(.ADD, *notification_icon);
+    if ok  notification_icon_callback = callback;
+}
+
+clean_up_notification_icon :: (window: HWND) {
+    if notification_icon_callback
+        Shell_NotifyIconW(.DELETE, *notification_icon);
+}
+
+show_notification_message :: (title: string, message: string, flags := Notification_Icon_Flags.INFO) {
+    if !notification_icon_callback  return;
+
+    wide_title, ok, count := utf8_to_wide_new(title,, temp);
+    if !ok  return;
+
+    wide_message:, ok, count = utf8_to_wide_new(message,, temp);
+    if !ok  return;
+
+    memcpy(notification_icon.szInfoTitle.data, wide_title, max(count, 63));
+    memcpy(notification_icon.szInfo.data, wide_message, max(count, 127));
+    notification_icon.uFlags = .INFO;
+    notification_icon.dwInfoFlags = flags;
+
+    Shell_NotifyIconW(.MODIFY, *notification_icon);
+}
+
+notification_icon: NOTIFYICONDATAW;
+notification_icon_callback: #type (hWnd: HWND, Msg: u32, wParam: WPARAM, lParam: LPARAM) -> handled: bool #c_call;
+Notification_Icon_Flags :: type_of(NOTIFYICONDATAW.dwInfoFlags);
+
+WCHAR :: u16;
+UINT :: u32;
+WM_USER :: 0x0400;
+WM_USER_NOTIFICATION_ICON :: WM_USER + 1;
+
+NOTIFYICONDATAW :: struct {
+    cbSize: DWORD = 976;
+    hWnd: HWND;
+    uID: UINT;
+    uFlags: enum UINT {
+        MESSAGE ::0x00000001;
+        ICON :: 0x00000002;
+        TIP :: 0x00000004;
+        STATE :: 0x00000008;
+        INFO :: 0x00000010;
+        GUID :: 0x00000020;
+        REALTIME :: 0x00000040;
+        SHOWTIP :: 0x00000080;
+    } = .MESSAGE | .ICON;
+    uCallbackMessage: UINT = WM_USER_NOTIFICATION_ICON;
+    hIcon: HICON;
+    szTip: [128] WCHAR;
+    dwState: DWORD;
+    dwStateMask: DWORD;
+    szInfo: [256] WCHAR;
+    union {
+      uTimeout: UINT;
+      uVersion: UINT;
+    }
+    szInfoTitle: [64] WCHAR;
+    dwInfoFlags: enum_flags DWORD {
+        NONE ::               0x00000000; // No icon.
+        INFO ::               0x00000001; // An information icon.
+        WARNING ::            0x00000002; // A warning icon.
+        ERROR ::              0x00000003; // An error icon.
+        USER ::               0x00000004; // Windows XP SP2 and later. Use the icon identified in hBalloonIcon as the notification balloon's title icon.
+        NOSOUND ::            0x00000010; // Do not play the associated sound. Applies only to notifications.
+        LARGE_ICON ::         0x00000020; // The large version of the icon should be used as the notification icon. This corresponds to the icon with dimensions SM_CXICON x SM_CYICON. If this flag is not set, the icon with dimensions SM_CXSMICON x SM_CYSMICON is used.
+        RESPECT_QUIET_TIME :: 0x00000080; // Do not display the balloon notification if the current user is in "quiet time", which is the first hour after a new user logs into his or her account for the first time. During this time, most notifications should not be sent or shown. This lets a user become accustomed to a new computer system without those distractions. Quiet time also occurs for each user after an operating system upgrade or clean installation. A notification sent with this flag during quiet time is not queued; it is simply dismissed unshown. The application can resend the notification later if it is still valid at that time.
+        ICON_MASK ::          0x0000000F; // Reserved.
+    };
+    guidItem: GUID;
+    hBalloonIcon: HICON;
+}
+
+NotifyIcon_Message :: enum DWORD {
+    ADD :: 0x00000000;
+    MODIFY :: 0x00000001;
+    DELETE :: 0x00000002;
+    SETFOCUS :: 0x00000003;
+    SETVERSION :: 0x00000004;
+}
+
+Shell32 :: #system_library "Shell32";
+Shell_NotifyIconW :: (dwMessage: NotifyIcon_Message, lpData: *NOTIFYICONDATAW) -> bool #foreign Shell32;
+MAKEINTRESOURCEW :: (i: u32) -> *u16 { return cast(*u16)i; }
+
 
 user32 :: #system_library "user32";
 GetWindowPlacement :: (hwnd: HWND, wp: *WINDOWPLACEMENT) -> bool #foreign user32;

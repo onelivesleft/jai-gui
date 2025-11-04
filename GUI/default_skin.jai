@@ -16,10 +16,10 @@ Theme :: struct {
 
     background_color := Vector4.{0.2, 0.2, 0.2, 1.0};
 
-    window_background_color := Vector4.{0.3, 0.3, 0.3, 0.7};
-    window_outline_focussed := Vector4.{0.65, 0.65, 0.85, 1.0};
-    window_outline_warm :=     Vector4.{0.45, 0.45, 0.65, 1.0};
-    window_draggable_border_size : s16 = 2;
+    window_background :=          Vector4.{0.3, 0.3, 0.3, 0.7};
+    window_foreground_focussed := Vector4.{0.65, 0.65, 0.85, 1.0};
+    window_foreground_warm :=     Vector4.{0.45, 0.45, 0.65, 1.0};
+    window_draggable_border_size : s16 = 1;
 
     window_decoration_background :=         Vector4.{0.35, 0.35, 0.55, 1.0};
     window_decoration_background_clicked := Vector4.{0.65, 0.65, 0.85, 1.0};
@@ -98,9 +98,9 @@ alternate_theme := Theme.{
 
     background_color = Vector4.{0.2, 0.2, 0.2, 1.0},
 
-    window_background_color = Vector4.{0.4, 0.3, 0.3, 0.7},
-    window_outline_focussed = Vector4.{0.65, 0.65, 0.85, 1.0},
-    window_outline_warm =     Vector4.{0.45, 0.45, 0.65, 1.0},
+    window_background =          Vector4.{0.4, 0.3, 0.3, 0.7},
+    window_foreground_focussed = Vector4.{0.65, 0.65, 0.85, 1.0},
+    window_foreground_warm =     Vector4.{0.45, 0.45, 0.65, 1.0},
     window_draggable_border_size = 2,
 
     window_decoration_background         = Vector4.{0.35, 0.55, 0.55, 1.0},
@@ -194,7 +194,7 @@ theme_b, theme_c : Theme;
 themes : [4] *type_of(theme) : .[*theme, *alternate_theme, *theme_b, *theme_c];
 
 
-#scope_file;
+#scope_module;
 
 
 Font :: Simp.Dynamic_Font;
@@ -276,10 +276,6 @@ get_font :: (style: Font_Style, pixel_height: s16, text: string, fit_width := 0.
     return font, width;
 }
 
-get_text_width :: (font: *Font, s: string) -> width: s64 {
-    return Simp.prepare_text(font, s);
-}
-
 default_text_baseline :: (font: *Font, height: float) -> float {
     if !font return 0;  // :NullFont Handle incomplete implementation via the user passing us null for a font.
     // Just a heuristic to try to line up fonts, kind of.
@@ -321,13 +317,6 @@ text_origin :: (alignment: Text_Alignment, font: *Font, r: Rect, text_width: flo
     return x, y;
 }
 
-convert_to_simp_point :: (point: Vector2) -> Vector2 {
-    result : Vector2 = ---;
-    result.x = point.x;
-    result.y = application_panel.calculated_rect.h - point.y;
-    return result;
-}
-
 find_glyph_index_in_simp_temporary_glyphs :: (font: *Simp.Dynamic_Font, point: Vector2) -> glyph_index: int {
     // Returns character index for edge nearest point.
     // So, left side of first char = index 0, right side of first char == lef size of second char == 1, etc.
@@ -335,6 +324,13 @@ find_glyph_index_in_simp_temporary_glyphs :: (font: *Simp.Dynamic_Font, point: V
     // right edge of last character will be count).
 
     // @TODO binary search
+
+    convert_to_simp_point :: (point: Vector2) -> Vector2 {
+        result : Vector2 = ---;
+        result.x = point.x;
+        result.y = application_panel.calculated_rect.h - point.y;
+        return result;
+    }
 
     simp_point := convert_to_simp_point(point);
     if !font.current_quads || simp_point.x < font.current_quads[0].p0.x
@@ -374,19 +370,20 @@ set_scissor :: (rect: Rect) {
     Simp.set_scissor(xx v4.x, xx v4.y, xx v4.z, xx v4.w);
 }
 
-push_scissor :: (_rect: Rect) {
-    rect := _rect;
+push_scissor :: (rect: Rect) {
+    r := rect;
 
     if scissor_stack {
         top := peek_pointer(scissor_stack);
-        rect = intersect(top.*, rect);
+        r = intersect(top.*, r);
     }
 
-    set_scissor(rect);
-    array_add(*scissor_stack, rect);
+    set_scissor(r);
+    array_add(*scissor_stack, r);
 }
 
 pop_scissor :: () {
+    Simp.immediate_flush();
     pop(*scissor_stack);
 
     if scissor_stack {
@@ -401,6 +398,34 @@ draw_rect :: (rect: Rect, color: Vector4) {
     v4 := gl_vec4(rect);
     Simp.immediate_quad(v4.x, v4.y, v4.z, v4.w, color);
 }
+
+
+draw_triangles :: (position: Vector2, rotation: float, triangles: [] Triangle, color: Vector4) {
+    c := cos(rotation);
+    s := sin(rotation);
+    t : Triangle;
+    for triangle: triangles {
+        for i: 0..2 {
+            t.points[i].x = triangle.points[i].x * c - triangle.points[i].y * s + position.x;
+            t.points[i].y = triangle.points[i].x * s + triangle.points[i].y * c + position.y;
+        }
+        immediate_triangle(t, color);
+    }
+}
+
+immediate_triangle :: inline (triangle: Triangle, color: Vector4) {
+    Simp.immediate_triangle(triangle.p0, triangle.p1, triangle.p2, color, color, color);
+}
+
+Triangle :: struct {
+    p0: Vector3;
+    p1: Vector3;
+    p2: Vector3;
+
+    #place p0;
+    points : [3] Vector3;
+}
+
 
 switch_theme :: () #expand {
     `theme := ifx is_locked(`flags) then locked_theme else themes[theme_index(`flags)];
@@ -510,15 +535,11 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) -> border: *Panel {
     if window.flags & .SCROLLBARS          border = grow(border, theme.window_decoration_scrollbar_size, .RIGHT|.DOWN);
 
     #if mode == .BACKGROUND {
-        draw_box(border, theme.window_background_color);
+        border = grow(border, theme.window_draggable_border_size, .ALL);
+        draw_box(border, theme.window_background);
     }
     else #if mode == .FOREGROUND {
         inherited_flags := window.flags & xx window_decoration_inherit_mask;
-
-        if window == warm_window || window == focussed_window {
-            color := ifx window == focussed_window then theme.window_outline_focussed else theme.window_outline_warm;
-            draw_outline(border, color);
-        }
 
         title_bar_row, panel := split_top_bottom(border, theme.window_decoration_size);
 
@@ -543,9 +564,16 @@ draw_window :: ($mode: enum { BACKGROUND; FOREGROUND; }) -> border: *Panel {
                 window_decoration(br, .RESIZE | inherited_flags);
             }
         }
+
+        border = grow(border, theme.window_draggable_border_size, .ALL);
+
+        if window == warm_window || window == focussed_window {
+            color := ifx window == focussed_window then theme.window_foreground_focussed else theme.window_foreground_warm;
+            draw_outline(border, color, cast(float) theme.window_draggable_border_size);
+        }
     }
 
-//    border = grow(border, theme.window_draggable_border_size, .ALL);
+
     return border;
 }
 
@@ -555,13 +583,11 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     switch_theme();
 
     if flags & .CLOSE {
-        window_decoration_rect := shrink(calculated_rect, 0, 0, 0, 1);
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 0, 0);
         with_scissor(window_decoration_rect, flags);
         Simp.set_shader_for_color(true);
 
-        color := ifx was_clicked(window_decoration)
-                 then theme.window_decoration_background_clicked
-                 else warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        color := ifx currently_drawing_window == focussed_window then theme.window_foreground_focussed else theme.window_foreground_warm;
         draw_rect(window_decoration_rect, color);
 
         texture := get_icon_texture(.CLOSE_OUTLINE);
@@ -586,11 +612,11 @@ draw_window_decoration :: (using window_decoration: *Window_Decoration) {
     }
 
     if flags & .TITLE_BAR {
-        window_decoration_rect := shrink(calculated_rect, 0, 0, 1, 1);
+        window_decoration_rect := shrink(calculated_rect, 0, 0, 0, 0);
         with_scissor(window_decoration_rect, flags);
         Simp.set_shader_for_color(true);
 
-        color := warm_hot_else(window_decoration, theme.window_decoration_background_hot, theme.window_decoration_background_warm, theme.window_decoration_background);
+        color := ifx currently_drawing_window == focussed_window then theme.window_foreground_focussed else theme.window_foreground_warm;
         draw_rect(window_decoration_rect, color);
 
         if currently_drawing_window.text {
@@ -1046,17 +1072,21 @@ draw_box :: (rect: Rect, color: Vector4) {
     draw_rect(rect, color);
 }
 
-draw_outline :: inline (panel: *Panel, color: Vector4) {
+draw_outline :: inline (panel: *Panel, color: Vector4, size := 1.0) {
     rect := calculate_rect(panel);
-    draw_outline(rect, color);
+    draw_outline(rect, color, size);
 }
 
-draw_outline :: (rect: Rect, color: Vector4) {
+draw_outline :: (rect: Rect, color: Vector4, size := 1.0) {
     Simp.set_shader_for_color(true);
-    draw_rect(.{rect.x, rect.y, rect.w, 1}, color);
-    draw_rect(.{rect.x + rect.w, rect.y, 1, rect.h}, color);
-    draw_rect(.{rect.x, rect.y + rect.h, rect.w, 1}, color);
-    draw_rect(.{rect.x, rect.y, 1, rect.h}, color);
+    draw_rect(.{rect.x, rect.y, rect.w - size, size}, color);
+    draw_rect(.{rect.x + rect.w - size, rect.y, size, rect.h - size}, color);
+    draw_rect(.{rect.x, rect.y + size, size, rect.h - size}, color);
+    draw_rect(.{rect.x + size, rect.y + rect.h - size, rect.w - size, size}, color);
+}
+
+get_text_width :: (font: *Font, s: string) -> width: s64 {
+    return Simp.prepare_text(font, s);
 }
 
 draw_text :: inline (panel: *Panel, text: string, color: Vector4, size : s16 = 0, align := Text_Alignment.CENTER, font_style := Font_Style.SANS) -> text_width: float {
@@ -1083,4 +1113,20 @@ draw_icon :: (rect: Rect, icon_id: Icon_Id, color: Vector4) {
     Simp.set_shader_for_images(texture);
     Simp.immediate_quad(p0, p1, p2, p3, color);
     Simp.immediate_flush();
+}
+
+draw_line :: (x0: $T, y0: T, x1: T, y1: T, color: Vector4) {
+    triangles : [2] Triangle;
+    stroke_width :: 2;
+    triangles[0].p0 = Vector3.{x0, y0, 0};
+    triangles[0].p1 = Vector3.{x1, y1, 0};
+    triangles[0].p2 = Vector3.{x1 + stroke_width, y1 + stroke_width, 0};
+    triangles[1].p0 = Vector3.{x0, y0, 0};
+    triangles[1].p1 = Vector3.{x1, y1, 0};
+    triangles[1].p2 = Vector3.{x0 + stroke_width, y0 + stroke_width, 0};
+    draw_triangles(Vector2.{0, 0}, 0, triangles, color);
+}
+
+draw_line :: inline (p0: Vector2, p1: Vector2, color: Vector4) {
+    draw_line(p0.x, p0.y, p1.x, p1.y, color);
 }

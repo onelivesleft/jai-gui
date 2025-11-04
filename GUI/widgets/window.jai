@@ -30,6 +30,7 @@ clicked_window: *Window;
 warm_window: *Window;
 currently_drawing_window: *Window;
 currently_dragging_window: *Window;
+hide_all_windows := false;
 
 current_window_drag := Drag_Flags.NONE;
 drag_start_mouse_position: Vector2;
@@ -101,6 +102,8 @@ window_order: [..] u64;
 
 
 _window :: (id: int, draw_proc: Window_Draw_Proc, initial_panel: *Panel, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string, initially_closed: bool, callsite_key: u64) -> *Window {
+    frame.window_called_this_frame = true;
+
     key := widget_key(id, null, callsite_key);
     window := find_or_add(*window_data, key);
 

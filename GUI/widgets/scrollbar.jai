@@ -372,7 +372,9 @@ update_scrollbar :: (using scrollbar: *Scrollbar) {
             size = calculated_rect.h;
         }
 
-        handle_position = scrollbar_grab_value + (mouse_pos - scrollbar_grab_offset - start) / (size * (1.0 - handle_move_step));
+        handle_position = ifx handle_move_step >= 1.0
+                          then 0.0
+                          else scrollbar_grab_value + (mouse_pos - scrollbar_grab_offset - start) / (size * (1.0 - handle_move_step));
         Clamp(*handle_position, 0.0, 1.0);
         if value_type == .INTEGER {
             spread := cast(float) int_range.max - int_range.min + 1;
