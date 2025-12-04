@@ -430,6 +430,11 @@ translate :: (_box: *Box, $$x: int, $$y: int) {
     _box.br.y.abs += y;
 }
 
+translate :: (panel: *Panel, $$x: int, $$y: int) {
+    translate(*panel.desired_box, x, y);
+    calculate_rect(panel);
+}
+
 abs_width :: (_box: Box) -> int {
     assert(_box.tl.x.rel == _box.br.x.rel, "You can only calculate an absolute width if both x Coords use the same origin (i.e. have the same rel)");
     return _box.br.x.abs - _box.tl.x.abs;
@@ -604,6 +609,14 @@ Rect :: struct {
 
     #place x;
     position: Vector2;
+    size: Vector2;
+
+    #place x;
+    vector: Vector4;
+}
+
+operator == :: (a: Rect, b: Rect) -> bool {
+    return a.vector == b.vector;
 }
 
 contains :: inline (r: Rect, x: float, y: float) -> bool {

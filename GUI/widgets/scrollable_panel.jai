@@ -75,7 +75,7 @@ use_scrollwheel :: (using scrollable_panel: *Scrollable_Panel) {
 #scope_module
 
 
-scrollable_panel_data : Table(u64, Scrollable_Panel);
+scrollable_panel_data : Stable_Table(u64, Scrollable_Panel);
 
 
 _scrollable_panel :: inline (id: int, panel: *Panel, flags: Flags, width: int, height: int, callsite_key: u64) -> *Scrollable_Panel {

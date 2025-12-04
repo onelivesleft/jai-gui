@@ -26,7 +26,7 @@ icon :: (icon: *Icon, panel: *Panel, icon_id: Icon_Id, size := 0, flags := Flags
 #scope_module
 
 
-icon_data : Table(u64, Icon);
+icon_data : Stable_Table(u64, Icon);
 
 
 _icon :: inline (id: int, panel: *Panel, flags: Flags, icon_id: Icon_Id, size: int, tooltip: string, callsite_key: u64) -> clicked: bool, *Icon {

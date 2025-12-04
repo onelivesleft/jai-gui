@@ -97,7 +97,7 @@ use_scrollwheel :: (using window: *Window) {
 #scope_module
 
 
-window_data: Table(u64, Window);
+window_data: Stable_Table(u64, Window);
 window_order: [..] u64;
 
 

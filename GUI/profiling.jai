@@ -100,7 +100,7 @@
     // we want. Hack!
     iprof_vertical_offset := 0;
 
-    iprof_draw_rectangle :: (x0: float, y0: float, x1: float, y1: float, color: Vector4) {
+    iprof_draw_rectangle :: (x0: float, y0: float, x1: float, y1: float, color: Color) {
         p0 := iprof_convert(Vector2.{min(x0, x1), min(y0, y1)});
         p1 := iprof_convert(Vector2.{max(x0, x1), max(y0, y1)});
         rect := Rect.{p0.x, p0.y, p1.x - p0.x, p1.y - p0.y};
@@ -119,13 +119,13 @@
         draw_rect(rect, color);
     }
 
-    iprof_draw_text :: (x: float, y: float, str: string, color: Vector4) {
+    iprof_draw_text :: (x: float, y: float, str: string, color: Color) {
         p := iprof_convert(.{x, y});
         Simp.prepare_text(iprof_font, str);
         Simp.draw_text(iprof_font, xx (iprof_rect.x + x), xx (application_panel.calculated_rect.h - y - iprof_rect.y) - iprof_vertical_offset, str, color);
     }
 
-    iprof_draw_line :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color: Vector4) {
+    iprof_draw_line :: (p0: Vector2, p1: Vector2, p2: Vector2, p3: Vector2, color: Color) {
         Simp.set_shader_for_color(true);
         draw_line(iprof_convert(p0, true), iprof_convert(p1, true), color);
         draw_line(iprof_convert(p1, true), iprof_convert(p2, true), color);

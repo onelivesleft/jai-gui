@@ -64,7 +64,7 @@ label_for_text_row :: (using input_box: *Input_Box, row: int) -> *Label {
 #scope_module
 
 
-input_box_data: Table(u64, Input_Box);
+input_box_data: Stable_Table(u64, Input_Box);
 
 
 _input_box :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, initial_text: string, callsite_key: u64) -> clicked: bool, *Input_Box {

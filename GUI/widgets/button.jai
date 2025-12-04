@@ -58,7 +58,7 @@ button :: (button: *Button, panel: *Panel, text: string, icon_id: Icon_Id, flags
 #scope_module
 
 
-button_data: Table(u64, Button);
+button_data: Stable_Table(u64, Button);
 
 
 _button :: inline (id: int, panel: *Panel, flags: Flags, text: string, icon_id: Icon_Id, tooltip: string, callsite_key: u64) -> clicked: bool, *Button {

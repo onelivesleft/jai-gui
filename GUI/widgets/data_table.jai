@@ -285,7 +285,7 @@ compare :: inline (a: $T, b: T) -> int
 #scope_module
 
 
-data_table_data : Table(u64, Data_Table(void));
+data_table_data : Stable_Table(u64, Data_Table(void));
 
 
 _data_table :: inline (id: int, panel: *Panel, flags: Flags, data: [] $T, selected_row_index: int, callsite_key: u64) -> clicked: bool, *Data_Table(T)

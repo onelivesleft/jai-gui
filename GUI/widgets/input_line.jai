@@ -37,7 +37,7 @@ set_text :: (input_line: *Input_Line, text: string) {
 #scope_module
 
 
-input_line_data: Table(u64, Input_Line);
+input_line_data: Stable_Table(u64, Input_Line);
 
 
 _input_line :: inline (id: int, panel: *Panel, flags: Flags, initial_text: string, tooltip: string, callsite_key: u64) -> text: string, *Input_Line {

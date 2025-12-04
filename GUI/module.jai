@@ -51,6 +51,7 @@ Simp :: #import "Simp";
 #import "GL";
 Input :: #import,dir "modules/Input";
 Window_Creation :: #import,dir "modules/Window_Creation";
+#import,file "modules/Stable_Hash_Table.jai"(LOGGING=false);
 
 
 #scope_module

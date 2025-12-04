@@ -33,6 +33,14 @@ Custom_Widget :: struct {
     data: *void;
 }
 
+get_widget_data :: (widget: *Widget, $widget_data_type: Type) -> *widget_data_type {
+    if widget.type != .CUSTOM_WIDGET  return null;
+
+    custom_widget := cast(*Custom_Widget) widget;
+    return ifx custom_widget.data_type == widget_data_type then custom_widget.data;
+}
+
+
 widget :: (panel: *Panel, flags := Flags.NONE, tooltip := "", $callsite := #caller_location) -> *Custom_Widget {
     return _widget(0, panel, flags, tooltip, callsite_key(callsite));
 }
@@ -65,7 +73,7 @@ widget :: ($custom_data_type: Type, widget: *Custom_Widget, panel: *Panel, flags
 #scope_file
 
 
-custom_widget_data: Table(u64, Custom_Widget);
+custom_widget_data: Stable_Table(u64, Custom_Widget);
 
 
 _widget :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, callsite_key: u64) -> *Custom_Widget {
@@ -144,6 +152,21 @@ widget_type :: (widget: *Widget) -> Type {
     return Widget;
 }
 
+reserve :: ($widget_type: Type, $slots: int) {
+    #insert -> string {
+        builder: String_Builder;
+        for Widget_Types {
+            info := cast(*Type_Info) it;
+            type_name := tprint("%", it);
+            table_name := lower(tprint("%_data", it));
+            print_to_builder(*builder, #string jai
+                #if widget_type == %1  init(*%2, %3);
+            jai, type_name, table_name, slots);
+        }
+        return builder_to_string(*builder);
+    }
+}
+
 
 update_widget :: (using widget: *Widget) {
     maybe_calculate_rect(widget);
@@ -181,16 +204,11 @@ update_widget :: (using widget: *Widget) {
         }
     }
 
-    if is_warm(widget) {
-        if !is_mouse_over {
-            set_warm_widget(widget, false);
-        }
-        else if mouse.left_button_start {
-            if focussed_window != currently_drawing_window
-                focus_window(currently_drawing_window);
-            set_hot(widget, true);
-            set_clicked(widget);
-        }
+    if is_warm(widget) && is_mouse_over && mouse.left_button_start {
+        if focussed_window != currently_drawing_window
+            focus_window(currently_drawing_window);
+        set_hot(widget, true);
+        set_clicked(widget);
     }
 }
 

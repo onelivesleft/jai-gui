@@ -9,6 +9,10 @@ Scrollbar :: struct {
     handle_size: float;
     handle_position: float;
 
+    last_acceleration_frame_index: int;
+    velocity: float;
+    friction := 0.1;
+
     value_type: enum u8 { FLOAT; INTEGER; } = .FLOAT;
 
     int_value_pointer : *int = ---;
@@ -267,11 +271,18 @@ set_value :: (using scrollbar: *Scrollbar, value: $T)
     }
 }
 
+accelerate :: (using scrollbar: *Scrollbar, acceleration: float) {
+    assert(value_type == .FLOAT);
+    if (velocity > 0) != (acceleration > 0) then velocity = 0;
+    velocity += max(0.1, handle_move_step) * acceleration * frame.dt;
+    last_acceleration_frame_index = frame.index;
+}
+
 
 #scope_module
 
 
-scrollbar_data : Table(u64, Scrollbar);
+scrollbar_data : Stable_Table(u64, Scrollbar);
 
 _int_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, panel: *Panel, flags: Flags, tooltip: string, range: Int_Range) -> was_changed: bool {
     scrollbar.widget = .{panel, .SCROLLBAR, tooltip, flags | .USE_SCROLLWHEEL};
@@ -324,6 +335,10 @@ _float_scrollbar :: (scrollbar: *Scrollbar, orientation: Scrollbar.Orientation, 
 update_scrollbar :: (using scrollbar: *Scrollbar) {
     was_hot := is_hot(scrollbar);
     update_widget(scrollbar);
+
+    scrollbar.float_value += scrollbar.velocity;
+    if frame.index - last_acceleration_frame_index > 1
+        scrollbar.velocity *= (1.0 - scrollbar.friction) * frame.dt;
 
     if !is_hot(scrollbar) {
         if is_warm(scrollbar)

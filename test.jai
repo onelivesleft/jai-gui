@@ -526,8 +526,8 @@ draw_keyboard_window :: (window: *Window) {
 
 key_widget :: (key_code: Key_Code, text: string, icon_id: Icon_Id, panel: *Panel, $callsite := #caller_location) {
     Key_Widget_Data :: struct {
-        from_color := Vector4.{0, 0, 0, 1.0};
-        to_color := Vector4.{0, 0, 0, 1.0};
+        from_color := Color.{0, 0, 0, 1.0};
+        to_color := Color.{0, 0, 0, 1.0};
         time: Frame_Time;
     }
 
@@ -595,13 +595,13 @@ update_toast :: () {
     if t > 0.5  t = 1.0;
     else t *= 2;
     if toast_start_time < frame.time {
-        color := Vector4.{0.0, 0.0, 0.0, t};
+        color := Color.{0.0, 0.0, 0.0, t};
         rect := Rect.{toast_pos.x, toast_pos.y - 20, 200, 40};
         draw_text(rect, toast_text, color);
     }
     toast_pos += toast_speed * frame.dt;
     toast_speed.y += toast_gravity * frame.dt;
-    color := Vector4.{1.0, 1.0, 1.0, t};
+    color := Color.{1.0, 1.0, 1.0, t};
     rect := Rect.{toast_pos.x, toast_pos.y - 20, 200, 40};
     draw_text(rect, toast_text, color);
 }

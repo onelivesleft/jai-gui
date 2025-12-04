@@ -269,6 +269,7 @@ input_button_states: [NUM_BUTTON_STATES] Key_Current_State;
 left_shift_released_while_right_shift_held: bool;
 right_shift_released_while_left_shift_held: bool;
 input_application_has_focus := false;
+last_pressed_key_code := Key_Code.UNKNOWN;
 
 NUM_BUTTON_STATES :: 256;
 
@@ -315,6 +316,8 @@ input_per_frame_event_and_flag_update :: () {
     // Called once per frame, probably.
 
     for events_this_frame {
+        if it.type == .KEYBOARD && it.key_pressed
+            last_pressed_key_code = it.key_code;
         array_free(it.files);
     }
     array_reset(*events_this_frame);

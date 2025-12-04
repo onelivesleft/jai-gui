@@ -23,7 +23,7 @@ application_window_decoration :: (application_window_decoration: *Application_Wi
 #scope_module
 
 
-application_window_decoration_data: Table(u64, Application_Window_Decoration);
+application_window_decoration_data: Stable_Table(u64, Application_Window_Decoration);
 
 
 _application_window_decoration :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, callsite_key: u64) -> *Application_Window_Decoration {

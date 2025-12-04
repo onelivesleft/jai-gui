@@ -193,7 +193,7 @@ main :: () {
                 screen_y := wrap(cast(float)y * cell_size + draw_offset.y, 0, grid_height);
 
                 if alpha {
-                    color := Vector4.{1.0, 1.0, 1.0, alpha};
+                    color := Color.{1.0, 1.0, 1.0, alpha};
                     shrink := (1 - size) * cell_size / 4;
                     side_length := cell_size - 2*shrink - 1;
                     draw_box(Rect.{screen_x + shrink, screen_y + shrink, side_length, side_length}, color);

@@ -118,7 +118,7 @@ checkbox :: (checkbox: *Checkbox, panel: *Panel, text: string, icon_id: Icon_Id,
 #scope_module
 
 
-checkbox_data: Table(u64, Checkbox);
+checkbox_data: Stable_Table(u64, Checkbox);
 
 
 _checkbox :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, text: string, icon_id: Icon_Id, initial_value: bool, value_pointer: *bool, callsite_key: u64) -> value: bool, *Checkbox {

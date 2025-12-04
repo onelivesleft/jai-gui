@@ -26,7 +26,7 @@ window_decoration :: (window_decoration: *Window_Decoration, panel: *Panel, flag
 #scope_module
 
 
-window_decoration_data: Table(u64, Window_Decoration);
+window_decoration_data: Stable_Table(u64, Window_Decoration);
 
 
 _window_decoration :: inline (id: int, panel: *Panel, flags: Flags, tooltip: string, callsite_key: u64) -> *Window_Decoration {

@@ -2,6 +2,7 @@ Label :: struct {
     #as using widget: Widget;
 
     text: string;
+    text_width: float;
 }
 
 
@@ -43,7 +44,7 @@ label :: (label: *Label, panel: *Panel, text: $T, flags := Flags.NONE, tooltip :
 #scope_module
 
 
-label_data : Table(u64, Label);
+label_data : Stable_Table(u64, Label);
 
 
 _label :: inline (id: int, panel: *Panel, flags: Flags, text: string, tooltip: string, callsite_key: u64) -> clicked: bool, *Label {
@@ -54,7 +55,7 @@ _label :: inline (id: int, panel: *Panel, flags: Flags, text: string, tooltip: s
 }
 
 _label :: (label: *Label, panel: *Panel, flags: Flags, text: string, tooltip: string) -> clicked: bool, *Label {
-    label.* = .{ .{panel, .LABEL, tooltip, flags | .LOCKED | .OVERFLOW}, text };
+    label.* = .{ .{panel, .LABEL, tooltip, flags | .LOCKED | .OVERFLOW}, text, 0 };
     last_widget_panel = panel.*;
 
     update_widget(label);

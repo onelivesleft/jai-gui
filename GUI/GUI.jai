@@ -73,6 +73,7 @@ frame: struct {
 
 application: struct {
     os_window: Window_Creation.Window_Type;
+    os_window_location: struct { x: int; y: int; w: int; h: int; };
     flags: Application_Window_Flags;
     style: u32;
     hidden_for_startup := true;
@@ -105,9 +106,11 @@ Application_Window_Flags :: enum_flags {
     OPEN_ON_MONITOR_6 :: OPEN_ON_MONITOR_3 | OPEN_ON_MONITOR_2 | OPEN_ON_MONITOR_1;
     _OPEN_ON_MONITOR_MASK :: OPEN_ON_MONITOR_6;
 
-    HAS_NOTIFICATION_ICON :: 1 << 14;
-    HIDE_FROM_TASKBAR :: 1 << 15;
-    MINIMIZE_TO_NOTIFICATION_ICON :: 1 << 16 | HAS_NOTIFICATION_ICON | HIDE_FROM_TASKBAR;
+    OPEN_AT_RAW_XY :: 1 << 14;
+
+    HAS_NOTIFICATION_ICON :: 1 << 15;
+    HIDE_FROM_TASKBAR :: 1 << 16;
+    MINIMIZE_TO_NOTIFICATION_ICON :: 1 << 17 | HAS_NOTIFICATION_ICON | HIDE_FROM_TASKBAR;
 
 }
 
@@ -151,54 +154,56 @@ gui_create_application_window :: (window_title: string, window_width: int, windo
     desired_monitor: Desired_Monitor;
 
     #if OS == .WINDOWS {
-        if flags & (.OPEN_ON_PRIMARY_MONITOR|._OPEN_ON_MONITOR_MASK) {
-            desired_monitor.desired_index = cast(int) ifx flags & ._OPEN_ON_MONITOR_MASK
-                                                      then ((flags & ._OPEN_ON_MONITOR_MASK) >> flags._OPEN_ON_MONITOR_SHIFT) - 1
-                                                      else -1;
+        if !(flags & .OPEN_AT_RAW_XY) {
+            if flags & (.OPEN_ON_PRIMARY_MONITOR|._OPEN_ON_MONITOR_MASK) {
+                desired_monitor.desired_index = cast(int) ifx flags & ._OPEN_ON_MONITOR_MASK
+                                                          then ((flags & ._OPEN_ON_MONITOR_MASK) >> flags._OPEN_ON_MONITOR_SHIFT) - 1
+                                                          else -1;
 
-            find_desired_monitor :: (hMonitor: HMONITOR, hdcMonitor: HDC, lprcMonitor: *RECT, dwData: LPARAM) -> BOOL #c_call {
-                using desired_monitor := cast(*Desired_Monitor) dwData;
-                current_index += 1;
+                find_desired_monitor :: (hMonitor: HMONITOR, hdcMonitor: HDC, lprcMonitor: *RECT, dwData: LPARAM) -> BOOL #c_call {
+                    using desired_monitor := cast(*Desired_Monitor) dwData;
+                    current_index += 1;
 
-                monitor_info := MONITORINFO.{cbSize = size_of(MONITORINFO)};
-                MONITORINFOF_PRIMARY :: 0x00000001;
-                if !GetMonitorInfoW(hMonitor, *monitor_info)  return 1;  // Continue enumerating
+                    monitor_info := MONITORINFO.{cbSize = size_of(MONITORINFO)};
+                    MONITORINFOF_PRIMARY :: 0x00000001;
+                    if !GetMonitorInfoW(hMonitor, *monitor_info)  return 1;  // Continue enumerating
 
-                if desired_index == -1 && monitor_info.dwFlags & MONITORINFOF_PRIMARY
-                || desired_index >= 0 && current_index >= desired_index {
-                    found_monitor = hMonitor;
-                    found_rect = monitor_info.rcMonitor;
-                    return 0; // Stop enumerating
+                    if desired_index == -1 && monitor_info.dwFlags & MONITORINFOF_PRIMARY
+                    || desired_index >= 0 && current_index >= desired_index {
+                        found_monitor = hMonitor;
+                        found_rect = monitor_info.rcMonitor;
+                        return 0; // Stop enumerating
+                    }
+
+                    return 1; // Continue enumerating
                 }
 
-                return 1; // Continue enumerating
+                EnumDisplayMonitors(null, null, find_desired_monitor, xx *desired_monitor);
             }
 
-            EnumDisplayMonitors(null, null, find_desired_monitor, xx *desired_monitor);
-        }
-
-        if !desired_monitor.found_monitor {
-            mouse_position: POINT;
-            if GetCursorPos(*mouse_position) {
-                desired_monitor.found_monitor = MonitorFromPoint(mouse_position, MONITOR_DEFAULTTONEAREST);
-                monitor_info := MONITORINFO.{cbSize = size_of(MONITORINFO)};
-                if GetMonitorInfoW(desired_monitor.found_monitor, *monitor_info) {
-                    desired_monitor.found_rect = monitor_info.rcMonitor;
+            if !desired_monitor.found_monitor {
+                mouse_position: POINT;
+                if GetCursorPos(*mouse_position) {
+                    desired_monitor.found_monitor = MonitorFromPoint(mouse_position, MONITOR_DEFAULTTONEAREST);
+                    monitor_info := MONITORINFO.{cbSize = size_of(MONITORINFO)};
+                    if GetMonitorInfoW(desired_monitor.found_monitor, *monitor_info) {
+                        desired_monitor.found_rect = monitor_info.rcMonitor;
+                    }
                 }
             }
-        }
 
-        if desired_monitor.found_monitor {
-            screen := desired_monitor.found_rect;
-            if window_x == -1 { // unset, so center
-                window_x = screen.left + (screen.right - screen.left - window_width) / 2;
-                window_y = screen.top + (screen.bottom - screen.top - window_height) / 2;
-            }
-            else {
-                window_x += screen.left;
-                window_y += screen.top;
-                if window_x + window_width > screen.right  window_x = screen.right - window_width;
-                if window_y + window_height > screen.bottom  window_y = screen.bottom - window_height;
+            if desired_monitor.found_monitor {
+                screen := desired_monitor.found_rect;
+                if window_x == -1 { // unset, so center
+                    window_x = screen.left + (screen.right - screen.left - window_width) / 2;
+                    window_y = screen.top + (screen.bottom - screen.top - window_height) / 2;
+                }
+                else {
+                    window_x += screen.left;
+                    window_y += screen.top;
+                    if window_x + window_width > screen.right  window_x = screen.right - window_width;
+                    if window_y + window_height > screen.bottom  window_y = screen.bottom - window_height;
+                }
             }
         }
 
@@ -268,7 +273,7 @@ gui_shutdown :: () {
     Input.clean_up_notification_icon(application.os_window);
 }
 
-gui_begin_frame :: () -> should_quit: bool, application_has_focus: bool {
+gui_begin_frame :: () -> should_quit: bool, application_has_focus: bool, changed_dimensions: bool {
     // We hide the application window for a couple of frames, so everything looks good when it's shown
     if application.hidden_for_startup && frame.index > 1 {
         application.hidden_for_startup = false;
@@ -322,13 +327,23 @@ gui_begin_frame :: () -> should_quit: bool, application_has_focus: bool {
 
     maybe_calculate_rect(*application_panel);
 
+    last_pressed_key_code = Input.last_pressed_key_code;
+    if was_clicked(keyboard.keys[last_pressed_key_code], true)
+        last_pressed_key_time = frame.time;
     Input.update_window_events();
+
+    changed_dimensions := false;
 
     for Input.get_window_resizes() {
         Simp.update_window(it.window);
 
         if it.window == application.os_window
-            register_application_window_size(it.width, it.height);
+            changed_dimensions |= register_application_window_size(it.width, it.height);
+    }
+
+    for Input.get_window_moves() {
+        if it.window == application.os_window
+            changed_dimensions |= register_application_window_move(it.x, it.y);
     }
 
     characters_typed_this_frame.data = characters_typed_this_frame_buffer.data;
@@ -422,7 +437,7 @@ gui_begin_frame :: () -> should_quit: bool, application_has_focus: bool {
         mouse.scrollwheel_fraction -= 1.0;
     }
 
-    return should_quit, Input.input_application_has_focus;
+    return should_quit, Input.input_application_has_focus, changed_dimensions;
 }
 
 gui_end_frame :: () {
@@ -447,13 +462,10 @@ gui_end_frame :: () {
         hot_widget = null;
     }
 
-    if next_warm_widget {
-        if warm_widget != next_warm_widget
-            set_warm_widget(next_warm_widget, true);
-    }
-    else if warm_widget {
+    if next_warm_widget
+        set_warm_widget(next_warm_widget, true);
+    else if warm_widget
         set_warm_widget(warm_widget, false);
-    }
 
     if next_warm_window {
         if warm_window != next_warm_window
@@ -759,6 +771,8 @@ mouse: struct {
 keyboard: *Keyboard;
 Key_Code :: Input.Key_Code;
 Key_State :: Input.Key_Current_State;
+last_pressed_key_code: Key_Code;
+last_pressed_key_time: Frame_Time;
 
 #scope_file
 
@@ -766,6 +780,12 @@ characters_typed_this_frame_buffer: [1024] u8;
 characters_typed_this_frame := "";
 
 #scope_export
+
+Color :: struct {
+    r, g, b, a: float;
+    #place r;  #as using vector4: Vector4;
+    #place x;  rgb: Vector3;
+}
 
 // Generated from #insert below when absent - if you want to regenerate it, delete it, then paste it back from added_strings.
 Keyboard :: struct {
@@ -1018,13 +1038,26 @@ Keyboard :: struct {
 }
 
 
+was_clicked :: inline (key_code: Key_Code, ignore_repeat := false) -> bool {
+    return was_clicked(keyboard.keys[key_code], ignore_repeat);
+}
+
 was_clicked :: inline (key_state: Key_State, ignore_repeat := false) -> bool {
     if ignore_repeat   return cast(bool) key_state & .START && !(key_state & .REPEAT);
     else               return cast(bool) key_state & .START;
 }
 
+was_released :: inline (key_code: Key_Code) -> bool {
+    return cast(bool) keyboard.keys[key_code] & .END;
+}
+
 was_released :: inline (key_state: Key_State) -> bool {
     return cast(bool) key_state & .END;
+}
+
+was_double_clicked :: (key_code: Key_Code, interval : Frame_Time = 0) -> bool {
+    if !was_clicked(keyboard.keys[key_code], true)  return false;
+    return last_pressed_key_code == key_code && (interval == 0 || frame.time < last_pressed_key_time + interval);
 }
 
 Flags :: enum_flags u64 {
@@ -1226,8 +1259,10 @@ set_warm_widget :: (widget: *Widget, become_warm: bool) {
     if become_warm {
         if warm_widget && warm_widget != widget
             widget_lost_warm_time(warm_widget, frame.time);
-        warm_widget = widget;
-        widget_became_warm_time(widget, frame.time);
+        if warm_widget != widget {
+            warm_widget = widget;
+            widget_became_warm_time(widget, frame.time);
+        }
         warm_widget_frame_index = frame.index;
     }
     else if warm_widget == widget {
@@ -1391,16 +1426,28 @@ draw_debug_widget_frames := false;
 root_panel: Panel;
 application_panel := Panel.{*root_panel, BOX_FILLED, .{}, 0};
 
-register_application_window_size :: (new_width: int, new_height: int) {
+register_application_window_size :: (new_width: int, new_height: int) -> changed: bool {
     old_width := root_panel.desired_box.brx.abs;
     old_height := root_panel.desired_box.bry.abs;
     if new_width == old_width && new_height == old_height
-        return;
+        return false;
 
     root_panel.parent = null;
     root_panel.desired_box = box(0, 0, new_width, new_height);
     root_panel.calculated_rect = .{ 0, 0, xx new_width, xx new_height };
+    application.os_window_location.w = new_width;
+    application.os_window_location.h = new_height;
     application_window_resize(new_width, new_height, old_width, old_height);
+    return true;
+}
+
+register_application_window_move :: (new_x: int, new_y: int) -> changed: bool {
+    if application.os_window_location.x == new_x && application.os_window_location.y == new_y
+        return false;
+
+    application.os_window_location.x = new_x;
+    application.os_window_location.y = new_y;
+    return true;
 }
 
 next :: (index: *int, $reserve := 1) -> Code #expand {
@@ -1618,6 +1665,8 @@ remove_text_edit :: (from: int, to: int) {
     update_text_edit();
 }
 
+#scope_export
+
 text_edit_set_cursor :: (cursor_position: int, selecting: bool) {
     using text_edit;
     cursor = clamp(cursor_position, 0, bytes.count);
@@ -1655,6 +1704,8 @@ text_edit_cut_selection :: () {
 text_edit_paste :: () {
     insert_text_edit(os_clipboard_get_text());
 }
+
+#scope_module
 
 character_utf32_to_utf8 :: (ch: u32, preallocated_string: *string) {  // preallocated_string must have at least 4 characters of allocated memory.
     UNI_MAX_LEGAL_UTF32  :: 0x0010FFFF;
