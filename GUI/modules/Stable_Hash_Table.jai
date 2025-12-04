@@ -1,4 +1,7 @@
-// Hash_Table which never moves its contents.  Trades performance for reliability.
+// Drop-in replacement for Hash_Table which never moves its contents.
+// Trades performance for reliability; ideally call init on your tables with a
+// good approximation of the number of slots you'll need.  If you don't exceed
+// this then performance will be basically the same as Hash_Table.
 
 #module_parameters (
     SIZE_MIN := 32,
@@ -38,7 +41,7 @@ table_add :: (stable_table: *Stable_Table, key: stable_table.Key_Type, value: st
         table := stable_table.tables[stable_table.tables.count - 1];
         new_slots_allocated = table.allocated * 2;
         // Add to the current table if it won't trigger a resize;
-        // (This if should be the negation of the check used in Hash_Table)
+        // (This if should be the negation of the check used in Hash_Table which guards the expand call)
         if !((table.slots_filled + 1)*100 >= table.allocated*table.LOAD_FACTOR_PERCENT) {
             allocated := table.allocated;
             result := Hash_Table.table_add(table, key, value);
